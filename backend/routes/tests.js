@@ -56,7 +56,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
     
-    res.json({ test });
+    res.json(test); // Return test directly
   } catch (error) {
     console.error('Get test error:', error);
     res.status(500).json({ error: 'Failed to get test' });
@@ -269,9 +269,14 @@ router.get('/:id/statistics', authenticateToken, isTeacherOrAdmin, async (req, r
     const statistics = await Test.getStatistics(id);
     const recentAttempts = await Test.getRecentAttempts(id, 5);
     
+    // Return flat object with all stats
     res.json({ 
-      statistics,
-      recent_attempts: recentAttempts
+      totalAttempts: statistics?.total_attempts || 0,
+      averageScore: statistics?.average_score || 0,
+      highestScore: statistics?.highest_score || 0,
+      lowestScore: statistics?.lowest_score || 0,
+      passRate: statistics?.pass_rate || 0,
+      recentAttempts: recentAttempts || []
     });
   } catch (error) {
     console.error('Get test statistics error:', error);
