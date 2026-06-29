@@ -27,9 +27,13 @@ const Results = () => {
     try {
       setLoading(true);
       const response = await api.get('/results/my-results');
-      setResults(response.data);
+      
+      // Ensure response.data is an array
+      const resultsData = Array.isArray(response.data) ? response.data : [];
+      setResults(resultsData);
     } catch (error) {
       console.error('Error fetching results:', error);
+      setResults([]); // Set empty array on error
     } finally {
       setLoading(false);
     }

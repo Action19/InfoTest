@@ -137,6 +137,42 @@ router.post('/submit', authenticateToken, async (req, res) => {
   }
 });
 
+// Get current user's results
+router.get('/my-results', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const sql = `
+      SELECT 
+        r.*,
+        r.percentage as score_percentage,
+        r.created_at as submitted_at,
+        t.title as test_title,
+        t.subject,
+        t.difficulty
+      FROM results r
+      LEFT JOIN tests t ON r.test_id = t.id
+      WHERE r.user_id = ?
+      ORDER BY r.created_at DESC
+    `;
+    
+    const results = await database.all(sql, [userId]);
+    
+    // Parse answers JSON and format for frontend
+    const formattedResults = results.map(result => ({
+      ...result,
+      detailed_answers: result.answers,
+      answers: undefined // Remove raw answers field
+    }));
+    
+    // Return array directly for frontend compatibility
+    res.json(formattedResults);
+  } catch (error) {
+    console.error('Get my results error:', error);
+    res.status(500).json({ error: 'Failed to get results' });
+  }
+});
+
 // Get user results
 router.get('/user/:userId', authenticateToken, async (req, res) => {
   try {

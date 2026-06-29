@@ -18,7 +18,9 @@ const Tests = () => {
     try {
       setLoading(true);
       const response = await api.get('/tests');
-      let filteredTests = response.data;
+      
+      // Ensure response.data is an array
+      let filteredTests = Array.isArray(response.data) ? response.data : [];
 
       // Apply filters
       if (user.role === 'student') {
@@ -33,6 +35,7 @@ const Tests = () => {
       setTests(filteredTests);
     } catch (error) {
       console.error('Error fetching tests:', error);
+      setTests([]); // Set empty array on error
     } finally {
       setLoading(false);
     }

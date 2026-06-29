@@ -29,10 +29,8 @@ router.get('/', authenticateToken, async (req, res) => {
     
     const tests = await Test.getAll(filters);
     
-    res.json({ 
-      tests,
-      count: tests.length 
-    });
+    // Return array directly for frontend compatibility
+    res.json(tests);
   } catch (error) {
     console.error('Get tests error:', error);
     res.status(500).json({ error: 'Failed to get tests' });
