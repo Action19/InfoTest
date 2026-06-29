@@ -309,20 +309,97 @@ router.post('/generate-ai', authenticateToken, isTeacherOrAdmin, async (req, res
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    console.log('Creating questions...');
+    console.log('Generating questions with OpenAI...');
     
-    // Generate demo questions
+    // OpenAI configuration
+    const OpenAI = require('openai');
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
+
+    // Prepare prompt
+    const questionTypeNames = {
+      single_choice: "bir tanlovli (4 ta variant, 1 ta to'g'ri javob)",
+      multiple_choice: "ko'p tanlovli (4 ta variant, bir nechta to'g'ri javob)",
+      true_false: "to'g'ri yoki noto'g'ri",
+      short_answer: "qisqa javob"
+    };
+
+    const difficultyNames = {
+      easy: "oson",
+      medium: "o'rta",
+      hard: "qiyin"
+    };
+
+    const prompt = `Siz ta'lim tizimi uchun test savollari yaratuvchisiz. 
+
+Mavzu: ${topic}
+Qiyinlik: ${difficultyNames[difficulty]}
+Savol turi: ${questionTypeNames[question_type]}
+Savollar soni: ${count}
+
+Quyidagi formatda ${count} ta savol yarating:
+
+Har bir savol uchun JSON formatida:
+{
+  "question_text": "Savol matni (O'zbek tilida)",
+  "options": ["Variant A", "Variant B", "Variant C", "Variant D"],
+  "correct_answer": "To'g'ri javob",
+  "explanation": "Javob tushuntirilishi",
+  "points": ${difficulty === 'hard' ? 3 : difficulty === 'medium' ? 2 : 1}
+}
+
+Faqat JSON array qaytaring, boshqa matn yo'q:`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "Siz professional test savollari yaratuvchisiz. Faqat JSON formatida javob bering, boshqa matn yo'q."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 2000
+    });
+
+    console.log('OpenAI response received');
+
+    // Parse AI response
+    let aiQuestions = [];
+    try {
+      const responseText = completion.choices[0].message.content.trim();
+      // Remove markdown code blocks if present
+      const jsonText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      aiQuestions = JSON.parse(jsonText);
+    } catch (parseError) {
+      console.error('Error parsing AI response:', parseError);
+      console.log('AI Response:', completion.choices[0].message.content);
+      return res.status(500).json({ 
+        error: 'Failed to parse AI response',
+        details: 'AI javobini parse qilishda xatolik'
+      });
+    }
+
+    console.log(`Parsed ${aiQuestions.length} questions from AI`);
+
+    // Save questions to database
     const createdQuestions = [];
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < aiQuestions.length; i++) {
       try {
+        const aiQ = aiQuestions[i];
         const questionData = {
           test_id,
-          question_text: `${topic} bo'yicha ${i + 1}-savol: Bu demo savol. OpenAI API integratsiya qilish kerak.`,
+          question_text: aiQ.question_text,
           question_type,
-          options: JSON.stringify(['Variant A', 'Variant B', 'Variant C', 'Variant D']),
-          correct_answer: 'Variant A',
-          points: difficulty === 'hard' ? 3 : difficulty === 'medium' ? 2 : 1,
-          explanation: `Bu ${difficulty} qiyinlikdagi savol. AI bilan yaratilgan.`,
+          options: JSON.stringify(aiQ.options || []),
+          correct_answer: aiQ.correct_answer,
+          points: aiQ.points || (difficulty === 'hard' ? 3 : difficulty === 'medium' ? 2 : 1),
+          explanation: aiQ.explanation || '',
           order_number: (test.total_questions || 0) + i + 1
         };
 
@@ -334,10 +411,10 @@ router.post('/generate-ai', authenticateToken, isTeacherOrAdmin, async (req, res
       }
     }
 
-    console.log(`Created ${createdQuestions.length} questions`);
+    console.log(`✅ Created ${createdQuestions.length} questions successfully`);
 
     res.json({
-      message: `${createdQuestions.length} ta savol muvaffaqiyatli yaratildi`,
+      message: `${createdQuestions.length} ta savol AI yordamida yaratildi`,
       count: createdQuestions.length,
       questions: createdQuestions
     });
@@ -345,6 +422,12 @@ router.post('/generate-ai', authenticateToken, isTeacherOrAdmin, async (req, res
   } catch (error) {
     console.error('❌ Generate AI questions error:', error);
     console.error('Error stack:', error.stack);
+    
+    // Check if it's an OpenAI API error
+    if (error.response) {
+      console.error('OpenAI API error:', error.response.data);
+    }
+    
     res.status(500).json({ 
       error: 'Failed to generate questions',
       details: error.message 
