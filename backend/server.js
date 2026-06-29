@@ -115,10 +115,12 @@ async function startServer() {
     }
     
     // Connect to database
+    console.log('🔌 Connecting to database...');
     await database.connect();
     console.log('✓ Database connected');
     
     // Check if database needs initialization
+    console.log('🔍 Checking database tables...');
     const checkTablesQuery = `
       SELECT name FROM sqlite_master 
       WHERE type='table' AND name='users'
@@ -126,9 +128,16 @@ async function startServer() {
     const tables = await database.get(checkTablesQuery);
     
     if (!tables) {
-      console.log('⚠️  Database not initialized. Initializing...');
-      const initDb = require('./scripts/initDatabase');
-      // Note: In production, run init script manually or use persistent storage
+      console.log('⚠️  Database not initialized. Running initialization...');
+      
+      // Import and run initialization
+      const { initializeTables, seedData } = require('./scripts/initDatabase');
+      await initializeTables(database);
+      await seedData(database);
+      
+      console.log('✅ Database initialized successfully!');
+    } else {
+      console.log('✓ Database already initialized');
     }
     
     // Start listening
@@ -140,7 +149,8 @@ async function startServer() {
       console.log(`\n✓ Ready to accept requests\n`);
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    console.error('❌ Failed to start server:', error);
+    console.error('Error stack:', error.stack);
     process.exit(1);
   }
 }

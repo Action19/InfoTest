@@ -1,22 +1,13 @@
 const fs = require('fs');
 const path = require('path');
-const database = require('../config/database');
+const bcrypt = require('bcryptjs');
 
-async function initDatabase() {
-  console.log('🔧 Initializing InfoTest Database...\n');
+// Function to initialize tables (can be called with existing database connection)
+async function initializeTables(db) {
+  console.log('📝 Creating database tables...');
 
   try {
-    // Ensure database directory exists
-    const dbDir = path.resolve(__dirname, '../database');
-    if (!fs.existsSync(dbDir)) {
-      fs.mkdirSync(dbDir, { recursive: true });
-      console.log('✓ Created database directory');
-    }
-
-    await database.connect();
-
     // Drop existing tables (be careful in production!)
-    console.log('\n⚠️  Dropping existing tables...');
     const dropTables = [
       'DROP TABLE IF EXISTS user_achievements',
       'DROP TABLE IF EXISTS achievements',
@@ -30,13 +21,12 @@ async function initDatabase() {
     ];
 
     for (const sql of dropTables) {
-      await database.run(sql);
+      await db.run(sql);
     }
     console.log('✓ Existing tables dropped');
 
     // Create users table
-    console.log('\n📝 Creating tables...');
-    await database.run(`
+    await db.run(`
       CREATE TABLE users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
@@ -52,10 +42,9 @@ async function initDatabase() {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('✓ Created users table');
 
     // Create tests table
-    await database.run(`
+    await db.run(`
       CREATE TABLE tests (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
@@ -72,10 +61,9 @@ async function initDatabase() {
         FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
-    console.log('✓ Created tests table');
 
     // Create questions table
-    await database.run(`
+    await db.run(`
       CREATE TABLE questions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         test_id INTEGER NOT NULL,
@@ -94,10 +82,9 @@ async function initDatabase() {
         FOREIGN KEY (test_id) REFERENCES tests(id) ON DELETE CASCADE
       )
     `);
-    console.log('✓ Created questions table');
 
     // Create test_attempts table
-    await database.run(`
+    await db.run(`
       CREATE TABLE test_attempts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -109,10 +96,9 @@ async function initDatabase() {
         FOREIGN KEY (test_id) REFERENCES tests(id) ON DELETE CASCADE
       )
     `);
-    console.log('✓ Created test_attempts table');
 
     // Create results table
-    await database.run(`
+    await db.run(`
       CREATE TABLE results (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         attempt_id INTEGER NOT NULL,
@@ -131,10 +117,9 @@ async function initDatabase() {
         FOREIGN KEY (test_id) REFERENCES tests(id) ON DELETE CASCADE
       )
     `);
-    console.log('✓ Created results table');
 
     // Create portfolio_items table
-    await database.run(`
+    await db.run(`
       CREATE TABLE portfolio_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -149,10 +134,9 @@ async function initDatabase() {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
-    console.log('✓ Created portfolio_items table');
 
     // Create achievements table
-    await database.run(`
+    await db.run(`
       CREATE TABLE achievements (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
@@ -163,10 +147,9 @@ async function initDatabase() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('✓ Created achievements table');
 
     // Create user_achievements table
-    await database.run(`
+    await db.run(`
       CREATE TABLE user_achievements (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -177,10 +160,9 @@ async function initDatabase() {
         UNIQUE(user_id, achievement_id)
       )
     `);
-    console.log('✓ Created user_achievements table');
 
     // Create statistics table
-    await database.run(`
+    await db.run(`
       CREATE TABLE statistics (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -195,21 +177,81 @@ async function initDatabase() {
         UNIQUE(user_id)
       )
     `);
-    console.log('✓ Created statistics table');
 
-    // Create indexes for better performance
-    console.log('\n📊 Creating indexes...');
-    await database.run('CREATE INDEX idx_users_username ON users(username)');
-    await database.run('CREATE INDEX idx_users_email ON users(email)');
-    await database.run('CREATE INDEX idx_tests_created_by ON tests(created_by)');
-    await database.run('CREATE INDEX idx_questions_test_id ON questions(test_id)');
-    await database.run('CREATE INDEX idx_results_user_id ON results(user_id)');
-    await database.run('CREATE INDEX idx_results_test_id ON results(test_id)');
-    await database.run('CREATE INDEX idx_portfolio_user_id ON portfolio_items(user_id)');
-    console.log('✓ Created indexes');
+    // Create indexes
+    await db.run('CREATE INDEX idx_users_username ON users(username)');
+    await db.run('CREATE INDEX idx_users_email ON users(email)');
+    await db.run('CREATE INDEX idx_tests_created_by ON tests(created_by)');
+    await db.run('CREATE INDEX idx_questions_test_id ON questions(test_id)');
+    await db.run('CREATE INDEX idx_results_user_id ON results(user_id)');
+    await db.run('CREATE INDEX idx_results_test_id ON results(test_id)');
+    await db.run('CREATE INDEX idx_portfolio_user_id ON portfolio_items(user_id)');
 
-    console.log('\n✅ Database initialization completed successfully!\n');
+    console.log('✅ All tables created successfully!');
+  } catch (error) {
+    console.error('❌ Table creation failed:', error);
+    throw error;
+  }
+}
 
+// Function to seed demo data
+async function seedData(db) {
+  console.log('🌱 Seeding demo data...');
+
+  try {
+    // Create demo users
+    const adminPassword = await bcrypt.hash('admin123', 10);
+    const teacherPassword = await bcrypt.hash('teacher123', 10);
+    const studentPassword = await bcrypt.hash('student123', 10);
+
+    // Admin
+    const adminResult = await db.run(`
+      INSERT INTO users (username, email, password, full_name, role, points, level)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, ['admin', 'admin@infotest.uz', adminPassword, 'Administrator', 'admin', 0, 1]);
+    
+    // Teacher
+    const teacherResult = await db.run(`
+      INSERT INTO users (username, email, password, full_name, role, bio, points, level)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, ['o_qituvchi', 'teacher@infotest.uz', teacherPassword, "O'qituvchi Javobi", 'teacher', 
+        "Matematika va Informatika fanlari o'qituvchisi", 0, 1]);
+
+    // Student
+    const studentResult = await db.run(`
+      INSERT INTO users (username, email, password, full_name, role, bio, points, level)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, ['akmal_yusupov', 'akmal@infotest.uz', studentPassword, 'Akmal Yusupov', 'student',
+        '10-sinf o\'quvchisi, dasturlashga qiziqadi', 150, 2]);
+
+    // Create statistics for users
+    await db.run('INSERT INTO statistics (user_id) VALUES (?)', [adminResult.id]);
+    await db.run('INSERT INTO statistics (user_id) VALUES (?)', [teacherResult.id]);
+    await db.run('INSERT INTO statistics (user_id) VALUES (?)', [studentResult.id]);
+
+    console.log('✅ Demo users created successfully!');
+    console.log('\n📋 Demo Accounts:');
+    console.log('   Admin: admin / admin123');
+    console.log('   Teacher: o_qituvchi / teacher123');
+    console.log('   Student: akmal_yusupov / student123\n');
+
+  } catch (error) {
+    console.error('❌ Data seeding failed:', error);
+    throw error;
+  }
+}
+
+// Standalone initialization (for direct script execution)
+async function initDatabase() {
+  const database = require('../config/database');
+  
+  console.log('🔧 Initializing InfoTest Database...\n');
+
+  try {
+    await database.connect();
+    await initializeTables(database);
+    await seedData(database);
+    console.log('✅ Database initialization completed successfully!\n');
   } catch (error) {
     console.error('❌ Database initialization failed:', error);
     throw error;
@@ -225,4 +267,4 @@ if (require.main === module) {
     .catch(() => process.exit(1));
 }
 
-module.exports = initDatabase;
+module.exports = { initDatabase, initializeTables, seedData };
