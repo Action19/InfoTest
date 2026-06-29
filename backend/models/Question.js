@@ -23,19 +23,19 @@ class Question {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    // Convert options array to JSON string if provided
-    const optionsJson = options ? JSON.stringify(options) : null;
+    // Options should already be a JSON string or null
+    const optionsValue = options || null;
 
     const result = await database.run(sql, [
       test_id,
       question_text,
       question_type,
-      optionsJson,
+      optionsValue,
       correct_answer,
       points,
-      explanation,
-      image_url,
-      order_number
+      explanation || null,
+      image_url || null,
+      order_number || null
     ]);
 
     return result.id;

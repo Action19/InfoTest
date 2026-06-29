@@ -292,6 +292,8 @@ router.post('/generate-ai', authenticateToken, isTeacherOrAdmin, async (req, res
   try {
     const { test_id, topic, count = 5, difficulty = 'medium', question_type = 'single_choice' } = req.body;
 
+    console.log('AI Generate request:', { test_id, topic, count, difficulty, question_type });
+
     if (!test_id || !topic) {
       return res.status(400).json({ error: 'test_id and topic are required' });
     }
@@ -299,6 +301,7 @@ router.post('/generate-ai', authenticateToken, isTeacherOrAdmin, async (req, res
     // Verify test exists and user has permission
     const test = await Test.findById(test_id);
     if (!test) {
+      console.log('Test not found:', test_id);
       return res.status(404).json({ error: 'Test not found' });
     }
 
@@ -306,32 +309,45 @@ router.post('/generate-ai', authenticateToken, isTeacherOrAdmin, async (req, res
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // For now, return demo data - you'll need OpenAI API key for real implementation
-    const demoQuestions = [];
+    console.log('Creating questions...');
+    
+    // Generate demo questions
+    const createdQuestions = [];
     for (let i = 0; i < count; i++) {
-      const questionId = await Question.create({
-        test_id,
-        question_text: `${topic} bo'yicha ${i + 1}-savol: Bu demo savol. OpenAI API integratsiya qilish kerak.`,
-        question_type,
-        options: JSON.stringify(['Variant A', 'Variant B', 'Variant C', 'Variant D']),
-        correct_answer: 'Variant A',
-        points: difficulty === 'hard' ? 3 : difficulty === 'medium' ? 2 : 1,
-        explanation: `Bu ${difficulty} qiyinlikdagi savol. AI bilan yaratilgan.`
-      });
-      demoQuestions.push({ id: questionId });
+      try {
+        const questionData = {
+          test_id,
+          question_text: `${topic} bo'yicha ${i + 1}-savol: Bu demo savol. OpenAI API integratsiya qilish kerak.`,
+          question_type,
+          options: JSON.stringify(['Variant A', 'Variant B', 'Variant C', 'Variant D']),
+          correct_answer: 'Variant A',
+          points: difficulty === 'hard' ? 3 : difficulty === 'medium' ? 2 : 1,
+          explanation: `Bu ${difficulty} qiyinlikdagi savol. AI bilan yaratilgan.`,
+          order_number: (test.total_questions || 0) + i + 1
+        };
+
+        const questionId = await Question.create(questionData);
+        createdQuestions.push({ id: questionId });
+        console.log(`Question ${i + 1} created with ID:`, questionId);
+      } catch (qError) {
+        console.error(`Error creating question ${i + 1}:`, qError);
+      }
     }
 
-    // Update test's total_questions count
-    await Test.update(test_id, { total_questions: (test.total_questions || 0) + count });
+    console.log(`Created ${createdQuestions.length} questions`);
 
     res.json({
-      message: `${count} ta savol muvaffaqiyatli yaratildi`,
-      count: demoQuestions.length,
-      questions: demoQuestions
+      message: `${createdQuestions.length} ta savol muvaffaqiyatli yaratildi`,
+      count: createdQuestions.length,
+      questions: createdQuestions
     });
 
   } catch (error) {
-    console.error('Generate AI questions error:', error);
-    res.status(500).json({ error: 'Failed to generate questions' });
+    console.error('❌ Generate AI questions error:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to generate questions',
+      details: error.message 
+    });
   }
 });
