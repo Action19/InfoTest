@@ -3,11 +3,12 @@
 [build]
   base = "frontend"
   publish = "frontend/build"
-  command = "npm run build"
+  command = "CI=false npm run build"
 
 [build.environment]
   NODE_VERSION = "18"
   NPM_VERSION = "9"
+  CI = "false"
 
 # Redirect all requests to index.html for client-side routing
 [[redirects]]
