@@ -251,6 +251,70 @@ router.delete('/:id', authenticateToken, isTeacherOrAdmin, async (req, res) => {
   }
 });
 
+// Publish test
+router.put('/:id/publish', authenticateToken, isTeacherOrAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const test = await Test.findById(id);
+    if (!test) {
+      return res.status(404).json({ error: 'Test not found' });
+    }
+    
+    // Check ownership
+    if (req.user.role === 'teacher' && test.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Check if test has questions
+    const questions = await Question.getByTestId(id);
+    if (questions.length === 0) {
+      return res.status(400).json({ 
+        error: 'Testda savollar yo\'q. Kamida 1 ta savol qo\'shing.' 
+      });
+    }
+    
+    await Test.publish(id);
+    const updatedTest = await Test.findById(id);
+    
+    res.json({ 
+      message: 'Test nashr qilindi',
+      test: updatedTest 
+    });
+  } catch (error) {
+    console.error('Publish test error:', error);
+    res.status(500).json({ error: 'Failed to publish test' });
+  }
+});
+
+// Unpublish test
+router.put('/:id/unpublish', authenticateToken, isTeacherOrAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const test = await Test.findById(id);
+    if (!test) {
+      return res.status(404).json({ error: 'Test not found' });
+    }
+    
+    // Check ownership
+    if (req.user.role === 'teacher' && test.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    await Test.unpublish(id);
+    const updatedTest = await Test.findById(id);
+    
+    res.json({ 
+      message: 'Test yashirildi',
+      test: updatedTest 
+    });
+  } catch (error) {
+    console.error('Unpublish test error:', error);
+    res.status(500).json({ error: 'Failed to unpublish test' });
+  }
+});
+
 // Get test statistics
 router.get('/:id/statistics', authenticateToken, isTeacherOrAdmin, async (req, res) => {
   try {

@@ -47,7 +47,7 @@ const TestDetail = () => {
       const [testRes, questionsRes, statsRes] = await Promise.all([
         api.get(`/tests/${id}`),
         api.get(`/questions/test/${id}`),
-        api.get(`/tests/${id}/statistics`)
+        api.get(`/tests/${id}/statistics`).catch(() => ({ data: null })) // Statistics might fail
       ]);
 
       console.log('Test data:', testRes.data);
@@ -56,16 +56,20 @@ const TestDetail = () => {
 
       setTest(testRes.data);
       
-      // Ensure questions is an array
+      // Ensure questions is an array and force update
       const questionsData = Array.isArray(questionsRes.data) ? questionsRes.data : [];
       console.log('Questions count:', questionsData.length);
-      setQuestions(questionsData);
+      console.log('Setting questions state with:', questionsData);
+      setQuestions([...questionsData]); // Force new array reference
       
       setStats(statsRes.data);
     } catch (error) {
       console.error('Error fetching test details:', error);
-      alert('Testni yuklashda xatolik yuz berdi');
-      navigate('/tests');
+      // Don't navigate away on statistics error
+      if (!error.response || error.response.status !== 404) {
+        alert('Testni yuklashda xatolik yuz berdi');
+        navigate('/tests');
+      }
     } finally {
       setLoading(false);
     }
