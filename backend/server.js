@@ -1,0 +1,122 @@
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+require('dotenv').config();
+
+const database = require('./config/database');
+
+// Import routes
+const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
+const testRoutes = require('./routes/tests');
+const questionRoutes = require('./routes/questions');
+const resultRoutes = require('./routes/results');
+const portfolioRoutes = require('./routes/portfolio');
+const statisticsRoutes = require('./routes/statistics');
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Middleware
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  credentials: true
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Request logging
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/tests', testRoutes);
+app.use('/api/questions', questionRoutes);
+app.use('/api/results', resultRoutes);
+app.use('/api/portfolio', portfolioRoutes);
+app.use('/api/statistics', statisticsRoutes);
+
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'InfoTest API is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    message: 'InfoTest Platform API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth',
+      users: '/api/users',
+      tests: '/api/tests',
+      questions: '/api/questions',
+      results: '/api/results',
+      portfolio: '/api/portfolio',
+      statistics: '/api/statistics'
+    }
+  });
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ 
+    error: 'Not Found',
+    message: `Route ${req.method} ${req.path} not found` 
+  });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal Server Error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
+});
+
+// Start server
+async function startServer() {
+  try {
+    // Connect to database
+    await database.connect();
+    
+    // Start listening
+    app.listen(PORT, () => {
+      console.log('\n🚀 InfoTest Backend Server Started!');
+      console.log(`📍 Server running on: http://localhost:${PORT}`);
+      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`📊 Database: ${process.env.DB_PATH}`);
+      console.log(`\n✓ Ready to accept requests\n`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('\n\nShutting down gracefully...');
+  await database.close();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('\n\nShutting down gracefully...');
+  await database.close();
+  process.exit(0);
+});
+
+startServer();
+
+module.exports = app;

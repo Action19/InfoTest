@@ -1,0 +1,284 @@
+const express = require('express');
+const Test = require('../models/Test');
+const Question = require('../models/Question');
+const { authenticateToken, isTeacherOrAdmin } = require('../middleware/auth');
+
+const router = express.Router();
+
+// Get all tests
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    const { subject, difficulty, published } = req.query;
+    
+    const filters = {};
+    if (subject) filters.subject = subject;
+    if (difficulty) filters.difficulty = difficulty;
+    
+    // Students can only see published tests
+    // Teachers/admins can see all tests they created
+    if (req.user.role === 'student') {
+      filters.is_published = true;
+    } else if (req.user.role === 'teacher') {
+      // If published param is provided, use it, otherwise show all their tests
+      if (published !== undefined) {
+        filters.is_published = published === 'true';
+      }
+      filters.created_by = req.user.id;
+    }
+    // Admins can see everything
+    
+    const tests = await Test.getAll(filters);
+    
+    res.json({ 
+      tests,
+      count: tests.length 
+    });
+  } catch (error) {
+    console.error('Get tests error:', error);
+    res.status(500).json({ error: 'Failed to get tests' });
+  }
+});
+
+// Get test by ID
+router.get('/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const test = await Test.findById(id);
+    
+    if (!test) {
+      return res.status(404).json({ error: 'Test not found' });
+    }
+    
+    // Check permissions
+    if (req.user.role === 'student' && !test.is_published) {
+      return res.status(403).json({ error: 'This test is not published yet' });
+    }
+    
+    if (req.user.role === 'teacher' && test.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    res.json({ test });
+  } catch (error) {
+    console.error('Get test error:', error);
+    res.status(500).json({ error: 'Failed to get test' });
+  }
+});
+
+// Get test with questions
+router.get('/:id/full', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const test = await Test.findById(id);
+    
+    if (!test) {
+      return res.status(404).json({ error: 'Test not found' });
+    }
+    
+    // Check permissions
+    if (req.user.role === 'student' && !test.is_published) {
+      return res.status(403).json({ error: 'This test is not published yet' });
+    }
+    
+    if (req.user.role === 'teacher' && test.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Get questions (hide correct answers for students taking test)
+    const includeAnswers = req.user.role !== 'student' || req.query.review === 'true';
+    const questions = await Question.getByTestId(id, includeAnswers);
+    
+    res.json({ 
+      test,
+      questions 
+    });
+  } catch (error) {
+    console.error('Get test with questions error:', error);
+    res.status(500).json({ error: 'Failed to get test' });
+  }
+});
+
+// Create new test (teacher/admin only)
+router.post('/', authenticateToken, isTeacherOrAdmin, async (req, res) => {
+  try {
+    const { 
+      title, 
+      description, 
+      subject, 
+      duration, 
+      difficulty, 
+      passing_score 
+    } = req.body;
+    
+    // Validation
+    if (!title || !subject || !duration) {
+      return res.status(400).json({ 
+        error: 'Title, subject, and duration are required' 
+      });
+    }
+    
+    if (duration < 1) {
+      return res.status(400).json({ error: 'Duration must be at least 1 minute' });
+    }
+    
+    const testId = await Test.create({
+      title,
+      description,
+      subject,
+      duration,
+      difficulty: difficulty || 'medium',
+      passing_score: passing_score || 60,
+      created_by: req.user.id
+    });
+    
+    const test = await Test.findById(testId);
+    
+    res.status(201).json({ 
+      message: 'Test created successfully',
+      test 
+    });
+  } catch (error) {
+    console.error('Create test error:', error);
+    res.status(500).json({ error: 'Failed to create test' });
+  }
+});
+
+// Update test (teacher/admin only)
+router.put('/:id', authenticateToken, isTeacherOrAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const test = await Test.findById(id);
+    
+    if (!test) {
+      return res.status(404).json({ error: 'Test not found' });
+    }
+    
+    // Check ownership (teachers can only edit their own tests)
+    if (req.user.role === 'teacher' && test.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const updates = {};
+    const allowedFields = [
+      'title', 'description', 'subject', 'duration',
+      'difficulty', 'passing_score', 'is_published'
+    ];
+    
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    }
+    
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+    
+    await Test.update(id, updates);
+    const updatedTest = await Test.findById(id);
+    
+    res.json({ 
+      message: 'Test updated successfully',
+      test: updatedTest 
+    });
+  } catch (error) {
+    console.error('Update test error:', error);
+    res.status(500).json({ error: 'Failed to update test' });
+  }
+});
+
+// Publish/Unpublish test
+router.patch('/:id/publish', authenticateToken, isTeacherOrAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { publish } = req.body; // true or false
+    
+    const test = await Test.findById(id);
+    if (!test) {
+      return res.status(404).json({ error: 'Test not found' });
+    }
+    
+    // Check ownership
+    if (req.user.role === 'teacher' && test.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Check if test has questions
+    const questions = await Question.getByTestId(id);
+    if (questions.length === 0 && publish) {
+      return res.status(400).json({ 
+        error: 'Cannot publish test without questions' 
+      });
+    }
+    
+    if (publish) {
+      await Test.publish(id);
+    } else {
+      await Test.unpublish(id);
+    }
+    
+    const updatedTest = await Test.findById(id);
+    
+    res.json({ 
+      message: `Test ${publish ? 'published' : 'unpublished'} successfully`,
+      test: updatedTest 
+    });
+  } catch (error) {
+    console.error('Publish test error:', error);
+    res.status(500).json({ error: 'Failed to publish test' });
+  }
+});
+
+// Delete test (teacher/admin only)
+router.delete('/:id', authenticateToken, isTeacherOrAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const test = await Test.findById(id);
+    
+    if (!test) {
+      return res.status(404).json({ error: 'Test not found' });
+    }
+    
+    // Check ownership
+    if (req.user.role === 'teacher' && test.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    await Test.delete(id);
+    
+    res.json({ message: 'Test deleted successfully' });
+  } catch (error) {
+    console.error('Delete test error:', error);
+    res.status(500).json({ error: 'Failed to delete test' });
+  }
+});
+
+// Get test statistics
+router.get('/:id/statistics', authenticateToken, isTeacherOrAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const test = await Test.findById(id);
+    
+    if (!test) {
+      return res.status(404).json({ error: 'Test not found' });
+    }
+    
+    // Check ownership
+    if (req.user.role === 'teacher' && test.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const statistics = await Test.getStatistics(id);
+    const recentAttempts = await Test.getRecentAttempts(id, 5);
+    
+    res.json({ 
+      statistics,
+      recent_attempts: recentAttempts
+    });
+  } catch (error) {
+    console.error('Get test statistics error:', error);
+    res.status(500).json({ error: 'Failed to get statistics' });
+  }
+});
+
+module.exports = router;

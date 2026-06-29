@@ -1,0 +1,154 @@
+const database = require('../config/database');
+const bcrypt = require('bcryptjs');
+
+class User {
+  // Create new user
+  static async create(userData) {
+    const { username, email, password, full_name, role = 'student', bio = '' } = userData;
+    
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const sql = `
+      INSERT INTO users (username, email, password, full_name, role, bio)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
+    
+    const result = await database.run(sql, [
+      username,
+      email,
+      hashedPassword,
+      full_name,
+      role,
+      bio
+    ]);
+    
+    // Create initial statistics for user
+    await database.run(
+      'INSERT INTO statistics (user_id) VALUES (?)',
+      [result.id]
+    );
+    
+    return result.id;
+  }
+
+  // Find user by ID
+  static async findById(id) {
+    const sql = 'SELECT id, username, email, full_name, role, avatar, points, level, bio, created_at FROM users WHERE id = ?';
+    return await database.get(sql, [id]);
+  }
+
+  // Find user by username
+  static async findByUsername(username) {
+    const sql = 'SELECT * FROM users WHERE username = ?';
+    return await database.get(sql, [username]);
+  }
+
+  // Find user by email
+  static async findByEmail(email) {
+    const sql = 'SELECT * FROM users WHERE email = ?';
+    return await database.get(sql, [email]);
+  }
+
+  // Verify password
+  static async verifyPassword(plainPassword, hashedPassword) {
+    return await bcrypt.compare(plainPassword, hashedPassword);
+  }
+
+  // Get all users (admin only)
+  static async getAll(role = null) {
+    let sql = 'SELECT id, username, email, full_name, role, avatar, points, level, created_at FROM users';
+    const params = [];
+    
+    if (role) {
+      sql += ' WHERE role = ?';
+      params.push(role);
+    }
+    
+    sql += ' ORDER BY created_at DESC';
+    return await database.all(sql, params);
+  }
+
+  // Update user profile
+  static async update(id, updates) {
+    const allowedFields = ['full_name', 'email', 'avatar', 'bio'];
+    const fields = [];
+    const values = [];
+    
+    for (const [key, value] of Object.entries(updates)) {
+      if (allowedFields.includes(key)) {
+        fields.push(`${key} = ?`);
+        values.push(value);
+      }
+    }
+    
+    if (fields.length === 0) {
+      throw new Error('No valid fields to update');
+    }
+    
+    values.push(id);
+    const sql = `UPDATE users SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+    
+    return await database.run(sql, values);
+  }
+
+  // Update password
+  static async updatePassword(id, newPassword) {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const sql = 'UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
+    return await database.run(sql, [hashedPassword, id]);
+  }
+
+  // Add points to user
+  static async addPoints(userId, points) {
+    const sql = `
+      UPDATE users 
+      SET points = points + ?,
+          level = CASE 
+            WHEN points + ? >= 1000 THEN 5
+            WHEN points + ? >= 500 THEN 4
+            WHEN points + ? >= 200 THEN 3
+            WHEN points + ? >= 50 THEN 2
+            ELSE 1
+          END,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `;
+    return await database.run(sql, [points, points, points, points, points, userId]);
+  }
+
+  // Get leaderboard
+  static async getLeaderboard(limit = 10) {
+    const sql = `
+      SELECT 
+        u.id, u.username, u.full_name, u.avatar, u.points, u.level,
+        s.total_tests_taken, s.average_score
+      FROM users u
+      LEFT JOIN statistics s ON u.id = s.user_id
+      WHERE u.role = 'student'
+      ORDER BY u.points DESC
+      LIMIT ?
+    `;
+    return await database.all(sql, [limit]);
+  }
+
+  // Delete user
+  static async delete(id) {
+    const sql = 'DELETE FROM users WHERE id = ?';
+    return await database.run(sql, [id]);
+  }
+
+  // Check if username exists
+  static async usernameExists(username) {
+    const user = await this.findByUsername(username);
+    return !!user;
+  }
+
+  // Check if email exists
+  static async emailExists(email) {
+    const user = await this.findByEmail(email);
+    return !!user;
+  }
+}
+
+module.exports = User;
