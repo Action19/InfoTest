@@ -340,12 +340,21 @@ const TestDetail = () => {
                   {/* Show options for choice-based questions */}
                   {(question.question_type === 'single_choice' || question.question_type === 'multiple_choice') && question.options && (
                     <div className="question-options-preview">
-                      {(Array.isArray(question.options) ? question.options : []).map((option, idx) => (
-                        <div key={idx} className="option-preview">
-                          <span className="option-letter">{String.fromCharCode(65 + idx)})</span>
-                          <span className="option-text-preview">{option}</span>
-                        </div>
-                      ))}
+                      {(Array.isArray(question.options) ? question.options : []).map((option, idx) => {
+                        const isCorrect = String(question.correct_answer) === String(idx) || 
+                                         question.correct_answer === option ||
+                                         (Array.isArray(question.correct_answer) && question.correct_answer.includes(idx));
+                        
+                        return (
+                          <div key={idx} className={`option-preview ${isCorrect ? 'correct-option' : ''}`}>
+                            <span className="option-letter">{String.fromCharCode(65 + idx)})</span>
+                            <span className="option-text-preview">{option}</span>
+                            {isCorrect && (user.role === 'teacher' || user.role === 'admin') && (
+                              <span className="correct-badge">✓ To'g'ri</span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                   
