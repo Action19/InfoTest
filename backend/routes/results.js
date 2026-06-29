@@ -52,6 +52,7 @@ router.post('/submit', authenticateToken, async (req, res) => {
       
       return {
         question_id: question.id,
+        question_text: question.question_text, // Add question text for results display
         user_answer: userAnswer,
         correct_answer: question.correct_answer,
         is_correct: isCorrect,

@@ -165,55 +165,86 @@ const Results = () => {
               {selectedResult.detailed_answers && (
                 <div className="detailed-answers">
                   <h3>Batafsil javoblar</h3>
-                  {JSON.parse(selectedResult.detailed_answers).map((answer, index) => (
-                    <div key={index} className={`answer-item ${answer.is_correct ? 'correct' : 'incorrect'}`}>
-                      <div className="answer-header">
-                        <span className="answer-number">Savol {index + 1}</span>
-                        <span className={`answer-status ${answer.is_correct ? 'correct' : 'incorrect'}`}>
-                          {answer.is_correct ? '✓ To\'g\'ri' : '✗ Noto\'g\'ri'}
-                        </span>
-                        <span className="answer-points">
-                          {answer.is_correct ? answer.points : 0} / {answer.points} ball
-                        </span>
-                      </div>
+                  {(() => {
+                    try {
+                      const answers = typeof selectedResult.detailed_answers === 'string' 
+                        ? JSON.parse(selectedResult.detailed_answers) 
+                        : selectedResult.detailed_answers;
                       
-                      <div className="answer-content">
-                        <p className="question-text">{answer.question_text}</p>
-                        
-                        <div className="answer-details">
-                          <div className="answer-row">
-                            <strong>Sizning javobingiz:</strong>
-                            <span className={answer.is_correct ? 'text-success' : 'text-danger'}>
-                              {answer.user_answer || "(Javob berilmagan)"}
+                      if (!Array.isArray(answers) || answers.length === 0) {
+                        return <p className="text-secondary">Batafsil javoblar mavjud emas</p>;
+                      }
+                      
+                      return answers.map((answer, index) => (
+                        <div key={index} className={`answer-item ${answer.is_correct ? 'correct' : 'incorrect'}`}>
+                          <div className="answer-header">
+                            <span className="answer-number">Savol {index + 1}</span>
+                            <span className={`answer-status ${answer.is_correct ? 'correct' : 'incorrect'}`}>
+                              {answer.is_correct ? '✓ To\'g\'ri' : '✗ Noto\'g\'ri'}
+                            </span>
+                            <span className="answer-points">
+                              {answer.is_correct ? answer.points : 0} / {answer.points} ball
                             </span>
                           </div>
                           
-                          {!answer.is_correct && answer.correct_answer && (
-                            <div className="answer-row">
-                              <strong>To'g'ri javob:</strong>
-                              <span className="text-success">{answer.correct_answer}</span>
+                          <div className="answer-content">
+                            <p className="question-text">{answer.question_text || 'Savol matni mavjud emas'}</p>
+                            
+                            <div className="answer-details">
+                              <div className="answer-row">
+                                <strong>Sizning javobingiz:</strong>
+                                <span className={answer.is_correct ? 'text-success' : 'text-danger'}>
+                                  {answer.user_answer !== undefined && answer.user_answer !== null 
+                                    ? String(answer.user_answer)
+                                    : "(Javob berilmagan)"}
+                                </span>
+                              </div>
+                              
+                              {!answer.is_correct && answer.correct_answer && (
+                                <div className="answer-row">
+                                  <strong>To'g'ri javob:</strong>
+                                  <span className="text-success">{answer.correct_answer}</span>
+                                </div>
+                              )}
                             </div>
-                          )}
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      ));
+                    } catch (error) {
+                      console.error('Error parsing detailed answers:', error);
+                      return <p className="text-danger">Javoblarni yuklashda xatolik yuz berdi</p>;
+                    }
+                  })()}
                 </div>
               )}
 
-              {selectedResult.achievements_earned && JSON.parse(selectedResult.achievements_earned).length > 0 && (
-                <div className="achievements-section">
-                  <h3>🏆 Qo'lga kiritilgan yutuqlar</h3>
-                  <div className="achievements-list">
-                    {JSON.parse(selectedResult.achievements_earned).map((achievement, index) => (
-                      <div key={index} className="achievement-badge">
-                        <span className="achievement-icon">{achievement.icon || '🏆'}</span>
-                        <span className="achievement-name">{achievement.title}</span>
+              {selectedResult.achievements_earned && (() => {
+                try {
+                  const achievements = typeof selectedResult.achievements_earned === 'string'
+                    ? JSON.parse(selectedResult.achievements_earned)
+                    : selectedResult.achievements_earned;
+                  
+                  if (Array.isArray(achievements) && achievements.length > 0) {
+                    return (
+                      <div className="achievements-section">
+                        <h3>🏆 Qo'lga kiritilgan yutuqlar</h3>
+                        <div className="achievements-list">
+                          {achievements.map((achievement, index) => (
+                            <div key={index} className="achievement-badge">
+                              <span className="achievement-icon">{achievement.icon || '🏆'}</span>
+                              <span className="achievement-name">{achievement.title}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                    );
+                  }
+                  return null;
+                } catch (error) {
+                  console.error('Error parsing achievements:', error);
+                  return null;
+                }
+              })()}
             </div>
           )}
         </div>
