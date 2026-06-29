@@ -131,27 +131,73 @@ class Question {
 
   // Check answer
   static checkAnswer(question, userAnswer) {
+    if (!userAnswer && userAnswer !== 0) return false; // No answer provided
+    
     const correctAnswer = question.correct_answer;
 
     switch (question.question_type) {
       case 'single_choice':
       case 'true_false':
+        // Convert both to strings for comparison (handles index-based answers)
+        return String(userAnswer) === String(correctAnswer);
+
       case 'short_answer':
-        return userAnswer === correctAnswer;
+        // Case-insensitive comparison for text answers
+        return String(userAnswer).trim().toLowerCase() === String(correctAnswer).trim().toLowerCase();
 
       case 'multiple_choice':
         // For multiple choice, compare arrays
-        const correctAnswers = JSON.parse(correctAnswer);
-        const userAnswers = Array.isArray(userAnswer) ? userAnswer : JSON.parse(userAnswer);
-        
-        if (correctAnswers.length !== userAnswers.length) return false;
-        
-        return correctAnswers.every(ans => userAnswers.includes(ans)) &&
-               userAnswers.every(ans => correctAnswers.includes(ans));
+        try {
+          let correctAnswers = correctAnswer;
+          let userAnswers = userAnswer;
+          
+          // Parse if strings
+          if (typeof correctAnswer === 'string') {
+            correctAnswers = correctAnswer.includes(',') 
+              ? correctAnswer.split(',').map(a => a.trim())
+              : JSON.parse(correctAnswer);
+          }
+          
+          if (typeof userAnswer === 'string') {
+            userAnswers = userAnswer.includes(',')
+              ? userAnswer.split(',').map(a => a.trim())
+              : JSON.parse(userAnswer);
+          }
+          
+          if (!Array.isArray(correctAnswers) || !Array.isArray(userAnswers)) {
+            return false;
+          }
+          
+          if (correctAnswers.length !== userAnswers.length) return false;
+          
+          // Convert to strings for comparison
+          const correctSet = correctAnswers.map(a => String(a).trim()).sort();
+          const userSet = userAnswers.map(a => String(a).trim()).sort();
+          
+          return correctSet.every((ans, idx) => ans === userSet[idx]);
+        } catch (e) {
+          console.error('Error checking multiple choice answer:', e);
+          return false;
+        }
 
       case 'code_writing':
         // Simple check - in production, use code execution engine
-        return userAnswer.trim().toLowerCase().includes(correctAnswer.toLowerCase());
+        return String(userAnswer).trim().toLowerCase().includes(String(correctAnswer).toLowerCase());
+
+      case 'matching':
+        try {
+          const correctMatching = typeof correctAnswer === 'string' 
+            ? JSON.parse(correctAnswer) 
+            : correctAnswer;
+          const userMatching = typeof userAnswer === 'string'
+            ? JSON.parse(userAnswer)
+            : userAnswer;
+          
+          return JSON.stringify(correctMatching) === JSON.stringify(userMatching);
+        } catch (e) {
+          console.error('Error checking matching answer:', e);
+          return false;
+        }
 
       default:
         return false;

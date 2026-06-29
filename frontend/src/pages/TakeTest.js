@@ -80,40 +80,55 @@ const TakeTest = () => {
     try {
       setSubmitting(true);
       
-      // Format answers for submission
-      const formattedAnswers = questions.map(q => {
+      // Calculate time taken
+      const timeTaken = (test.time_limit * 60) - timeLeft;
+      
+      // Format answers as object (question_id: answer)
+      const formattedAnswers = {};
+      
+      questions.forEach(q => {
         const answer = answers[q.id];
-        let formattedAnswer = '';
-
-        if (q.question_type === 'multiple_choice') {
-          formattedAnswer = Array.isArray(answer) ? answer.sort().join(',') : '';
-        } else if (q.question_type === 'matching') {
-          formattedAnswer = answer ? JSON.stringify(answer) : '';
+        
+        if (answer !== undefined && answer !== null) {
+          if (q.question_type === 'multiple_choice') {
+            // Multiple choice: join selected indexes
+            formattedAnswers[q.id] = Array.isArray(answer) ? answer.sort().join(',') : '';
+          } else if (q.question_type === 'matching') {
+            // Matching: stringify object
+            formattedAnswers[q.id] = typeof answer === 'object' ? JSON.stringify(answer) : '';
+          } else if (q.question_type === 'single_choice') {
+            // Single choice: send index as string
+            formattedAnswers[q.id] = String(answer);
+          } else {
+            // Other types: send as string
+            formattedAnswers[q.id] = String(answer);
+          }
         } else {
-          formattedAnswer = answer !== undefined ? String(answer) : '';
+          // No answer provided
+          formattedAnswers[q.id] = '';
         }
-
-        return {
-          question_id: q.id,
-          answer: formattedAnswer
-        };
       });
+
+      console.log('Submitting answers:', formattedAnswers);
 
       const response = await api.post('/results/submit', {
         test_id: parseInt(id),
-        answers: formattedAnswers
+        answers: formattedAnswers,
+        time_taken: timeTaken
       });
+
+      console.log('Submit response:', response.data);
 
       // Navigate to results page
       navigate('/results', { 
         state: { 
-          resultId: response.data.id,
+          resultId: response.data.result?.attempt_id,
           showDetails: true 
         } 
       });
     } catch (error) {
       console.error('Error submitting test:', error);
-      alert('Javoblarni yuborishda xatolik yuz berdi');
+      alert('Javoblarni yuborishda xatolik yuz berdi: ' + (error.response?.data?.error || error.message));
     } finally {
       setSubmitting(false);
     }
