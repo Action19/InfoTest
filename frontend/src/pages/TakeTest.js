@@ -218,7 +218,7 @@ const TakeTest = () => {
           <div className="answer-section">
             {question.question_type === 'single_choice' && (
               <div className="options-list">
-                {JSON.parse(question.options).map((option, index) => (
+                {(Array.isArray(question.options) ? question.options : JSON.parse(question.options || '[]')).map((option, index) => (
                   <label key={index} className="option-item">
                     <input
                       type="radio"
@@ -235,7 +235,7 @@ const TakeTest = () => {
 
             {question.question_type === 'multiple_choice' && (
               <div className="options-list">
-                {JSON.parse(question.options).map((option, index) => (
+                {(Array.isArray(question.options) ? question.options : JSON.parse(question.options || '[]')).map((option, index) => (
                   <label key={index} className="option-item">
                     <input
                       type="checkbox"
@@ -297,7 +297,7 @@ const TakeTest = () => {
             {question.question_type === 'matching' && (
               <div className="matching-section">
                 <p className="hint">Chap va o'ng ustunlarni moslang</p>
-                {JSON.parse(question.options).left.map((leftItem, index) => (
+                {(Array.isArray(question.options) ? question.options.left : JSON.parse(question.options || '{"left":[],"right":[]}').left).map((leftItem, index) => (
                   <div key={index} className="matching-row">
                     <div className="matching-left">{leftItem}</div>
                     <select
@@ -310,7 +310,7 @@ const TakeTest = () => {
                       }}
                     >
                       <option value="">Tanlang...</option>
-                      {JSON.parse(question.options).right.map((rightItem, idx) => (
+                      {(Array.isArray(question.options) ? question.options.right : JSON.parse(question.options || '{"left":[],"right":[]}').right).map((rightItem, idx) => (
                         <option key={idx} value={rightItem}>
                           {rightItem}
                         </option>

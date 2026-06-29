@@ -64,11 +64,25 @@ class Question {
 
     const questions = await database.all(sql, [testId]);
 
-    // Parse options JSON
-    return questions.map(q => ({
-      ...q,
-      options: q.options ? JSON.parse(q.options) : null
-    }));
+    // Parse options JSON - check if already parsed
+    return questions.map(q => {
+      let parsedOptions = q.options;
+      
+      // Only parse if it's a string
+      if (typeof q.options === 'string' && q.options) {
+        try {
+          parsedOptions = JSON.parse(q.options);
+        } catch (e) {
+          console.error('Error parsing options for question', q.id, ':', e);
+          parsedOptions = [];
+        }
+      }
+      
+      return {
+        ...q,
+        options: parsedOptions
+      };
+    });
   }
 
   // Update question
