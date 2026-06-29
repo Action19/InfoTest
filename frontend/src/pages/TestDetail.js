@@ -42,16 +42,23 @@ const TestDetail = () => {
   const fetchTestDetails = async () => {
     try {
       setLoading(true);
+      console.log('Fetching test details for ID:', id);
+      
       const [testRes, questionsRes, statsRes] = await Promise.all([
         api.get(`/tests/${id}`),
         api.get(`/questions/test/${id}`),
         api.get(`/tests/${id}/statistics`)
       ]);
 
+      console.log('Test data:', testRes.data);
+      console.log('Questions data:', questionsRes.data);
+      console.log('Stats data:', statsRes.data);
+
       setTest(testRes.data);
       
       // Ensure questions is an array
       const questionsData = Array.isArray(questionsRes.data) ? questionsRes.data : [];
+      console.log('Questions count:', questionsData.length);
       setQuestions(questionsData);
       
       setStats(statsRes.data);
@@ -106,6 +113,8 @@ const TestDetail = () => {
     setAiLoading(true);
     
     try {
+      console.log('Starting AI generation...');
+      
       // AI orqali savol yaratish (backend'da implement qilinadi)
       const response = await api.post('/questions/generate-ai', {
         test_id: id,
@@ -115,6 +124,8 @@ const TestDetail = () => {
         question_type: aiPrompt.questionType
       });
       
+      console.log('AI generation response:', response.data);
+      
       alert(`${response.data.count} ta savol muvaffaqiyatli yaratildi!`);
       setShowAIModal(false);
       setAiPrompt({
@@ -123,8 +134,14 @@ const TestDetail = () => {
         difficulty: 'medium',
         questionType: 'single_choice'
       });
-      fetchTestDetails();
+      
+      // Force refresh test details
+      console.log('Refreshing test details...');
+      await fetchTestDetails();
+      console.log('Test details refreshed, questions count:', questions.length);
+      
     } catch (error) {
+      console.error('AI generation error:', error);
       alert('AI savol yaratishda xatolik: ' + (error.response?.data?.error || error.message));
     } finally {
       setAiLoading(false);
