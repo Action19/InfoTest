@@ -271,6 +271,9 @@ export default Tests;
                   required
                 />
               </div>
+
+              <div className="form-group">
+                <label htmlFor="description">Tavsif</label>
                 <textarea
                   id="description"
                   value={newTest.description}
