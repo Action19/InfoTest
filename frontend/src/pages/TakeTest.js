@@ -90,15 +90,26 @@ const TakeTest = () => {
         const answer = answers[q.id];
         
         if (answer !== undefined && answer !== null) {
-          if (q.question_type === 'multiple_choice') {
-            // Multiple choice: join selected indexes
-            formattedAnswers[q.id] = Array.isArray(answer) ? answer.sort().join(',') : '';
+          if (q.question_type === 'single_choice') {
+            // Single choice: convert index to option text
+            const options = Array.isArray(q.options) ? q.options : 
+                           (typeof q.options === 'string' ? JSON.parse(q.options) : []);
+            
+            formattedAnswers[q.id] = options[answer] || String(answer);
+          } else if (q.question_type === 'multiple_choice') {
+            // Multiple choice: convert indexes to option texts, join with comma
+            const options = Array.isArray(q.options) ? q.options : 
+                           (typeof q.options === 'string' ? JSON.parse(q.options) : []);
+            
+            if (Array.isArray(answer)) {
+              const selectedTexts = answer.map(idx => options[idx] || String(idx));
+              formattedAnswers[q.id] = selectedTexts.join(',');
+            } else {
+              formattedAnswers[q.id] = '';
+            }
           } else if (q.question_type === 'matching') {
             // Matching: stringify object
             formattedAnswers[q.id] = typeof answer === 'object' ? JSON.stringify(answer) : '';
-          } else if (q.question_type === 'single_choice') {
-            // Single choice: send index as string
-            formattedAnswers[q.id] = String(answer);
           } else {
             // Other types: send as string
             formattedAnswers[q.id] = String(answer);
