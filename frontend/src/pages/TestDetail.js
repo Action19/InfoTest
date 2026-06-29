@@ -11,6 +11,23 @@ const TestDetail = () => {
   const [questions, setQuestions] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showAddQuestionModal, setShowAddQuestionModal] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [newQuestion, setNewQuestion] = useState({
+    question_text: '',
+    question_type: 'single_choice',
+    options: ['', '', '', ''],
+    correct_answer: '',
+    points: 1,
+    explanation: ''
+  });
+  const [aiPrompt, setAiPrompt] = useState({
+    topic: '',
+    count: 5,
+    difficulty: 'medium',
+    questionType: 'single_choice'
+  });
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     // Don't fetch if we're on create page
@@ -50,6 +67,67 @@ const TestDetail = () => {
   const startTest = () => {
     if (window.confirm("Testni boshlaysizmi? Vaqt hisoblash boshlanadi!")) {
       navigate(`/take-test/${id}`);
+    }
+  };
+
+  const handleAddQuestion = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const questionData = {
+        test_id: id,
+        question_text: newQuestion.question_text,
+        question_type: newQuestion.question_type,
+        options: JSON.stringify(newQuestion.options),
+        correct_answer: newQuestion.correct_answer,
+        points: newQuestion.points,
+        explanation: newQuestion.explanation
+      };
+
+      await api.post('/questions', questionData);
+      alert('Savol muvaffaqiyatli qo\'shildi!');
+      setShowAddQuestionModal(false);
+      setNewQuestion({
+        question_text: '',
+        question_type: 'single_choice',
+        options: ['', '', '', ''],
+        correct_answer: '',
+        points: 1,
+        explanation: ''
+      });
+      fetchTestDetails();
+    } catch (error) {
+      alert('Savol qo\'shishda xatolik: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const handleGenerateAI = async (e) => {
+    e.preventDefault();
+    setAiLoading(true);
+    
+    try {
+      // AI orqali savol yaratish (backend'da implement qilinadi)
+      const response = await api.post('/questions/generate-ai', {
+        test_id: id,
+        topic: aiPrompt.topic || test.subject,
+        count: aiPrompt.count,
+        difficulty: aiPrompt.difficulty,
+        question_type: aiPrompt.questionType
+      });
+      
+      alert(`${response.data.count} ta savol muvaffaqiyatli yaratildi!`);
+      setShowAIModal(false);
+      setAiPrompt({
+        topic: '',
+        count: 5,
+        difficulty: 'medium',
+        questionType: 'single_choice'
+      });
+      fetchTestDetails();
+    } catch (error) {
+      alert('AI savol yaratishda xatolik: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -188,12 +266,213 @@ const TestDetail = () => {
             <div className="empty-state">
               <p>Bu testda hali savollar yo'q</p>
               {(user.role === 'teacher' || user.role === 'admin') && (
-                <button className="btn btn-primary">Savol qo'shish</button>
+                <div className="action-buttons">
+                  <button className="btn btn-primary" onClick={() => setShowAddQuestionModal(true)}>
+                    ➕ Savol qo'shish
+                  </button>
+                  <button className="btn btn-success" onClick={() => setShowAIModal(true)}>
+                    🤖 AI bilan yaratish
+                  </button>
+                </div>
               )}
+            </div>
+          )}
+
+          {questions.length > 0 && (user.role === 'teacher' || user.role === 'admin') && (
+            <div className="action-buttons" style={{marginTop: '20px'}}>
+              <button className="btn btn-primary" onClick={() => setShowAddQuestionModal(true)}>
+                ➕ Savol qo'shish
+              </button>
+              <button className="btn btn-success" onClick={() => setShowAIModal(true)}>
+                🤖 AI bilan yaratish
+              </button>
             </div>
           )}
         </div>
       </div>
+
+      {/* Add Question Modal */}
+      {showAddQuestionModal && (
+        <div className="modal-overlay" onClick={() => setShowAddQuestionModal(false)}>
+          <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Savol qo'shish</h2>
+              <button className="close-btn" onClick={() => setShowAddQuestionModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleAddQuestion} className="modal-form">
+              <div className="form-group">
+                <label htmlFor="question_text">Savol matni *</label>
+                <textarea
+                  id="question_text"
+                  value={newQuestion.question_text}
+                  onChange={(e) => setNewQuestion({...newQuestion, question_text: e.target.value})}
+                  placeholder="Savolingizni kiriting..."
+                  rows="3"
+                  required
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="question_type">Savol turi</label>
+                  <select
+                    id="question_type"
+                    value={newQuestion.question_type}
+                    onChange={(e) => setNewQuestion({...newQuestion, question_type: e.target.value})}
+                  >
+                    <option value="single_choice">Bir tanlovli</option>
+                    <option value="multiple_choice">Ko'p tanlovli</option>
+                    <option value="true_false">To'g'ri/Noto'g'ri</option>
+                    <option value="short_answer">Qisqa javob</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="points">Ballar *</label>
+                  <input
+                    type="number"
+                    id="points"
+                    value={newQuestion.points}
+                    onChange={(e) => setNewQuestion({...newQuestion, points: parseInt(e.target.value)})}
+                    min="1"
+                    max="10"
+                    required
+                  />
+                </div>
+              </div>
+
+              {(newQuestion.question_type === 'single_choice' || newQuestion.question_type === 'multiple_choice') && (
+                <div className="form-group">
+                  <label>Javob variantlari *</label>
+                  {newQuestion.options.map((option, index) => (
+                    <input
+                      key={index}
+                      type="text"
+                      value={option}
+                      onChange={(e) => {
+                        const newOptions = [...newQuestion.options];
+                        newOptions[index] = e.target.value;
+                        setNewQuestion({...newQuestion, options: newOptions});
+                      }}
+                      placeholder={`Variant ${index + 1}`}
+                      required
+                      style={{marginBottom: '10px'}}
+                    />
+                  ))}
+                </div>
+              )}
+
+              <div className="form-group">
+                <label htmlFor="correct_answer">To'g'ri javob *</label>
+                <input
+                  type="text"
+                  id="correct_answer"
+                  value={newQuestion.correct_answer}
+                  onChange={(e) => setNewQuestion({...newQuestion, correct_answer: e.target.value})}
+                  placeholder="To'g'ri javobni kiriting"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="explanation">Tushuntirish (ixtiyoriy)</label>
+                <textarea
+                  id="explanation"
+                  value={newQuestion.explanation}
+                  onChange={(e) => setNewQuestion({...newQuestion, explanation: e.target.value})}
+                  placeholder="Javob haqida tushuntirish..."
+                  rows="2"
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setShowAddQuestionModal(false)}>
+                  Bekor qilish
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Qo'shish
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* AI Generate Modal */}
+      {showAIModal && (
+        <div className="modal-overlay" onClick={() => setShowAIModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>🤖 AI bilan savol yaratish</h2>
+              <button className="close-btn" onClick={() => setShowAIModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleGenerateAI} className="modal-form">
+              <div className="form-group">
+                <label htmlFor="topic">Mavzu *</label>
+                <input
+                  type="text"
+                  id="topic"
+                  value={aiPrompt.topic}
+                  onChange={(e) => setAiPrompt({...aiPrompt, topic: e.target.value})}
+                  placeholder={`Masalan: ${test.subject} - algebraik tenglamalar`}
+                  required
+                />
+                <small>AI ushbu mavzu bo'yicha savollar yaratadi</small>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="count">Savollar soni *</label>
+                  <input
+                    type="number"
+                    id="count"
+                    value={aiPrompt.count}
+                    onChange={(e) => setAiPrompt({...aiPrompt, count: parseInt(e.target.value)})}
+                    min="1"
+                    max="20"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="ai_difficulty">Qiyinlik</label>
+                  <select
+                    id="ai_difficulty"
+                    value={aiPrompt.difficulty}
+                    onChange={(e) => setAiPrompt({...aiPrompt, difficulty: e.target.value})}
+                  >
+                    <option value="easy">Oson</option>
+                    <option value="medium">O'rta</option>
+                    <option value="hard">Qiyin</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="ai_type">Savol turi</label>
+                <select
+                  id="ai_type"
+                  value={aiPrompt.questionType}
+                  onChange={(e) => setAiPrompt({...aiPrompt, questionType: e.target.value})}
+                >
+                  <option value="single_choice">Bir tanlovli</option>
+                  <option value="multiple_choice">Ko'p tanlovli</option>
+                  <option value="true_false">To'g'ri/Noto'g'ri</option>
+                </select>
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setShowAIModal(false)} disabled={aiLoading}>
+                  Bekor qilish
+                </button>
+                <button type="submit" className="btn btn-success" disabled={aiLoading}>
+                  {aiLoading ? 'Yaratilmoqda...' : '🤖 Yaratish'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -284,3 +284,54 @@ router.post('/reorder', authenticateToken, isTeacherOrAdmin, async (req, res) =>
 });
 
 module.exports = router;
+
+
+
+// Generate questions using AI (OpenAI GPT)
+router.post('/generate-ai', authenticateToken, isTeacherOrAdmin, async (req, res) => {
+  try {
+    const { test_id, topic, count = 5, difficulty = 'medium', question_type = 'single_choice' } = req.body;
+
+    if (!test_id || !topic) {
+      return res.status(400).json({ error: 'test_id and topic are required' });
+    }
+
+    // Verify test exists and user has permission
+    const test = await Test.findById(test_id);
+    if (!test) {
+      return res.status(404).json({ error: 'Test not found' });
+    }
+
+    if (req.user.role === 'teacher' && test.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // For now, return demo data - you'll need OpenAI API key for real implementation
+    const demoQuestions = [];
+    for (let i = 0; i < count; i++) {
+      const questionId = await Question.create({
+        test_id,
+        question_text: `${topic} bo'yicha ${i + 1}-savol: Bu demo savol. OpenAI API integratsiya qilish kerak.`,
+        question_type,
+        options: JSON.stringify(['Variant A', 'Variant B', 'Variant C', 'Variant D']),
+        correct_answer: 'Variant A',
+        points: difficulty === 'hard' ? 3 : difficulty === 'medium' ? 2 : 1,
+        explanation: `Bu ${difficulty} qiyinlikdagi savol. AI bilan yaratilgan.`
+      });
+      demoQuestions.push({ id: questionId });
+    }
+
+    // Update test's total_questions count
+    await Test.update(test_id, { total_questions: (test.total_questions || 0) + count });
+
+    res.json({
+      message: `${count} ta savol muvaffaqiyatli yaratildi`,
+      count: demoQuestions.length,
+      questions: demoQuestions
+    });
+
+  } catch (error) {
+    console.error('Generate AI questions error:', error);
+    res.status(500).json({ error: 'Failed to generate questions' });
+  }
+});
