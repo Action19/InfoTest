@@ -244,12 +244,109 @@ const Tests = () => {
           ))}
         </div>
       )}
+
+      {/* Create Test Modal */}
+      {showCreateModal && (
+        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+            <div className="modal-header">
+              <h2>Yangi test yaratish</h2>
+              <button className="close-btn" onClick={() => setShowCreateModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleCreateTest} className="modal-form">
+              <div className="form-group">
+                <label htmlFor="title">Test nomi *</label>
+                <input
+                  type="text"
+                  id="title"
+                  value={newTest.title}
+                  onChange={(e) => setNewTest({...newTest, title: e.target.value})}
+                  placeholder="Masalan: Matematika - Algebra asoslari"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="description">Tavsif</label>
+                <textarea
+                  id="description"
+                  value={newTest.description}
+                  onChange={(e) => setNewTest({...newTest, description: e.target.value})}
+                  placeholder="Test haqida qisqacha ma'lumot..."
+                  rows="3"
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="subject">Fan *</label>
+                  <input
+                    type="text"
+                    id="subject"
+                    value={newTest.subject}
+                    onChange={(e) => setNewTest({...newTest, subject: e.target.value})}
+                    placeholder="Matematika"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="duration">Vaqt (daqiqa) *</label>
+                  <input
+                    type="number"
+                    id="duration"
+                    value={newTest.duration}
+                    onChange={(e) => setNewTest({...newTest, duration: parseInt(e.target.value)})}
+                    min="1"
+                    max="300"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="difficulty">Qiyinlik darajasi</label>
+                  <select
+                    id="difficulty"
+                    value={newTest.difficulty}
+                    onChange={(e) => setNewTest({...newTest, difficulty: e.target.value})}
+                  >
+                    <option value="easy">Oson</option>
+                    <option value="medium">O'rta</option>
+                    <option value="hard">Qiyin</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="passing_score">O'tish bali (%)</label>
+                  <input
+                    type="number"
+                    id="passing_score"
+                    value={newTest.passing_score}
+                    onChange={(e) => setNewTest({...newTest, passing_score: parseInt(e.target.value)})}
+                    min="0"
+                    max="100"
+                  />
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setShowCreateModal(false)}>
+                  Bekor qilish
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Yaratish
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default Tests;
-
 
       {/* Create Test Modal */}
       {showCreateModal && (
