@@ -271,12 +271,15 @@ const TestDetail = () => {
             {questions.map((question, index) => (
               <div key={question.id} className="question-preview-item">
                 <div className="question-number">#{index + 1}</div>
-                <div className="question-info">
-                  <div className="question-type-badge">
-                    {getQuestionTypeLabel(question.question_type)}
-                  </div>
-                  <div className="question-points">
-                    {question.points} ball
+                <div className="question-content">
+                  <div className="question-text">{question.question_text}</div>
+                  <div className="question-meta">
+                    <span className="question-type-badge">
+                      {getQuestionTypeLabel(question.question_type)}
+                    </span>
+                    <span className="question-points">
+                      {question.points} ball
+                    </span>
                   </div>
                 </div>
               </div>
