@@ -1,8 +1,18 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
-const DB_PATH = process.env.DB_PATH || './database/infotest.db';
+// Use environment variable or default path
+// For Render: use current directory (writable)
+const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'infotest.db');
+
+// Ensure directory exists
+const dbDir = path.dirname(DB_PATH);
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+  console.log('✓ Created database directory:', dbDir);
+}
 
 class Database {
   constructor() {
@@ -11,13 +21,14 @@ class Database {
 
   connect() {
     return new Promise((resolve, reject) => {
-      const dbPath = path.resolve(__dirname, '..', DB_PATH);
-      this.db = new sqlite3.Database(dbPath, (err) => {
+      console.log('Connecting to database:', DB_PATH);
+      
+      this.db = new sqlite3.Database(DB_PATH, (err) => {
         if (err) {
           console.error('Database connection error:', err);
           reject(err);
         } else {
-          console.log('✓ Connected to SQLite database:', dbPath);
+          console.log('✓ Connected to SQLite database:', DB_PATH);
           // Enable foreign keys
           this.db.run('PRAGMA foreign_keys = ON', (err) => {
             if (err) {
