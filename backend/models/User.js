@@ -4,14 +4,25 @@ const bcrypt = require('bcryptjs');
 class User {
   // Create new user
   static async create(userData) {
-    const { username, email, password, full_name, role = 'student', bio = '' } = userData;
+    const { 
+      username, 
+      email, 
+      password, 
+      full_name, 
+      role = 'student', 
+      bio = '',
+      district = '',
+      school_number = '',
+      class_name = '',
+      teaching_classes = ''
+    } = userData;
     
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
     
     const sql = `
-      INSERT INTO users (username, email, password, full_name, role, bio)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO users (username, email, password, full_name, role, bio, district, school_number, class_name, teaching_classes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
     const result = await database.run(sql, [
@@ -20,7 +31,11 @@ class User {
       hashedPassword,
       full_name,
       role,
-      bio
+      bio,
+      district,
+      school_number,
+      class_name,
+      teaching_classes
     ]);
     
     // Create initial statistics for user
@@ -34,7 +49,7 @@ class User {
 
   // Find user by ID
   static async findById(id) {
-    const sql = 'SELECT id, username, email, full_name, role, avatar, points, level, bio, created_at FROM users WHERE id = ?';
+    const sql = 'SELECT id, username, email, full_name, role, avatar, points, level, bio, district, school_number, class_name, teaching_classes, created_at FROM users WHERE id = ?';
     return await database.get(sql, [id]);
   }
 
@@ -57,7 +72,7 @@ class User {
 
   // Get all users (admin only)
   static async getAll(role = null) {
-    let sql = 'SELECT id, username, email, full_name, role, avatar, points, level, created_at FROM users';
+    let sql = 'SELECT id, username, email, full_name, role, avatar, points, level, district, school_number, class_name, teaching_classes, created_at FROM users';
     const params = [];
     
     if (role) {
@@ -117,19 +132,49 @@ class User {
     return await database.run(sql, [points, points, points, points, points, userId]);
   }
 
-  // Get leaderboard
-  static async getLeaderboard(limit = 10) {
-    const sql = `
+  // Get leaderboard (filtered by school)
+  static async getLeaderboard(limit = 10, district = null, school_number = null) {
+    let sql = `
       SELECT 
-        u.id, u.username, u.full_name, u.avatar, u.points, u.level,
+        u.id, u.username, u.full_name, u.avatar, u.points, u.level, u.district, u.school_number, u.class_name,
         s.total_tests_taken, s.average_score
       FROM users u
       LEFT JOIN statistics s ON u.id = s.user_id
       WHERE u.role = 'student'
-      ORDER BY u.points DESC
-      LIMIT ?
     `;
-    return await database.all(sql, [limit]);
+    const params = [];
+
+    if (district && school_number) {
+      sql += ' AND u.district = ? AND u.school_number = ?';
+      params.push(district, school_number);
+    }
+
+    sql += ' ORDER BY u.points DESC LIMIT ?';
+    params.push(limit);
+
+    return await database.all(sql, params);
+  }
+
+  // Get students by district, school, and classes (for teachers)
+  static async getStudentsBySchool(district, school_number, teaching_classes = null) {
+    let sql = `
+      SELECT 
+        u.id, u.username, u.full_name, u.avatar, u.points, u.level, u.class_name, u.district, u.school_number,
+        s.total_tests_taken, s.average_score
+      FROM users u
+      LEFT JOIN statistics s ON u.id = s.user_id
+      WHERE u.role = 'student' AND u.district = ? AND u.school_number = ?
+    `;
+    const params = [district, school_number];
+
+    if (teaching_classes && teaching_classes.length > 0) {
+      const placeholders = teaching_classes.map(() => '?').join(',');
+      sql += ` AND u.class_name IN (${placeholders})`;
+      params.push(...teaching_classes);
+    }
+
+    sql += ' ORDER BY u.points DESC';
+    return await database.all(sql, params);
   }
 
   // Delete user

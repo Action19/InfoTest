@@ -34,6 +34,10 @@ async function initializeTables(db) {
         password TEXT NOT NULL,
         full_name TEXT NOT NULL,
         role TEXT NOT NULL CHECK(role IN ('student', 'teacher', 'admin')),
+        district TEXT,
+        school_number TEXT,
+        class_name TEXT,
+        teaching_classes TEXT,
         avatar TEXT,
         points INTEGER DEFAULT 0,
         level INTEGER DEFAULT 1,
@@ -206,34 +210,52 @@ async function seedData(db) {
 
     // Admin
     const adminResult = await db.run(`
-      INSERT INTO users (username, email, password, full_name, role, points, level)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, ['admin', 'admin@infotest.uz', adminPassword, 'Administrator', 'admin', 0, 1]);
+      INSERT INTO users (username, email, password, full_name, role, points, level, district, school_number)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, ['admin', 'admin@infotest.uz', adminPassword, 'Administrator', 'admin', 0, 1, '', '']);
     
     // Teacher
     const teacherResult = await db.run(`
-      INSERT INTO users (username, email, password, full_name, role, bio, points, level)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (username, email, password, full_name, role, bio, points, level, district, school_number, teaching_classes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, ['o_qituvchi', 'teacher@infotest.uz', teacherPassword, "O'qituvchi Javobi", 'teacher', 
-        "Matematika va Informatika fanlari o'qituvchisi", 0, 1]);
+        "Matematika va Informatika fanlari o'qituvchisi", 0, 1, 'Namangan tumani', '15', '10-A,10-B,10-V']);
 
-    // Student
-    const studentResult = await db.run(`
-      INSERT INTO users (username, email, password, full_name, role, bio, points, level)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    // Student 1
+    const student1Result = await db.run(`
+      INSERT INTO users (username, email, password, full_name, role, bio, points, level, district, school_number, class_name)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, ['akmal_yusupov', 'akmal@infotest.uz', studentPassword, 'Akmal Yusupov', 'student',
-        '10-sinf o\'quvchisi, dasturlashga qiziqadi', 150, 2]);
+        '10-sinf o\'quvchisi, dasturlashga qiziqadi', 150, 2, 'Namangan tumani', '15', '10-A']);
+
+    // Student 2
+    const student2Result = await db.run(`
+      INSERT INTO users (username, email, password, full_name, role, bio, points, level, district, school_number, class_name)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, ['dilshod_karimov', 'dilshod@infotest.uz', studentPassword, 'Dilshod Karimov', 'student',
+        '10-sinf o\'quvchisi', 120, 2, 'Namangan tumani', '15', '10-B']);
+
+    // Student 3 - different school
+    const student3Result = await db.run(`
+      INSERT INTO users (username, email, password, full_name, role, bio, points, level, district, school_number, class_name)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, ['madina_rashidova', 'madina@infotest.uz', studentPassword, 'Madina Rashidova', 'student',
+        '9-sinf o\'quvchisi', 90, 1, 'Pop tumani', '8', '9-A']);
 
     // Create statistics for users
     await db.run('INSERT INTO statistics (user_id) VALUES (?)', [adminResult.id]);
     await db.run('INSERT INTO statistics (user_id) VALUES (?)', [teacherResult.id]);
-    await db.run('INSERT INTO statistics (user_id) VALUES (?)', [studentResult.id]);
+    await db.run('INSERT INTO statistics (user_id) VALUES (?)', [student1Result.id]);
+    await db.run('INSERT INTO statistics (user_id) VALUES (?)', [student2Result.id]);
+    await db.run('INSERT INTO statistics (user_id) VALUES (?)', [student3Result.id]);
 
     console.log('✅ Demo users created successfully!');
     console.log('\n📋 Demo Accounts:');
     console.log('   Admin: admin / admin123');
-    console.log('   Teacher: o_qituvchi / teacher123');
-    console.log('   Student: akmal_yusupov / student123\n');
+    console.log('   Teacher: o_qituvchi / teacher123 (Namangan tumani, 15-maktab, 10-A,10-B,10-V)');
+    console.log('   Student 1: akmal_yusupov / student123 (Namangan, 15-maktab, 10-A)');
+    console.log('   Student 2: dilshod_karimov / student123 (Namangan, 15-maktab, 10-B)');
+    console.log('   Student 3: madina_rashidova / student123 (Pop, 8-maktab, 9-A)\n');
 
   } catch (error) {
     console.error('❌ Data seeding failed:', error);

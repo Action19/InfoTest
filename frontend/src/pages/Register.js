@@ -9,17 +9,65 @@ const Register = () => {
     confirmPassword: '',
     full_name: '',
     email: '',
-    role: 'student'
+    role: 'student',
+    district: '',
+    school_number: '',
+    class_name: '',
+    teaching_classes: []
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
+  const districts = [
+    'Davlatobod tumani',
+    'Chortoq tumani',
+    'Chust tumani',
+    'Kosonsoy tumani',
+    'Mingbuloq tumani',
+    'Namangan tumani',
+    'Norin tumani',
+    'Pop tumani',
+    "To'raqo'rg'on tumani",
+    "Uchqo'rg'on tumani",
+    'Uychi tumani',
+    "Yangiqo'rg'on tumani"
+  ];
+
+  const classes = [
+    '9-A', '9-B', '9-V', '9-G', '9-D',
+    '10-A', '10-B', '10-V', '10-G', '10-D'
+  ];
+
   const handleChange = (e) => {
+    const { name, value } = e.target;
+    
+    if (name === 'role') {
+      // Reset fields when role changes
+      setFormData({
+        ...formData,
+        role: value,
+        class_name: '',
+        teaching_classes: []
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value
+      });
+    }
+  };
+
+  const handleTeachingClassesChange = (className) => {
+    const currentClasses = formData.teaching_classes;
+    const newClasses = currentClasses.includes(className)
+      ? currentClasses.filter(c => c !== className)
+      : [...currentClasses, className];
+    
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      teaching_classes: newClasses
     });
   };
 
@@ -38,16 +86,46 @@ const Register = () => {
       return;
     }
 
+    if (!formData.district) {
+      setError('Tumanni tanlang!');
+      return;
+    }
+
+    if (!formData.school_number) {
+      setError('Maktab raqamini kiriting!');
+      return;
+    }
+
+    if (formData.role === 'student' && !formData.class_name) {
+      setError('Sinfni tanlang!');
+      return;
+    }
+
+    if (formData.role === 'teacher' && formData.teaching_classes.length === 0) {
+      setError('Kamida bitta sinfni tanlang!');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await register({
+      const registerData = {
         username: formData.username,
         password: formData.password,
         full_name: formData.full_name,
         email: formData.email,
-        role: formData.role
-      });
+        role: formData.role,
+        district: formData.district,
+        school_number: formData.school_number
+      };
+
+      if (formData.role === 'student') {
+        registerData.class_name = formData.class_name;
+      } else if (formData.role === 'teacher') {
+        registerData.teaching_classes = formData.teaching_classes.join(',');
+      }
+
+      await register(registerData);
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.error || "Ro'yxatdan o'tish xatosi. Qaytadan urinib ko'ring.");
@@ -72,7 +150,7 @@ const Register = () => {
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
-            <label htmlFor="full_name">To'liq ism</label>
+            <label htmlFor="full_name">To'liq ism *</label>
             <input
               type="text"
               id="full_name"
@@ -86,7 +164,7 @@ const Register = () => {
           </div>
 
           <div className="form-group">
-            <label htmlFor="username">Login</label>
+            <label htmlFor="username">Login *</label>
             <input
               type="text"
               id="username"
@@ -100,7 +178,7 @@ const Register = () => {
           </div>
 
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">Email *</label>
             <input
               type="email"
               id="email"
@@ -114,21 +192,114 @@ const Register = () => {
           </div>
 
           <div className="form-group">
-            <label htmlFor="role">Rol</label>
+            <label htmlFor="role">Kirish huquqi *</label>
             <select
               id="role"
               name="role"
               value={formData.role}
               onChange={handleChange}
               disabled={loading}
+              required
             >
-              <option value="student">Talaba</option>
+              <option value="student">O'quvchi</option>
               <option value="teacher">O'qituvchi</option>
             </select>
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Parol</label>
+            <label htmlFor="district">Tuman *</label>
+            <select
+              id="district"
+              name="district"
+              value={formData.district}
+              onChange={handleChange}
+              disabled={loading}
+              required
+            >
+              <option value="">Tumanni tanlang</option>
+              {districts.map(district => (
+                <option key={district} value={district}>{district}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="school_number">Maktab raqami *</label>
+            <input
+              type="text"
+              id="school_number"
+              name="school_number"
+              value={formData.school_number}
+              onChange={handleChange}
+              placeholder="Masalan: 15"
+              required
+              disabled={loading}
+            />
+          </div>
+
+          {formData.role === 'student' && (
+            <div className="form-group">
+              <label htmlFor="class_name">Sinf *</label>
+              <select
+                id="class_name"
+                name="class_name"
+                value={formData.class_name}
+                onChange={handleChange}
+                disabled={loading}
+                required
+              >
+                <option value="">Sinfni tanlang</option>
+                {classes.map(className => (
+                  <option key={className} value={className}>{className}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {formData.role === 'teacher' && (
+            <div className="form-group">
+              <label>Dars o'tadi gan sinflar * (bir nechtasini tanlash mumkin)</label>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(5, 1fr)', 
+                gap: '0.5rem',
+                marginTop: '0.5rem'
+              }}>
+                {classes.map(className => (
+                  <label 
+                    key={className} 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center',
+                      padding: '0.5rem',
+                      border: '2px solid var(--border-color)',
+                      borderRadius: 'var(--border-radius)',
+                      cursor: 'pointer',
+                      backgroundColor: formData.teaching_classes.includes(className) 
+                        ? 'var(--primary-color)' 
+                        : 'transparent',
+                      color: formData.teaching_classes.includes(className) 
+                        ? 'white' 
+                        : 'var(--text-primary)',
+                      transition: 'var(--transition)'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formData.teaching_classes.includes(className)}
+                      onChange={() => handleTeachingClassesChange(className)}
+                      disabled={loading}
+                      style={{ marginRight: '0.5rem' }}
+                    />
+                    {className}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="form-group">
+            <label htmlFor="password">Parol *</label>
             <input
               type="password"
               id="password"
@@ -142,7 +313,7 @@ const Register = () => {
           </div>
 
           <div className="form-group">
-            <label htmlFor="confirmPassword">Parolni tasdiqlash</label>
+            <label htmlFor="confirmPassword">Parolni tasdiqlash *</label>
             <input
               type="password"
               id="confirmPassword"
@@ -155,13 +326,20 @@ const Register = () => {
             />
           </div>
 
-          <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-            {loading ? 'Yuklanmoqda...' : "Ro'yxatdan o'tish"}
+          <button
+            type="submit"
+            className="btn btn-primary btn-block"
+            disabled={loading}
+          >
+            {loading ? "Yuklanmoqda..." : "Ro'yxatdan o'tish"}
           </button>
         </form>
 
         <div className="auth-footer">
-          <p>Hisobingiz bormi? <Link to="/login">Kirish</Link></p>
+          <p>
+            Allaqachon hisobingiz bormi?{' '}
+            <Link to="/login">Kirish</Link>
+          </p>
         </div>
       </div>
     </div>

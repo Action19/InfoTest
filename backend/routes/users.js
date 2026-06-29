@@ -16,6 +16,36 @@ router.get('/', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
+// Get students (for teachers - filtered by school and classes)
+router.get('/students/list', authenticateToken, isTeacherOrAdmin, async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.user.id);
+    
+    let students;
+    
+    if (currentUser.role === 'teacher') {
+      // Teacher sees only students from their school and classes
+      const teaching_classes = currentUser.teaching_classes 
+        ? currentUser.teaching_classes.split(',').map(c => c.trim())
+        : [];
+      
+      students = await User.getStudentsBySchool(
+        currentUser.district,
+        currentUser.school_number,
+        teaching_classes
+      );
+    } else if (currentUser.role === 'admin') {
+      // Admin sees all students
+      students = await User.getAll('student');
+    }
+    
+    res.json(students);
+  } catch (error) {
+    console.error('Get students error:', error);
+    res.status(500).json({ error: 'Failed to get students' });
+  }
+});
+
 // Get user by ID
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
@@ -39,11 +69,22 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Get leaderboard
-router.get('/leaderboard/top', async (req, res) => {
+// Get leaderboard (filtered by school for students)
+router.get('/leaderboard/top', authenticateToken, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
-    const leaderboard = await User.getLeaderboard(limit);
+    const user = await User.findById(req.user.id);
+    
+    let leaderboard;
+    
+    // Filter by school for students
+    if (user.role === 'student' && user.district && user.school_number) {
+      leaderboard = await User.getLeaderboard(limit, user.district, user.school_number);
+    } else {
+      // Admins and teachers see all
+      leaderboard = await User.getLeaderboard(limit);
+    }
+    
     res.json(leaderboard); // Return array directly
   } catch (error) {
     console.error('Get leaderboard error:', error);

@@ -18,47 +18,75 @@ const generateToken = (userId) => {
 // Register new user
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password, full_name, role } = req.body;
+    const { 
+      username, 
+      email, 
+      password, 
+      full_name, 
+      role, 
+      district, 
+      school_number, 
+      class_name, 
+      teaching_classes 
+    } = req.body;
 
-    // Validation
+    // Basic validation
     if (!username || !email || !password || !full_name) {
       return res.status(400).json({ 
-        error: 'All fields are required',
+        error: 'Barcha asosiy maydonlar to\'ldirilishi kerak',
         fields: ['username', 'email', 'password', 'full_name']
       });
     }
 
     // Username validation
     if (username.length < 3) {
-      return res.status(400).json({ error: 'Username must be at least 3 characters' });
+      return res.status(400).json({ error: 'Login kamida 3 belgidan iborat bo\'lishi kerak' });
     }
 
     // Password validation
     if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      return res.status(400).json({ error: 'Parol kamida 6 belgidan iborat bo\'lishi kerak' });
     }
 
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return res.status(400).json({ error: 'Invalid email format' });
+      return res.status(400).json({ error: 'Noto\'g\'ri email formati' });
     }
 
     // Check if username already exists
     if (await User.usernameExists(username)) {
-      return res.status(400).json({ error: 'Username already taken' });
+      return res.status(400).json({ error: 'Bu login allaqachon band' });
     }
 
     // Check if email already exists
     if (await User.emailExists(email)) {
-      return res.status(400).json({ error: 'Email already registered' });
+      return res.status(400).json({ error: 'Bu email allaqachon ro\'yxatdan o\'tgan' });
     }
 
     // Validate role
     const validRoles = ['student', 'teacher', 'admin'];
     const userRole = role || 'student';
     if (!validRoles.includes(userRole)) {
-      return res.status(400).json({ error: 'Invalid role' });
+      return res.status(400).json({ error: 'Noto\'g\'ri rol' });
+    }
+
+    // Validate district and school
+    if (!district || !school_number) {
+      return res.status(400).json({ error: 'Tuman va maktab raqami kiritilishi shart' });
+    }
+
+    // Role-specific validations
+    if (userRole === 'student') {
+      if (!class_name) {
+        return res.status(400).json({ error: 'O\'quvchi uchun sinf kiritilishi shart' });
+      }
+    }
+
+    if (userRole === 'teacher') {
+      if (!teaching_classes || teaching_classes.trim() === '') {
+        return res.status(400).json({ error: 'O\'qituvchi uchun dars o\'tiladigan sinflar kiritilishi shart' });
+      }
     }
 
     // Create user
@@ -67,7 +95,11 @@ router.post('/register', async (req, res) => {
       email,
       password,
       full_name,
-      role: userRole
+      role: userRole,
+      district: district || '',
+      school_number: school_number || '',
+      class_name: userRole === 'student' ? (class_name || '') : '',
+      teaching_classes: userRole === 'teacher' ? (teaching_classes || '') : ''
     });
 
     // Generate token
@@ -77,7 +109,7 @@ router.post('/register', async (req, res) => {
     const user = await User.findById(userId);
 
     res.status(201).json({
-      message: 'User registered successfully',
+      message: 'Ro\'yxatdan o\'tish muvaffaqiyatli amalga oshirildi',
       token,
       user: {
         id: user.id,
@@ -86,13 +118,17 @@ router.post('/register', async (req, res) => {
         full_name: user.full_name,
         role: user.role,
         points: user.points,
-        level: user.level
+        level: user.level,
+        district: user.district,
+        school_number: user.school_number,
+        class_name: user.class_name,
+        teaching_classes: user.teaching_classes
       }
     });
 
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ error: 'Registration failed', details: error.message });
+    res.status(500).json({ error: 'Ro\'yxatdan o\'tish amalga oshmadi', details: error.message });
   }
 });
 
@@ -146,7 +182,11 @@ router.post('/login', async (req, res) => {
         avatar: user.avatar,
         points: user.points,
         level: user.level,
-        bio: user.bio
+        bio: user.bio,
+        district: user.district,
+        school_number: user.school_number,
+        class_name: user.class_name,
+        teaching_classes: user.teaching_classes
       }
     });
 
@@ -177,6 +217,10 @@ router.get('/me', authenticateToken, async (req, res) => {
         points: user.points,
         level: user.level,
         bio: user.bio,
+        district: user.district,
+        school_number: user.school_number,
+        class_name: user.class_name,
+        teaching_classes: user.teaching_classes,
         created_at: user.created_at
       }
     });
@@ -222,7 +266,11 @@ router.put('/profile', authenticateToken, async (req, res) => {
         avatar: updatedUser.avatar,
         points: updatedUser.points,
         level: updatedUser.level,
-        bio: updatedUser.bio
+        bio: updatedUser.bio,
+        district: updatedUser.district,
+        school_number: updatedUser.school_number,
+        class_name: updatedUser.class_name,
+        teaching_classes: updatedUser.teaching_classes
       }
     });
   } catch (error) {
