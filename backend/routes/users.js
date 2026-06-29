@@ -44,7 +44,7 @@ router.get('/leaderboard/top', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
     const leaderboard = await User.getLeaderboard(limit);
-    res.json({ leaderboard });
+    res.json(leaderboard); // Return array directly
   } catch (error) {
     console.error('Get leaderboard error:', error);
     res.status(500).json({ error: 'Failed to get leaderboard' });

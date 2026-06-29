@@ -20,25 +20,51 @@ const Dashboard = () => {
       
       if (user.role === 'student') {
         // Fetch student statistics
-        const statsRes = await api.get(`/statistics/user/${user.id}`);
-        setStats(statsRes.data);
+        try {
+          const statsRes = await api.get(`/statistics/user/${user.id}`);
+          setStats(statsRes.data);
+        } catch (err) {
+          console.error('Stats error:', err);
+        }
 
         // Fetch recent test results
-        const resultsRes = await api.get('/results/my-results');
-        setRecentTests(resultsRes.data.slice(0, 5));
+        try {
+          const resultsRes = await api.get('/results/my-results');
+          const results = Array.isArray(resultsRes.data) ? resultsRes.data : [];
+          setRecentTests(results.slice(0, 5));
+        } catch (err) {
+          console.error('Results error:', err);
+          setRecentTests([]);
+        }
       } else if (user.role === 'teacher' || user.role === 'admin') {
         // Fetch teacher/admin statistics
-        const statsRes = await api.get('/statistics/overall');
-        setStats(statsRes.data);
+        try {
+          const statsRes = await api.get('/statistics/overall');
+          setStats(statsRes.data);
+        } catch (err) {
+          console.error('Stats error:', err);
+        }
 
         // Fetch all tests
-        const testsRes = await api.get('/tests');
-        setRecentTests(testsRes.data.slice(0, 5));
+        try {
+          const testsRes = await api.get('/tests');
+          const tests = Array.isArray(testsRes.data) ? testsRes.data : [];
+          setRecentTests(tests.slice(0, 5));
+        } catch (err) {
+          console.error('Tests error:', err);
+          setRecentTests([]);
+        }
       }
 
       // Fetch leaderboard
-      const leaderboardRes = await api.get('/users/leaderboard/top');
-      setLeaderboard(leaderboardRes.data.slice(0, 5));
+      try {
+        const leaderboardRes = await api.get('/users/leaderboard/top');
+        const leaders = Array.isArray(leaderboardRes.data) ? leaderboardRes.data : [];
+        setLeaderboard(leaders.slice(0, 5));
+      } catch (err) {
+        console.error('Leaderboard error:', err);
+        setLeaderboard([]);
+      }
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);

@@ -62,6 +62,9 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
     `, [userId]);
     
     res.json({
+      totalAttempts: stats?.total_tests_taken || 0,
+      averageScore: stats?.average_score || 0,
+      totalPassed: stats?.total_tests_passed || 0,
       user: {
         id: user.id,
         username: user.username,
@@ -156,6 +159,10 @@ router.get('/overall', authenticateToken, async (req, res) => {
     `);
     
     res.json({
+      totalUsers: userCount.count,
+      totalTests: testCount.count,
+      totalAttempts: attemptCount.count,
+      averageScore: avgScore.average ? parseFloat(avgScore.average.toFixed(2)) : 0,
       users: {
         total: userCount.count,
         by_role: usersByRole
@@ -164,8 +171,6 @@ router.get('/overall', authenticateToken, async (req, res) => {
         total: testCount.count,
         published: publishedTests.count
       },
-      attempts: attemptCount.count,
-      average_score: avgScore.average ? avgScore.average.toFixed(2) : 0,
       tests_by_subject: testsBySubject,
       recent_activity: recentActivity
     });
