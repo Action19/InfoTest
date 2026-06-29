@@ -1,0 +1,21 @@
+# Render.com Configuration for InfoTest Backend
+
+services:
+  # Backend API Service
+  - type: web
+    name: infotest-backend
+    env: node
+    region: singapore
+    plan: free
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRE
+        value: 7d
+    healthCheckPath: /api/health
