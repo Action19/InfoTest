@@ -94,7 +94,7 @@ const Results = () => {
                 <div className="result-info">
                   <div className="result-stat">
                     <span className="stat-label">Ball:</span>
-                    <span className="stat-value">{result.score} / {result.total_questions}</span>
+                    <span className="stat-value">{result.correct_answers} / {result.total_questions}</span>
                   </div>
                   <div className="result-stat">
                     <span className="stat-label">Baho:</span>
@@ -139,7 +139,7 @@ const Results = () => {
                   <div className="summary-stat">
                     <div className="stat-icon">✓</div>
                     <div className="stat-content">
-                      <div className="stat-number">{selectedResult.score}</div>
+                      <div className="stat-number">{selectedResult.correct_answers || 0}</div>
                       <div className="stat-label">To'g'ri javoblar</div>
                     </div>
                   </div>
@@ -147,7 +147,7 @@ const Results = () => {
                     <div className="stat-icon">✗</div>
                     <div className="stat-content">
                       <div className="stat-number">
-                        {selectedResult.total_questions - selectedResult.score}
+                        {selectedResult.total_questions - (selectedResult.correct_answers || 0)}
                       </div>
                       <div className="stat-label">Noto'g'ri javoblar</div>
                     </div>
@@ -155,7 +155,7 @@ const Results = () => {
                   <div className="summary-stat">
                     <div className="stat-icon">⭐</div>
                     <div className="stat-content">
-                      <div className="stat-number">{selectedResult.points_earned}</div>
+                      <div className="stat-number">{selectedResult.score || 0}</div>
                       <div className="stat-label">Olingan ballar</div>
                     </div>
                   </div>
