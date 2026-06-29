@@ -13,6 +13,8 @@ import Results from './pages/Results';
 import Portfolio from './pages/Portfolio';
 import Profile from './pages/Profile';
 import Leaderboard from './pages/Leaderboard';
+import Students from './pages/Students';
+import StudentPortfolio from './pages/StudentPortfolio';
 import './assets/css/App.css';
 
 function App() {
@@ -86,6 +88,22 @@ function App() {
                 element={
                   <PrivateRoute>
                     <Leaderboard />
+                  </PrivateRoute>
+                } 
+              />
+              <Route 
+                path="/students" 
+                element={
+                  <PrivateRoute>
+                    <Students />
+                  </PrivateRoute>
+                } 
+              />
+              <Route 
+                path="/students/:userId/portfolio" 
+                element={
+                  <PrivateRoute>
+                    <StudentPortfolio />
                   </PrivateRoute>
                 } 
               />

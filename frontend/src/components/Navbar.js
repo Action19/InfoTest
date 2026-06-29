@@ -57,9 +57,15 @@ const Navbar = () => {
             <>
               <Link to="/results" className="navbar-link">Natijalar</Link>
               <Link to="/portfolio" className="navbar-link">Portfolio</Link>
+              <Link to="/leaderboard" className="navbar-link">Reyting</Link>
             </>
           )}
-          <Link to="/leaderboard" className="navbar-link">Reyting</Link>
+          {(user.role === 'teacher' || user.role === 'admin') && (
+            <>
+              <Link to="/students" className="navbar-link">O'quvchilar</Link>
+              <Link to="/leaderboard" className="navbar-link">Reyting</Link>
+            </>
+          )}
           
           <div className="navbar-user">
             <Link to="/profile" className="user-info">

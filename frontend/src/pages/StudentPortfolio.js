@@ -1,98 +1,60 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
-const Portfolio = () => {
+const StudentPortfolio = () => {
+  const { userId } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
+  const [student, setStudent] = useState(null);
   const [portfolioItems, setPortfolioItems] = useState([]);
   const [achievements, setAchievements] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    item_type: 'project',
-    file_url: ''
-  });
 
   useEffect(() => {
-    fetchPortfolio();
-  }, []);
+    if (user.role === 'student') {
+      navigate('/portfolio');
+      return;
+    }
+    fetchStudentData();
+  }, [userId]);
 
-  const fetchPortfolio = async () => {
+  const fetchStudentData = async () => {
     try {
       setLoading(true);
-      const [portfolioRes, statsRes] = await Promise.all([
-        api.get('/portfolio'),
-        api.get(`/statistics/user/${user.id}`)
+      const [userRes, portfolioRes, statsRes] = await Promise.all([
+        api.get(`/users/${userId}`),
+        api.get(`/portfolio/${userId}`),
+        api.get(`/statistics/user/${userId}`)
       ]);
 
-      const items = Array.isArray(portfolioRes.data) ? portfolioRes.data : [];
+      setStudent(userRes.data);
+      
+      const items = Array.isArray(portfolioRes.data.portfolio) 
+        ? portfolioRes.data.portfolio 
+        : [];
       setPortfolioItems(items);
       
-      // Get achievements from stats response
       if (statsRes.data && statsRes.data.achievements) {
         setAchievements(statsRes.data.achievements);
       }
       
       setStats(statsRes.data);
     } catch (error) {
-      console.error('Error fetching portfolio:', error);
-      setPortfolioItems([]);
-      setAchievements([]);
+      console.error('Error fetching student data:', error);
+      alert('Talaba ma\'lumotlarini yuklashda xatolik');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      await api.post('/portfolio', formData);
-      alert('Portfolio element muvaffaqiyatli qo\'shildi!');
-      setShowAddForm(false);
-      setFormData({
-        title: '',
-        description: '',
-        item_type: 'project',
-        file_url: ''
-      });
-      fetchPortfolio();
-    } catch (error) {
-      alert("Portfolio qo'shishda xatolik: " + (error.response?.data?.error || error.message));
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm("Bu elementni o'chirishni tasdiqlaysizmi?")) {
-      return;
-    }
-
-    try {
-      await api.delete(`/portfolio/${id}`);
-      alert('Element o\'chirildi!');
-      fetchPortfolio();
-    } catch (error) {
-      alert("O'chirishda xatolik: " + (error.response?.data?.error || error.message));
     }
   };
 
   const handleViewDetails = (item) => {
     setSelectedItem(item);
     setShowDetailModal(true);
-  };
-
-  const getItemTypeLabel = (type) => {
-    const labels = {
-      project: 'Loyiha',
-      test_result: 'Test natijasi',
-      certificate: 'Sertifikat',
-      achievement: 'Yutuq'
-    };
-    return labels[type] || type;
   };
 
   const getLevelColor = (level) => {
@@ -110,6 +72,16 @@ const Portfolio = () => {
     return icons[itemType] || '📌';
   };
 
+  const getItemTypeLabel = (type) => {
+    const labels = {
+      project: 'Loyiha',
+      test_result: 'Test natijasi',
+      certificate: 'Sertifikat',
+      achievement: 'Yutuq'
+    };
+    return labels[type] || type;
+  };
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -119,25 +91,35 @@ const Portfolio = () => {
     );
   }
 
+  if (!student) {
+    return (
+      <div className="error-container">
+        <h2>Talaba topilmadi</h2>
+        <Link to="/students" className="btn btn-primary">Orqaga</Link>
+      </div>
+    );
+  }
+
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Mening Portfoliom</h1>
-        <p className="subtitle">Yutuqlarim va ishlarim</p>
+        <Link to="/students" className="back-link">← Orqaga</Link>
+        <h1>{student.full_name || student.username} - Portfolio</h1>
+        <p className="subtitle">@{student.username}</p>
       </div>
 
       <div className="portfolio-stats">
         <div className="stat-card stat-level">
-          <div className={`level-badge-large level-${getLevelColor(user.level)}`}>
-            <div className="level-number">Daraja {user.level}</div>
-            <div className="level-name">{getLevelColor(user.level).toUpperCase()}</div>
+          <div className={`level-badge-large level-${getLevelColor(student.level)}`}>
+            <div className="level-number">Daraja {student.level}</div>
+            <div className="level-name">{getLevelColor(student.level).toUpperCase()}</div>
           </div>
         </div>
 
         <div className="stat-card">
           <div className="stat-icon">⭐</div>
           <div className="stat-content">
-            <h3>{user.points}</h3>
+            <h3>{student.points}</h3>
             <p>Jami ballar</p>
           </div>
         </div>
@@ -151,10 +133,10 @@ const Portfolio = () => {
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon">🏆</div>
+          <div className="stat-icon">✅</div>
           <div className="stat-content">
-            <h3>{achievements.length}</h3>
-            <p>Yutuqlar</p>
+            <h3>{stats?.averageScore ? `${stats.averageScore.toFixed(1)}%` : '0%'}</h3>
+            <p>O'rtacha ball</p>
           </div>
         </div>
       </div>
@@ -178,77 +160,13 @@ const Portfolio = () => {
       )}
 
       <div className="section">
-        <div className="section-header">
-          <h2>💼 Portfolio elementlari</h2>
-          <button 
-            onClick={() => setShowAddForm(!showAddForm)} 
-            className="btn btn-primary"
-          >
-            {showAddForm ? 'Bekor qilish' : '+ Qo\'shish'}
-          </button>
-        </div>
-
-        {showAddForm && (
-          <div className="add-form-card">
-            <h3>Yangi element qo'shish</h3>
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>Sarlavha</label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Element sarlavhasi"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Kategoriya</label>
-                <select
-                  value={formData.item_type}
-                  onChange={(e) => setFormData({ ...formData, item_type: e.target.value })}
-                >
-                  <option value="project">Loyiha</option>
-                  <option value="test_result">Test natijasi</option>
-                  <option value="certificate">Sertifikat</option>
-                  <option value="achievement">Yutuq</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Tavsif</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Element tavsifi"
-                  rows={4}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Havola (ixtiyoriy)</label>
-                <input
-                  type="url"
-                  value={formData.file_url}
-                  onChange={(e) => setFormData({ ...formData, file_url: e.target.value })}
-                  placeholder="https://example.com"
-                />
-              </div>
-
-              <button type="submit" className="btn btn-primary">
-                Saqlash
-              </button>
-            </form>
-          </div>
-        )}
+        <h2>💼 Portfolio elementlari</h2>
 
         {portfolioItems.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">💼</div>
             <h3>Portfolio bo'sh</h3>
-            <p>Yutuqlaringizni va ishlaringizni qo'shing!</p>
+            <p>Talaba hali hech narsa qo'shmagan</p>
           </div>
         ) : (
           <div className="portfolio-grid">
@@ -261,15 +179,6 @@ const Portfolio = () => {
               >
                 <div className="portfolio-header">
                   <span className="portfolio-icon">{getCategoryIcon(item.item_type)}</span>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(item.id);
-                    }} 
-                    className="btn-delete-small"
-                  >
-                    ✕
-                  </button>
                 </div>
                 <h3>{item.title}</h3>
                 <p className="portfolio-description">
@@ -357,18 +266,7 @@ const Portfolio = () => {
             <div className="modal-actions">
               <button 
                 type="button" 
-                className="btn btn-danger" 
-                onClick={() => {
-                  setShowDetailModal(false);
-                  handleDelete(selectedItem.id);
-                }}
-              >
-                🗑️ O'chirish
-              </button>
-              <div style={{ flex: 1 }}></div>
-              <button 
-                type="button" 
-                className="btn btn-outline" 
+                className="btn btn-primary" 
                 onClick={() => setShowDetailModal(false)}
               >
                 Yopish
@@ -381,4 +279,4 @@ const Portfolio = () => {
   );
 };
 
-export default Portfolio;
+export default StudentPortfolio;
