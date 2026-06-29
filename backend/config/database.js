@@ -43,8 +43,13 @@ class Database {
 
   run(sql, params = []) {
     return new Promise((resolve, reject) => {
+      if (!this.db) {
+        console.error('❌ Database not connected!');
+        return reject(new Error('Database not connected'));
+      }
       this.db.run(sql, params, function(err) {
         if (err) {
+          console.error('❌ DB run error:', err.message);
           reject(err);
         } else {
           resolve({ id: this.lastID, changes: this.changes });
@@ -55,8 +60,13 @@ class Database {
 
   get(sql, params = []) {
     return new Promise((resolve, reject) => {
+      if (!this.db) {
+        console.error('❌ Database not connected!');
+        return reject(new Error('Database not connected'));
+      }
       this.db.get(sql, params, (err, row) => {
         if (err) {
+          console.error('❌ DB get error:', err.message);
           reject(err);
         } else {
           resolve(row);
@@ -67,8 +77,13 @@ class Database {
 
   all(sql, params = []) {
     return new Promise((resolve, reject) => {
+      if (!this.db) {
+        console.error('❌ Database not connected!');
+        return reject(new Error('Database not connected'));
+      }
       this.db.all(sql, params, (err, rows) => {
         if (err) {
+          console.error('❌ DB all error:', err.message);
           reject(err);
         } else {
           resolve(rows);

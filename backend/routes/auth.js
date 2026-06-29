@@ -99,27 +99,40 @@ router.post('/register', async (req, res) => {
 // Login
 router.post('/login', async (req, res) => {
   try {
+    console.log('Login attempt:', { username: req.body.username });
+    
     const { username, password } = req.body;
 
     // Validation
     if (!username || !password) {
+      console.log('Login validation failed: missing fields');
       return res.status(400).json({ error: 'Username and password are required' });
     }
 
+    console.log('Finding user...');
     // Find user
     const user = await User.findByUsername(username);
+    console.log('User found:', user ? 'yes' : 'no');
+    
     if (!user) {
+      console.log('User not found');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    console.log('Verifying password...');
     // Verify password
     const isValidPassword = await User.verifyPassword(password, user.password);
+    console.log('Password valid:', isValidPassword);
+    
     if (!isValidPassword) {
+      console.log('Invalid password');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    console.log('Generating token...');
     // Generate token
     const token = generateToken(user.id);
+    console.log('Login successful for user:', user.username);
 
     res.json({
       message: 'Login successful',
@@ -138,8 +151,9 @@ router.post('/login', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed', details: error.message });
+    console.error('❌ Login error:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ error: 'Login failed', details: error.message, stack: process.env.NODE_ENV === 'development' ? error.stack : undefined });
   }
 });
 

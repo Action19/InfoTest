@@ -7,15 +7,13 @@ services:
     env: node
     region: singapore
     plan: free
-    buildCommand: cd backend && npm install && node scripts/initDatabase.js
-    startCommand: cd backend && node server.js
+    buildCommand: npm install && npm run init-db
+    startCommand: npm run start-backend
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 5000
-      - key: DB_PATH
-        value: /opt/render/project/src/backend/data/infotest.db
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRE
