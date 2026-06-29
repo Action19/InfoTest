@@ -12,8 +12,8 @@ const Portfolio = () => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    category: 'project',
-    content_url: ''
+    item_type: 'project',
+    file_url: ''
   });
 
   useEffect(() => {
@@ -23,17 +23,24 @@ const Portfolio = () => {
   const fetchPortfolio = async () => {
     try {
       setLoading(true);
-      const [portfolioRes, achievementsRes, statsRes] = await Promise.all([
+      const [portfolioRes, statsRes] = await Promise.all([
         api.get('/portfolio'),
-        api.get(`/statistics/user/${user.id}/achievements`),
         api.get(`/statistics/user/${user.id}`)
       ]);
 
-      setPortfolioItems(portfolioRes.data);
-      setAchievements(achievementsRes.data);
+      const items = Array.isArray(portfolioRes.data) ? portfolioRes.data : [];
+      setPortfolioItems(items);
+      
+      // Get achievements from stats response
+      if (statsRes.data && statsRes.data.achievements) {
+        setAchievements(statsRes.data.achievements);
+      }
+      
       setStats(statsRes.data);
     } catch (error) {
       console.error('Error fetching portfolio:', error);
+      setPortfolioItems([]);
+      setAchievements([]);
     } finally {
       setLoading(false);
     }
@@ -43,16 +50,17 @@ const Portfolio = () => {
     e.preventDefault();
     try {
       await api.post('/portfolio', formData);
+      alert('Portfolio element muvaffaqiyatli qo\'shildi!');
       setShowAddForm(false);
       setFormData({
         title: '',
         description: '',
-        category: 'project',
-        content_url: ''
+        item_type: 'project',
+        file_url: ''
       });
       fetchPortfolio();
     } catch (error) {
-      alert("Portfolio qo'shishda xatolik yuz berdi");
+      alert("Portfolio qo'shishda xatolik: " + (error.response?.data?.error || error.message));
     }
   };
 
@@ -74,15 +82,14 @@ const Portfolio = () => {
     return colors[level - 1] || 'bronze';
   };
 
-  const getCategoryIcon = (category) => {
+  const getCategoryIcon = (itemType) => {
     const icons = {
       project: '💻',
-      assignment: '📝',
-      certificate: '🏆',
       achievement: '⭐',
-      other: '📌'
+      test_result: '📊',
+      certificate: '🏆'
     };
-    return icons[category] || '📌';
+    return icons[itemType] || '📌';
   };
 
   if (loading) {
@@ -181,14 +188,13 @@ const Portfolio = () => {
               <div className="form-group">
                 <label>Kategoriya</label>
                 <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  value={formData.item_type}
+                  onChange={(e) => setFormData({ ...formData, item_type: e.target.value })}
                 >
                   <option value="project">Loyiha</option>
-                  <option value="assignment">Topshiriq</option>
+                  <option value="test_result">Test natijasi</option>
                   <option value="certificate">Sertifikat</option>
                   <option value="achievement">Yutuq</option>
-                  <option value="other">Boshqa</option>
                 </select>
               </div>
 
@@ -207,8 +213,8 @@ const Portfolio = () => {
                 <label>Havola (ixtiyoriy)</label>
                 <input
                   type="url"
-                  value={formData.content_url}
-                  onChange={(e) => setFormData({ ...formData, content_url: e.target.value })}
+                  value={formData.file_url}
+                  onChange={(e) => setFormData({ ...formData, file_url: e.target.value })}
                   placeholder="https://example.com"
                 />
               </div>
@@ -231,7 +237,7 @@ const Portfolio = () => {
             {portfolioItems.map((item) => (
               <div key={item.id} className="portfolio-card">
                 <div className="portfolio-header">
-                  <span className="portfolio-icon">{getCategoryIcon(item.category)}</span>
+                  <span className="portfolio-icon">{getCategoryIcon(item.item_type)}</span>
                   <button 
                     onClick={() => handleDelete(item.id)} 
                     className="btn-delete-small"
@@ -241,9 +247,9 @@ const Portfolio = () => {
                 </div>
                 <h3>{item.title}</h3>
                 <p className="portfolio-description">{item.description}</p>
-                {item.content_url && (
+                {item.file_url && (
                   <a 
-                    href={item.content_url} 
+                    href={item.file_url} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="portfolio-link"

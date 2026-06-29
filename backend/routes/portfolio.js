@@ -4,7 +4,38 @@ const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get user portfolio
+// Get current user's portfolio
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const sql = `
+      SELECT * FROM portfolio_items
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `;
+    
+    const items = await database.all(sql, [userId]);
+    
+    // Parse tags
+    items.forEach(item => {
+      if (item.tags) {
+        try {
+          item.tags = JSON.parse(item.tags);
+        } catch (e) {
+          item.tags = [];
+        }
+      }
+    });
+    
+    res.json(items);
+  } catch (error) {
+    console.error('Get portfolio error:', error);
+    res.status(500).json({ error: 'Failed to get portfolio' });
+  }
+});
+
+// Get user portfolio by ID
 router.get('/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
