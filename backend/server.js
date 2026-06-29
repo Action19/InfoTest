@@ -106,15 +106,37 @@ app.use((err, req, res, next) => {
 // Start server
 async function startServer() {
   try {
+    // Ensure data directory exists (for Render)
+    const fs = require('fs');
+    const dataDir = path.join(process.cwd(), 'data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+      console.log('✓ Created data directory');
+    }
+    
     // Connect to database
     await database.connect();
+    console.log('✓ Database connected');
+    
+    // Check if database needs initialization
+    const checkTablesQuery = `
+      SELECT name FROM sqlite_master 
+      WHERE type='table' AND name='users'
+    `;
+    const tables = await database.get(checkTablesQuery);
+    
+    if (!tables) {
+      console.log('⚠️  Database not initialized. Initializing...');
+      const initDb = require('./scripts/initDatabase');
+      // Note: In production, run init script manually or use persistent storage
+    }
     
     // Start listening
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log('\n🚀 InfoTest Backend Server Started!');
-      console.log(`📍 Server running on: http://localhost:${PORT}`);
+      console.log(`📍 Server running on: http://0.0.0.0:${PORT}`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`📊 Database: ${process.env.DB_PATH}`);
+      console.log(`📊 Database: ${process.env.DB_PATH || 'infotest.db'}`);
       console.log(`\n✓ Ready to accept requests\n`);
     });
   } catch (error) {
