@@ -13,6 +13,8 @@ const TestDetail = () => {
   const [loading, setLoading] = useState(true);
   const [showAddQuestionModal, setShowAddQuestionModal] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
+  const [showEditQuestionModal, setShowEditQuestionModal] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState(null);
   const [newQuestion, setNewQuestion] = useState({
     question_text: '',
     question_type: 'single_choice',
@@ -109,6 +111,67 @@ const TestDetail = () => {
       fetchTestDetails();
     } catch (error) {
       alert('Savol qo\'shishda xatolik: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const handleEditQuestion = (question) => {
+    // Prepare options for editing
+    let options = ['', '', '', ''];
+    if (question.options) {
+      if (Array.isArray(question.options)) {
+        options = [...question.options];
+      } else if (typeof question.options === 'string') {
+        try {
+          options = JSON.parse(question.options);
+        } catch (e) {
+          console.error('Failed to parse options:', e);
+        }
+      }
+    }
+    
+    setEditingQuestion({
+      ...question,
+      options: options
+    });
+    setShowEditQuestionModal(true);
+  };
+
+  const handleUpdateQuestion = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const questionData = {
+        question_text: editingQuestion.question_text,
+        question_type: editingQuestion.question_type,
+        options: JSON.stringify(editingQuestion.options),
+        correct_answer: editingQuestion.correct_answer,
+        points: editingQuestion.points,
+        explanation: editingQuestion.explanation
+      };
+
+      await api.put(`/questions/${editingQuestion.id}`, questionData);
+      alert('Savol muvaffaqiyatli yangilandi!');
+      setShowEditQuestionModal(false);
+      setEditingQuestion(null);
+      fetchTestDetails();
+    } catch (error) {
+      alert('Savolni yangilashda xatolik: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const handleDeleteQuestion = async (questionId) => {
+    if (!window.confirm('Savolni o\'chirmoqchimisiz?')) {
+      return;
+    }
+    
+    try {
+      await api.delete(`/questions/${questionId}`);
+      alert('Savol o\'chirildi!');
+      setShowEditQuestionModal(false);
+      setEditingQuestion(null);
+      fetchTestDetails();
+    } catch (error) {
+      alert('Savolni o\'chirishda xatolik: ' + (error.response?.data?.error || error.message));
     }
   };
 
@@ -273,6 +336,19 @@ const TestDetail = () => {
                 <div className="question-number">#{index + 1}</div>
                 <div className="question-content">
                   <div className="question-text">{question.question_text}</div>
+                  
+                  {/* Show options for choice-based questions */}
+                  {(question.question_type === 'single_choice' || question.question_type === 'multiple_choice') && question.options && (
+                    <div className="question-options-preview">
+                      {(Array.isArray(question.options) ? question.options : []).map((option, idx) => (
+                        <div key={idx} className="option-preview">
+                          <span className="option-letter">{String.fromCharCode(65 + idx)})</span>
+                          <span className="option-text-preview">{option}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
                   <div className="question-meta">
                     <span className="question-type-badge">
                       {getQuestionTypeLabel(question.question_type)}
@@ -280,6 +356,15 @@ const TestDetail = () => {
                     <span className="question-points">
                       {question.points} ball
                     </span>
+                    {(user.role === 'teacher' || user.role === 'admin') && (
+                      <button 
+                        className="btn-edit-question"
+                        onClick={() => handleEditQuestion(question)}
+                        title="Savolni tahrirlash"
+                      >
+                        ✏️
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -491,6 +576,121 @@ const TestDetail = () => {
                 </button>
                 <button type="submit" className="btn btn-success" disabled={aiLoading}>
                   {aiLoading ? 'Yaratilmoqda...' : '🤖 Yaratish'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Question Modal */}
+      {showEditQuestionModal && editingQuestion && (
+        <div className="modal-overlay" onClick={() => setShowEditQuestionModal(false)}>
+          <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Savolni tahrirlash</h2>
+              <button className="close-btn" onClick={() => setShowEditQuestionModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleUpdateQuestion} className="modal-form">
+              <div className="form-group">
+                <label htmlFor="edit_question_text">Savol matni *</label>
+                <textarea
+                  id="edit_question_text"
+                  value={editingQuestion.question_text}
+                  onChange={(e) => setEditingQuestion({...editingQuestion, question_text: e.target.value})}
+                  placeholder="Savolingizni kiriting..."
+                  rows="3"
+                  required
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="edit_question_type">Savol turi</label>
+                  <select
+                    id="edit_question_type"
+                    value={editingQuestion.question_type}
+                    onChange={(e) => setEditingQuestion({...editingQuestion, question_type: e.target.value})}
+                  >
+                    <option value="single_choice">Bir tanlovli</option>
+                    <option value="multiple_choice">Ko'p tanlovli</option>
+                    <option value="true_false">To'g'ri/Noto'g'ri</option>
+                    <option value="short_answer">Qisqa javob</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="edit_points">Ballar *</label>
+                  <input
+                    type="number"
+                    id="edit_points"
+                    value={editingQuestion.points}
+                    onChange={(e) => setEditingQuestion({...editingQuestion, points: parseInt(e.target.value)})}
+                    min="1"
+                    max="10"
+                    required
+                  />
+                </div>
+              </div>
+
+              {(editingQuestion.question_type === 'single_choice' || editingQuestion.question_type === 'multiple_choice') && (
+                <div className="form-group">
+                  <label>Javob variantlari *</label>
+                  {editingQuestion.options.map((option, index) => (
+                    <input
+                      key={index}
+                      type="text"
+                      value={option}
+                      onChange={(e) => {
+                        const newOptions = [...editingQuestion.options];
+                        newOptions[index] = e.target.value;
+                        setEditingQuestion({...editingQuestion, options: newOptions});
+                      }}
+                      placeholder={`Variant ${index + 1}`}
+                      required
+                      style={{marginBottom: '10px'}}
+                    />
+                  ))}
+                </div>
+              )}
+
+              <div className="form-group">
+                <label htmlFor="edit_correct_answer">To'g'ri javob *</label>
+                <input
+                  type="text"
+                  id="edit_correct_answer"
+                  value={editingQuestion.correct_answer}
+                  onChange={(e) => setEditingQuestion({...editingQuestion, correct_answer: e.target.value})}
+                  placeholder="To'g'ri javobni kiriting"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="edit_explanation">Tushuntirish (ixtiyoriy)</label>
+                <textarea
+                  id="edit_explanation"
+                  value={editingQuestion.explanation || ''}
+                  onChange={(e) => setEditingQuestion({...editingQuestion, explanation: e.target.value})}
+                  placeholder="Javob haqida tushuntirish..."
+                  rows="2"
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button 
+                  type="button" 
+                  className="btn btn-danger" 
+                  onClick={() => handleDeleteQuestion(editingQuestion.id)}
+                >
+                  🗑️ O'chirish
+                </button>
+                <div style={{flex: 1}}></div>
+                <button type="button" className="btn btn-outline" onClick={() => setShowEditQuestionModal(false)}>
+                  Bekor qilish
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  💾 Saqlash
                 </button>
               </div>
             </form>
