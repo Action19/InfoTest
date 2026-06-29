@@ -32,7 +32,11 @@ const TestDetail = () => {
       ]);
 
       setTest(testRes.data);
-      setQuestions(questionsRes.data);
+      
+      // Ensure questions is an array
+      const questionsData = Array.isArray(questionsRes.data) ? questionsRes.data : [];
+      setQuestions(questionsData);
+      
       setStats(statsRes.data);
     } catch (error) {
       console.error('Error fetching test details:', error);

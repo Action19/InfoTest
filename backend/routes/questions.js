@@ -28,10 +28,8 @@ router.get('/test/:testId', authenticateToken, async (req, res) => {
     const includeAnswers = req.user.role !== 'student';
     const questions = await Question.getByTestId(testId, includeAnswers);
     
-    res.json({ 
-      questions,
-      count: questions.length 
-    });
+    // Return array directly for frontend compatibility
+    res.json(questions);
   } catch (error) {
     console.error('Get questions error:', error);
     res.status(500).json({ error: 'Failed to get questions' });
