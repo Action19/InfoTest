@@ -7,9 +7,10 @@ const router = express.Router();
 
 // Generate JWT token
 const generateToken = (userId) => {
+  const secret = process.env.JWT_SECRET || 'infotest-default-secret-key-change-in-production';
   return jwt.sign(
     { userId },
-    process.env.JWT_SECRET,
+    secret,
     { expiresIn: '7d' }
   );
 };

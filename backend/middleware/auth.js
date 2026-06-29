@@ -11,7 +11,8 @@ const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ error: 'Access token required' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const secret = process.env.JWT_SECRET || 'infotest-default-secret-key-change-in-production';
+    const decoded = jwt.verify(token, secret);
     
     // Get user data
     const user = await User.findById(decoded.userId);
