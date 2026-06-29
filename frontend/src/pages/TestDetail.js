@@ -13,6 +13,12 @@ const TestDetail = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Don't fetch if we're on create page
+    if (id === 'create') {
+      // Redirect to tests page - creation should happen from Tests page
+      navigate('/tests');
+      return;
+    }
     fetchTestDetails();
   }, [id]);
 

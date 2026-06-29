@@ -9,6 +9,15 @@ const Tests = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, published, draft
   const [search, setSearch] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newTest, setNewTest] = useState({
+    title: '',
+    description: '',
+    subject: '',
+    duration: 30,
+    difficulty: 'medium',
+    passing_score: 60
+  });
 
   useEffect(() => {
     fetchTests();
@@ -67,6 +76,27 @@ const Tests = () => {
     }
   };
 
+  const handleCreateTest = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const response = await api.post('/tests', newTest);
+      alert('Test muvaffaqiyatli yaratildi!');
+      setShowCreateModal(false);
+      setNewTest({
+        title: '',
+        description: '',
+        subject: '',
+        duration: 30,
+        difficulty: 'medium',
+        passing_score: 60
+      });
+      fetchTests();
+    } catch (error) {
+      alert("Test yaratishda xatolik: " + (error.response?.data?.error || error.message));
+    }
+  };
+
   const filteredTests = tests.filter(test =>
     test.title.toLowerCase().includes(search.toLowerCase()) ||
     test.description?.toLowerCase().includes(search.toLowerCase())
@@ -93,9 +123,9 @@ const Tests = () => {
           </p>
         </div>
         {(user.role === 'teacher' || user.role === 'admin') && (
-          <Link to="/tests/create" className="btn btn-primary">
+          <button onClick={() => setShowCreateModal(true)} className="btn btn-primary">
             ➕ Yangi test
-          </Link>
+          </button>
         )}
       </div>
 
@@ -212,6 +242,108 @@ const Tests = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Tests;
+
+
+      {/* Create Test Modal */}
+      {showCreateModal && (
+        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Yangi test yaratish</h2>
+              <button className="close-btn" onClick={() => setShowCreateModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleCreateTest} className="modal-form">
+              <div className="form-group">
+                <label htmlFor="title">Test nomi *</label>
+                <input
+                  type="text"
+                  id="title"
+                  value={newTest.title}
+                  onChange={(e) => setNewTest({...newTest, title: e.target.value})}
+                  placeholder="Masalan: Matematika - Algebra asoslari"
+                  required
+                />
+              </div>
+                <textarea
+                  id="description"
+                  value={newTest.description}
+                  onChange={(e) => setNewTest({...newTest, description: e.target.value})}
+                  placeholder="Test haqida qisqacha ma'lumot..."
+                  rows="3"
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="subject">Fan *</label>
+                  <input
+                    type="text"
+                    id="subject"
+                    value={newTest.subject}
+                    onChange={(e) => setNewTest({...newTest, subject: e.target.value})}
+                    placeholder="Matematika"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="duration">Vaqt (daqiqa) *</label>
+                  <input
+                    type="number"
+                    id="duration"
+                    value={newTest.duration}
+                    onChange={(e) => setNewTest({...newTest, duration: parseInt(e.target.value)})}
+                    min="1"
+                    max="300"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="difficulty">Qiyinlik darajasi</label>
+                  <select
+                    id="difficulty"
+                    value={newTest.difficulty}
+                    onChange={(e) => setNewTest({...newTest, difficulty: e.target.value})}
+                  >
+                    <option value="easy">Oson</option>
+                    <option value="medium">O'rta</option>
+                    <option value="hard">Qiyin</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="passing_score">O'tish bali (%)</label>
+                  <input
+                    type="number"
+                    id="passing_score"
+                    value={newTest.passing_score}
+                    onChange={(e) => setNewTest({...newTest, passing_score: parseInt(e.target.value)})}
+                    min="0"
+                    max="100"
+                  />
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setShowCreateModal(false)}>
+                  Bekor qilish
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Yaratish
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
