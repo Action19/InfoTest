@@ -50,7 +50,7 @@ const TakeTest = () => {
     } catch (error) {
       console.error('Error fetching test:', error);
       alert('Testni yuklashda xatolik yuz berdi');
-      navigate('/tests');
+      navigate('/lessons');
     } finally {
       setLoading(false);
     }
@@ -133,8 +133,9 @@ const TakeTest = () => {
 
       console.log('Submit response:', response.data);
 
-      // Navigate to results page
-      navigate('/results', { 
+      // Navigate back to lesson or lessons list
+      const lessonId = test?.lesson_id;
+      navigate(lessonId ? `/lessons/${lessonId}` : '/lessons', { 
         state: { 
           resultId: response.data.result?.attempt_id,
           showDetails: true 
@@ -172,8 +173,8 @@ const TakeTest = () => {
     return (
       <div className="error-container">
         <h2>Test topilmadi</h2>
-        <button onClick={() => navigate('/tests')} className="btn btn-primary">
-          Testlarga qaytish
+        <button onClick={() => navigate('/lessons')} className="btn btn-primary">
+          Darslarga qaytish
         </button>
       </div>
     );

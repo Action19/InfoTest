@@ -38,8 +38,7 @@ const TestDetail = () => {
   useEffect(() => {
     // Don't fetch if we're on create page
     if (id === 'create') {
-      // Redirect to tests page - creation should happen from Tests page
-      navigate('/tests');
+      navigate('/lessons');
       return;
     }
     fetchTestDetails();
@@ -74,7 +73,7 @@ const TestDetail = () => {
       // Don't navigate away on statistics error
       if (!error.response || error.response.status !== 404) {
         alert('Testni yuklashda xatolik yuz berdi');
-        navigate('/tests');
+        navigate('/lessons');
       }
     } finally {
       setLoading(false);
@@ -232,7 +231,7 @@ const TestDetail = () => {
     return (
       <div className="error-container">
         <h2>Test topilmadi</h2>
-        <Link to="/tests" className="btn btn-primary">Testlarga qaytish</Link>
+        <Link to="/lessons" className="btn btn-primary">Darslarga qaytish</Link>
       </div>
     );
   }
@@ -252,7 +251,7 @@ const TestDetail = () => {
   return (
     <div className="page-container">
       <div className="test-detail-header">
-        <Link to="/tests" className="back-link">← Orqaga</Link>
+        <Link to={test.lesson_id ? `/lessons/${test.lesson_id}` : '/lessons'} className="back-link">← Orqaga</Link>
         
         <div className="test-title-section">
           <h1>{test.title}</h1>

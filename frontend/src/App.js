@@ -6,7 +6,6 @@ import PrivateRoute from './components/PrivateRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
-import Tests from './pages/Tests';
 import TestDetail from './pages/TestDetail';
 import TakeTest from './pages/TakeTest';
 import Results from './pages/Results';
@@ -37,14 +36,8 @@ function App() {
                   </PrivateRoute>
                 } 
               />
-              <Route 
-                path="/tests" 
-                element={
-                  <PrivateRoute>
-                    <Tests />
-                  </PrivateRoute>
-                } 
-              />
+              {/* /tests redirect → /lessons */}
+              <Route path="/tests" element={<Navigate to="/lessons" replace />} />
               <Route 
                 path="/tests/:id" 
                 element={

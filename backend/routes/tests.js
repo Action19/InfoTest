@@ -153,6 +153,7 @@ router.post('/', authenticateToken, isTeacherOrAdmin, async (req, res) => {
       title, 
       description, 
       subject, 
+      lesson_id,
       duration, 
       difficulty, 
       passing_score 
@@ -173,6 +174,7 @@ router.post('/', authenticateToken, isTeacherOrAdmin, async (req, res) => {
       title,
       description,
       subject,
+      lesson_id: lesson_id || null,
       duration,
       difficulty: difficulty || 'medium',
       passing_score: passing_score || 60,

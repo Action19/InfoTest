@@ -128,7 +128,7 @@ class Test {
   static async update(id, updates) {
     const allowedFields = [
       'title', 'description', 'subject', 'duration',
-      'difficulty', 'passing_score', 'is_published'
+      'difficulty', 'passing_score', 'is_published', 'lesson_id'
     ];
 
     const fields = [];
