@@ -125,12 +125,17 @@ const LessonDetail = () => {
   const fetchTestDetails = async (testId) => {
     try {
       setLoadingTest(true);
-      const [questionsRes, statsRes] = await Promise.all([
-        api.get(`/questions/test/${testId}`).catch(() => ({ data: [] })),
-        api.get(`/tests/${testId}/statistics`).catch(() => ({ data: null }))
-      ]);
+      // O'quvchi statistika so'rashga ruxsati yo'q (403), faqat savollarni oling
+      const questionsRes = await api.get(`/questions/test/${testId}`).catch(() => ({ data: [] }));
       setTestQuestions(Array.isArray(questionsRes.data) ? questionsRes.data : []);
-      setTestStats(statsRes.data);
+
+      // Statistikani faqat o'qituvchi/admin ko'radi
+      if (user.role !== 'student') {
+        const statsRes = await api.get(`/tests/${testId}/statistics`).catch(() => ({ data: null }));
+        setTestStats(statsRes.data);
+      } else {
+        setTestStats(null);
+      }
     } catch (err) {
       console.error('Error fetching test details:', err);
       setTestQuestions([]);

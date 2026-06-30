@@ -14,15 +14,25 @@ const Results = () => {
   const [selectedResult, setSelectedResult] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Test tugagandan keyin kelgan bo'lsa lessonId saqlab qo'yamiz
+  const fromLessonId = location.state?.lessonId;
+
   useEffect(() => {
     fetchResults();
   }, []);
 
   useEffect(() => {
-    if (location.state?.resultId && location.state?.showDetails) {
-      const result = results.find(r => r.id === location.state.resultId);
+    if (location.state?.resultId && location.state?.showDetails && results.length > 0) {
+      // resultId bu attempt_id yoki result.id bo'lishi mumkin — ikkalasini tekshir
+      const result = results.find(r => 
+        r.attempt_id === location.state.resultId || 
+        r.id === location.state.resultId
+      );
       if (result) {
         setSelectedResult(result);
+      } else {
+        // Topilmasa eng oxirgi natijani ko'rsat
+        setSelectedResult(results[0]);
       }
     }
   }, [results, location]);
@@ -69,8 +79,15 @@ const Results = () => {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Mening natijalarim</h1>
-        <p className="subtitle">Topshirgan testlaringiz natijalari</p>
+        <div>
+          <h1>Mening natijalarim</h1>
+          <p className="subtitle">Topshirgan testlaringiz natijalari</p>
+        </div>
+        {fromLessonId && (
+          <a href={`/lessons/${fromLessonId}`} className="btn btn-outline">
+            ← Darsga qaytish
+          </a>
+        )}
       </div>
 
       {results.length === 0 ? (

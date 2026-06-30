@@ -133,12 +133,12 @@ const TakeTest = () => {
 
       console.log('Submit response:', response.data);
 
-      // Navigate back to lesson or lessons list
-      const lessonId = test?.lesson_id;
-      navigate(lessonId ? `/lessons/${lessonId}` : '/lessons', { 
+      // Natijalar sahifasiga yo'naltirish
+      navigate('/results', { 
         state: { 
           resultId: response.data.result?.attempt_id,
-          showDetails: true 
+          showDetails: true,
+          lessonId: test?.lesson_id
         } 
       });
     } catch (error) {
