@@ -91,7 +91,10 @@ router.get('/:id', authenticateToken, async (req, res) => {
       if (lesson.grade !== grade) {
         return res.status(403).json({ error: 'Bu darsga ruxsatingiz yo\'q' });
       }
+      // Students only see published tests
+      lesson.tests = lesson.tests_published || lesson.tests.filter(t => t.is_published);
     }
+    // Teachers and admins see all tests (published + drafts)
 
     res.json(lesson);
   } catch (error) {

@@ -33,16 +33,18 @@ class Lesson {
         [lesson.created_by]
       );
 
-      // Get tests for this lesson
+      // Get tests for this lesson (all tests - frontend filters by role)
       lesson.tests = await database.all(
         `SELECT t.*, 
           (SELECT COUNT(*) FROM questions WHERE test_id = t.id) as questions_count,
           (SELECT COUNT(*) FROM results WHERE test_id = t.id) as attempts_count
          FROM tests t 
-         WHERE t.lesson_id = ? AND t.is_published = 1
+         WHERE t.lesson_id = ?
          ORDER BY t.created_at DESC`,
         [id]
       );
+      lesson.tests_all = lesson.tests;
+      lesson.tests_published = lesson.tests.filter(t => t.is_published);
     }
 
     return lesson;
