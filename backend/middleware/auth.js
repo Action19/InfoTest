@@ -73,10 +73,23 @@ const isTeacherOrAdmin = (req, res, next) => {
   next();
 };
 
+// Check if user has one of the required roles
+const requireRole = (roles) => {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({ 
+        error: 'Access denied. Required roles: ' + roles.join(', ') 
+      });
+    }
+    next();
+  };
+};
+
 module.exports = {
   authenticateToken,
   isStudent,
   isTeacher,
   isAdmin,
-  isTeacherOrAdmin
+  isTeacherOrAdmin,
+  requireRole
 };
