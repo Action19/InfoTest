@@ -551,18 +551,95 @@ const LessonDetail = () => {
                         </div>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                          {testQuestions.map((question, index) => (
+                          {testQuestions.map((question, index) => {
+                            // Parse options safely
+                            let parsedOptions = [];
+                            if (question.options) {
+                              try {
+                                parsedOptions = typeof question.options === 'string'
+                                  ? JSON.parse(question.options)
+                                  : question.options;
+                              } catch { parsedOptions = []; }
+                            }
+                            const isChoiceType = question.question_type === 'single_choice' || question.question_type === 'multiple_choice';
+
+                            return (
                             <div key={question.id} style={{ background: 'var(--bg-secondary)', borderRadius: '10px', padding: '1rem', border: '1px solid var(--border-color)' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
                                 <div style={{ display: 'flex', gap: '0.75rem', flex: 1 }}>
-                                  <span style={{ background: 'var(--primary-color)', color: '#fff', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0 }}>
+                                  <span style={{ background: 'var(--primary-color)', color: '#fff', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0, marginTop: '2px' }}>
                                     {index + 1}
                                   </span>
                                   <div style={{ flex: 1 }}>
-                                    <p style={{ margin: 0, fontWeight: 500, lineHeight: '1.4' }}>{question.question_text}</p>
-                                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem', flexWrap: 'wrap' }}>
+                                    <p style={{ margin: 0, fontWeight: 600, lineHeight: '1.4', marginBottom: '0.6rem' }}>{question.question_text}</p>
+
+                                    {/* Javob variantlari */}
+                                    {isChoiceType && parsedOptions.length > 0 && (
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginBottom: '0.5rem' }}>
+                                        {parsedOptions.map((option, idx) => {
+                                          const letter = String.fromCharCode(65 + idx);
+                                          const isCorrect =
+                                            String(question.correct_answer) === String(idx) ||
+                                            question.correct_answer === option ||
+                                            question.correct_answer === letter;
+                                          return (
+                                            <div key={idx} style={{
+                                              display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                              padding: '0.35rem 0.6rem', borderRadius: '6px',
+                                              background: isCorrect ? 'rgba(34,197,94,0.12)' : 'transparent',
+                                              border: isCorrect ? '1px solid rgba(34,197,94,0.4)' : '1px solid transparent',
+                                              fontSize: '0.875rem'
+                                            }}>
+                                              <span style={{
+                                                width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                fontSize: '0.7rem', fontWeight: 700,
+                                                background: isCorrect ? '#22c55e' : 'var(--border-color)',
+                                                color: isCorrect ? '#fff' : 'var(--text-secondary)'
+                                              }}>{letter}</span>
+                                              <span style={{ color: isCorrect ? '#16a34a' : 'var(--text-primary)', fontWeight: isCorrect ? 600 : 400 }}>
+                                                {option}
+                                              </span>
+                                              {isCorrect && <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#16a34a', fontWeight: 600 }}>✓ To'g'ri</span>}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+
+                                    {/* True/False uchun */}
+                                    {question.question_type === 'true_false' && (
+                                      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                        {['true', 'false'].map(val => {
+                                          const isCorrect = String(question.correct_answer).toLowerCase() === val;
+                                          return (
+                                            <span key={val} style={{
+                                              padding: '0.25rem 0.75rem', borderRadius: '6px', fontSize: '0.85rem',
+                                              background: isCorrect ? 'rgba(34,197,94,0.12)' : 'var(--border-color)',
+                                              color: isCorrect ? '#16a34a' : 'var(--text-secondary)',
+                                              border: isCorrect ? '1px solid rgba(34,197,94,0.4)' : '1px solid transparent',
+                                              fontWeight: isCorrect ? 600 : 400
+                                            }}>
+                                              {val === 'true' ? "✓ To'g'ri" : "✗ Noto'g'ri"}
+                                            </span>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+
+                                    {/* Short answer / code uchun */}
+                                    {(question.question_type === 'short_answer' || question.question_type === 'code_writing') && (
+                                      <div style={{ marginBottom: '0.5rem', padding: '0.4rem 0.75rem', background: 'rgba(34,197,94,0.08)', borderRadius: '6px', border: '1px solid rgba(34,197,94,0.3)', fontSize: '0.85rem', color: '#16a34a' }}>
+                                        ✓ <strong>Javob:</strong> {question.correct_answer}
+                                      </div>
+                                    )}
+
+                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                                       <span className="badge badge-info" style={{ fontSize: '0.7rem' }}>{getQuestionTypeLabel(question.question_type)}</span>
                                       <span className="badge badge-secondary" style={{ fontSize: '0.7rem' }}>{question.points} ball</span>
+                                      {question.explanation && (
+                                        <span className="badge" style={{ fontSize: '0.7rem', background: 'rgba(251,191,36,0.2)', color: '#d97706' }}>💡 Tushuntirish bor</span>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
@@ -573,7 +650,8 @@ const LessonDetail = () => {
                                 )}
                               </div>
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
