@@ -75,20 +75,31 @@ const Register = () => {
   }, [formData.email]);
 
   const checkUsername = async (username) => {
+    console.log('🔍 Checking username:', username);
     setUsernameStatus({ checking: true, message: 'Tekshirilmoqda...', available: null });
     
     try {
       const response = await api.post('/auth/check-username', { username });
+      console.log('✅ Username check response:', response.data);
       setUsernameStatus({ 
         checking: false, 
         message: response.data.message, 
         available: response.data.available 
       });
     } catch (error) {
+      console.error('❌ Username check error:', error);
+      console.error('Error response:', error.response?.data);
       if (error.response?.data) {
         setUsernameStatus({ 
           checking: false, 
           message: error.response.data.message || '❌ Xatolik', 
+          available: false 
+        });
+      } else {
+        // Network error or server down
+        setUsernameStatus({ 
+          checking: false, 
+          message: '❌ Server bilan aloqa yo\'q', 
           available: false 
         });
       }
@@ -96,20 +107,31 @@ const Register = () => {
   };
 
   const checkEmail = async (email) => {
+    console.log('🔍 Checking email:', email);
     setEmailStatus({ checking: true, message: 'Tekshirilmoqda...', available: null });
     
     try {
       const response = await api.post('/auth/check-email', { email });
+      console.log('✅ Email check response:', response.data);
       setEmailStatus({ 
         checking: false, 
         message: response.data.message, 
         available: response.data.available 
       });
     } catch (error) {
+      console.error('❌ Email check error:', error);
+      console.error('Error response:', error.response?.data);
       if (error.response?.data) {
         setEmailStatus({ 
           checking: false, 
           message: error.response.data.message || '❌ Xatolik', 
+          available: false 
+        });
+      } else {
+        // Network error or server down
+        setEmailStatus({ 
+          checking: false, 
+          message: '❌ Server bilan aloqa yo\'q', 
           available: false 
         });
       }
