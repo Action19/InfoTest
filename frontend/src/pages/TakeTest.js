@@ -46,7 +46,20 @@ const TakeTest = () => {
 
       setTest(testRes.data);
       setQuestions(questionsRes.data);
-      setTimeLeft(testRes.data.time_limit * 60); // Convert to seconds
+      setTimeLeft(testRes.data.time_limit * 60);
+
+      // Avval topshirilganmi tekshirish
+      try {
+        const myResultsRes = await api.get('/results/my-results');
+        const myResults = Array.isArray(myResultsRes.data) ? myResultsRes.data : [];
+        const prev = myResults.find(r => r.test_id === parseInt(id) || r.test_id === id);
+        if (prev) {
+          const lessonId = testRes.data?.lesson_id;
+          alert('Siz bu testni allaqachon topshirgansiz. Har bir test faqat bir marta topshiriladi.');
+          navigate(lessonId ? `/lessons/${lessonId}` : '/lessons');
+          return;
+        }
+      } catch { /* ignore */ }
     } catch (error) {
       console.error('Error fetching test:', error);
       alert('Testni yuklashda xatolik yuz berdi');
@@ -143,7 +156,14 @@ const TakeTest = () => {
       });
     } catch (error) {
       console.error('Error submitting test:', error);
-      alert('Javoblarni yuborishda xatolik yuz berdi: ' + (error.response?.data?.error || error.message));
+      // 403 — allaqachon topshirilgan
+      if (error.response?.status === 403 || error.response?.data?.already_attempted) {
+        alert('✅ Siz bu testni allaqachon topshirgansiz.\n\nHar bir test faqat bir marta topshiriladi.');
+        const lessonId = test?.lesson_id;
+        navigate(lessonId ? `/lessons/${lessonId}` : '/lessons');
+      } else {
+        alert('Javoblarni yuborishda xatolik yuz berdi: ' + (error.response?.data?.error || error.message));
+      }
     } finally {
       setSubmitting(false);
     }
