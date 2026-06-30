@@ -184,7 +184,7 @@ router.post('/', authenticateToken, requireRole(['teacher','admin']), async (req
       lesson_id, created_by: req.user.id,
       title, description: description || '',
       task_type, instructions,
-      max_score: max_score || 100,
+      max_score: max_score || 20,   // standart 20 ball
       deadline: deadline || null,
       ai_generated: false
     });
@@ -233,7 +233,7 @@ router.post('/ai-generate', authenticateToken, requireRole(['teacher','admin']),
       title: generated.title,
       description: generated.description || '',
       task_type, instructions: generated.instructions,
-      max_score: 100, deadline: null,
+      max_score: 20, deadline: null,   // AI topshiriqlari uchun standart 20 ball
       ai_generated: true
     });
     const assignment = await Assignment.findById(id);

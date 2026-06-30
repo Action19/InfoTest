@@ -43,6 +43,8 @@ const LessonDetail = () => {
   const [showCreateAssignModal, setShowCreateAssignModal] = useState(false);
   const [showAIAssignModal, setShowAIAssignModal] = useState(false);
   const [aiAssignLoading, setAiAssignLoading] = useState(false);
+  const [showEditAssignModal, setShowEditAssignModal] = useState(false);
+  const [editingAssignment, setEditingAssignment] = useState(null);
   const [newAssignment, setNewAssignment] = useState({
     title: '', description: '', task_type: 'python',
     instructions: '', max_score: 100, deadline: ''
@@ -310,6 +312,43 @@ const LessonDetail = () => {
       await fetchAssignments();
     } catch (err) {
       alert(err.response?.data?.error || "O'chirishda xatolik");
+    }
+  };
+
+  const handleEditAssignment = (assignment) => {
+    setEditingAssignment({
+      id: assignment.id,
+      title: assignment.title,
+      description: assignment.description || '',
+      task_type: assignment.task_type,
+      instructions: assignment.instructions,
+      max_score: assignment.max_score,
+      deadline: assignment.deadline
+        ? new Date(assignment.deadline).toISOString().slice(0, 16)
+        : ''
+    });
+    setShowEditAssignModal(true);
+  };
+
+  const handleUpdateAssignment = async (e) => {
+    e.preventDefault();
+    try {
+      await api.put(`/assignments/${editingAssignment.id}`, {
+        title:        editingAssignment.title,
+        description:  editingAssignment.description,
+        task_type:    editingAssignment.task_type,
+        instructions: editingAssignment.instructions,
+        max_score:    editingAssignment.max_score,
+        deadline:     editingAssignment.deadline || null
+      });
+      setShowEditAssignModal(false);
+      setEditingAssignment(null);
+      await fetchAssignments();
+      // selectedAssignment ham yangilansin
+      const updated = await api.get(`/assignments/${editingAssignment.id}`);
+      setSelectedAssignment(updated.data);
+    } catch (err) {
+      alert('Topshiriqni yangilashda xatolik: ' + (err.response?.data?.error || err.message));
     }
   };
 
@@ -1085,11 +1124,20 @@ const LessonDetail = () => {
                         </p>
                       </div>
                       {isOwner && (
-                        <button onClick={() => handleDeleteAssignment(selectedAssignment.id)}
-                          className="btn btn-sm"
-                          style={{ background: 'rgba(255,80,80,0.3)', color: '#fff', border: '1px solid rgba(255,80,80,0.5)' }}>
-                          🗑️
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                          <button onClick={() => handleEditAssignment(selectedAssignment)}
+                            className="btn btn-sm"
+                            style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.5)' }}
+                            title="Tahrirlash">
+                            ✏️
+                          </button>
+                          <button onClick={() => handleDeleteAssignment(selectedAssignment.id)}
+                            className="btn btn-sm"
+                            style={{ background: 'rgba(255,80,80,0.3)', color: '#fff', border: '1px solid rgba(255,80,80,0.5)' }}
+                            title="O'chirish">
+                            🗑️
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1720,6 +1768,63 @@ const LessonDetail = () => {
                 <button type="submit" className="btn btn-success" disabled={aiAssignLoading}>
                   {aiAssignLoading ? '⏳ Yaratilmoqda...' : '🤖 AI yaratsin'}
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Assignment Modal */}
+      {showEditAssignModal && editingAssignment && (
+        <div className="modal-overlay" onClick={() => setShowEditAssignModal(false)}>
+          <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>✏️ Topshiriqni tahrirlash</h2>
+              <button className="close-btn" onClick={() => setShowEditAssignModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleUpdateAssignment} className="modal-form">
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Topshiriq turi *</label>
+                  <select value={editingAssignment.task_type}
+                    onChange={e => setEditingAssignment({...editingAssignment, task_type: e.target.value})} required>
+                    {Object.entries(TASK_TYPES).map(([k, v]) => (
+                      <option key={k} value={k}>{v.icon} {v.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Maksimal ball</label>
+                  <input type="number" min="1" max="100"
+                    value={editingAssignment.max_score}
+                    onChange={e => setEditingAssignment({...editingAssignment, max_score: parseInt(e.target.value)})} />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Topshiriq nomi *</label>
+                <input type="text" required value={editingAssignment.title}
+                  onChange={e => setEditingAssignment({...editingAssignment, title: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label>Qisqacha tavsif</label>
+                <textarea rows="2" value={editingAssignment.description}
+                  onChange={e => setEditingAssignment({...editingAssignment, description: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label>Bajarish ko'rsatmalari *</label>
+                <textarea rows="8" required value={editingAssignment.instructions}
+                  onChange={e => setEditingAssignment({...editingAssignment, instructions: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label>Topshirish muddati (ixtiyoriy)</label>
+                <input type="datetime-local" value={editingAssignment.deadline || ''}
+                  onChange={e => setEditingAssignment({...editingAssignment, deadline: e.target.value})} />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setShowEditAssignModal(false)}>
+                  Bekor qilish
+                </button>
+                <button type="submit" className="btn btn-primary">💾 Saqlash</button>
               </div>
             </form>
           </div>
