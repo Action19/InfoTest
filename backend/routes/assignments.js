@@ -65,6 +65,60 @@ function buildAIInstructionPrompt(task_type, topic, grade, level) {
 }
 
 function buildAIGradePrompt(task_type, instructions, fileContent) {
+  // Har bir til/dastur turi uchun alohida baholash mezonlari
+  const criteria = {
+    python: `BAHOLASH MEZONLARI (Python):
+- Kod ishlaydimi va sintaksis to'g'rimi
+- Topshiriqda so'ralgan funksiyalar, sikllar, shartlar, input/output to'g'ri ishlatilganmi
+- Dastur topshiriq talablariga to'liq javob beradi yoki yo'q
+- Kod o'qilishi va toza yozilishi
+❌ QOIDALAR: Python dasturida diagramma yoki Excel formulalari so'RALMAYDI! Faqat Python kodi tekshirilsin.`,
+
+    html: `BAHOLASH MEZONLARI (HTML):
+- HTML strukturasi to'g'rimi (DOCTYPE, html, head, body)
+- Topshiriqda so'ralgan teglar mavjudmi
+- Sahifa tarkibi va semantika to'g'rimi
+❌ QOIDALAR: HTML faylda Excel formulalari yoki Python kodi so'RALMAYDI!`,
+
+    javascript: `BAHOLASH MEZONLARI (JavaScript):
+- Kod sintaksisi to'g'rimi
+- Topshiriqda so'ralgan funksiyalar, voqealar, DOM operatsiyalari bajarilganmi
+- Dastur ishlayaptimi (logika to'g'rimi)
+❌ QOIDALAR: JS faylda Excel formulalari yoki diagrammalar so'RALMAYDI!`,
+
+    css: `BAHOLASH MEZONLARI (CSS):
+- Selektorlar to'g'ri ishlatilganmi
+- Topshiriqda so'ralgan xususiyatlar (ranglar, o'lchamlar, animatsiyalar) qo'llanilganmi
+- Responsive dizayn yoki boshqa talablar bajarilganmi
+❌ QOIDALAR: CSS faylda Excel formulalari yoki diagrammalar so'RALMAYDI!`,
+
+    excel: `BAHOLASH MEZONLARI (Excel):
+- Jadval tuzilmasi to'g'rimi
+- Formulalar ishlatilganmi (faqat qiymat yozilgan bo'lsa — bu xato)
+- Talabda diagramma so'ralgan bo'lsa — mavjudmi
+- Filtrlash, formatlash talablari bajarilganmi
+MUHIM: "❌ Diagramma topilmadi" yoki "Formulalar soni: 0" ko'rsatilsa — jiddiy kamchilik!`,
+
+    word: `BAHOLASH MEZONLARI (Word):
+- Hujjat tuzilmasi va formatlash
+- Sarlavhalar, jadvallar, rasmlar talabga muvofiqmi
+- Mazmun to'liqmi
+❌ QOIDALAR: Word hujjatda Excel formulalari so'RALMAYDI!`,
+
+    access: `BAHOLASH MEZONLARI (Access):
+- Jadvallar yaratilganmi
+- So'rovlar, formalar, hisobotlar talabga muvofiqmi`,
+
+    scratch: `BAHOLASH MEZONLARI (Scratch):
+- Loyiha ishlayaptimi
+- Topshiriqda so'ralgan animatsiya yoki o'yin elementlari bajarilganmi`,
+
+    other: `BAHOLASH MEZONLARI:
+- Topshiriq talablariga umumiy muvofiqlik`
+  };
+
+  const taskCriteria = criteria[task_type] || criteria.other;
+
   return `Sen informatika o'qituvchisisisan. O'quvchi quyidagi amaliy topshiriqni bajardi.
 
 TOPSHIRIQ TURI: ${TASK_TYPES[task_type]?.label || task_type}
@@ -75,22 +129,23 @@ ${instructions}
 O'QUVCHI TOPSHIRGAN FAYL TARKIBI:
 ${fileContent}
 
-MUHIM KO'RSATMALAR:
-- Topshiriq talablarida aytilgan HAR BIR narsani tekshir (formulalar, diagrammalar, jadvallar, funksiyalar va h.k.)
-- Agar talabda "diagramma qo'sh" deyilgan bo'lsa va diagramma yo'q bo'lsa — bu katta xato, ball keskin kamaytir
-- Agar talabda formula ishlatish kerak bo'lsa va formulalar yo'q bo'lsa (faqat qiymatlar) — bu xato
-- Fayl tarkibida aniq ko'rsatilgan ma'lumotlar asosida baholab, taxmin qilma
-- Agar "❌ Diagramma topilmadi" yoki "Formulalar soni: 0" ko'rsatilsa — buni jiddiy kamchilik deb hisoblash
+${taskCriteria}
+
+UMUMIY QOIDALAR:
+- FAQAT topshiriq turiga mos mezonlar bilan baholagin
+- Topshiriq talablarida YO'Q narsani so'ramagani uchun ball kesmaysan
+- Fayl tarkibida KO'RSATILGAN ma'lumotlar asosida baho, taxmin qilma
+- Topshiriq talabidagi HAR BIR band bajarilganmi tekshir
 
 Quyidagi JSON formatda javob ber (boshqa hech narsa yozma):
 {
-  "score_percent": 45,
+  "score_percent": 85,
   "feedback": "O'quvchining ishi haqida batafsil fikr — nima bajarilgan, nima bajarilmagan",
-  "strengths": "Bajarilgan ijobiy tomonlar (yo'q bo'lsa 'Topshiriq to'liq bajarilmagan' deb yoz)",
-  "improvements": "Yaxshilash kerak bo'lgan tomonlar — aniq ko'rsatmalar bilan"
+  "strengths": "Bajarilgan ijobiy tomonlar",
+  "improvements": "Yaxshilash kerak bo'lgan tomonlar (topshiriq talabiga asosan)"
 }
 
-score_percent 0 dan 100 gacha bo'lsin. Baholashda qat'iy bo'l — bajarilmagan talablar uchun ball bera ko'rma.`;
+score_percent 0 dan 100 gacha bo'lsin. Faqat topshiriq talablaridagi KAMCHILIKLARNI ko'rsat.`;
 }
 
 // ─── ROUTES ──────────────────────────────────────────────────
@@ -433,13 +488,26 @@ router.post('/submissions/:subId/ai-grade', authenticateToken, requireRole(['tea
 
     if (fileData.type === 'image') {
       // ── 3a. Rasm — Vision API ─────────────────────────────
+      // task_type ga mos mezonlarni olamiz
+      const taskCriteriaForVision = {
+        python: 'Bu Python dasturining screenshoti. Kod sintaksisi, funksiyalar, shartlar, input/output ko\'rib chiqilsin. Diagramma yoki Excel formulalari TALAB QILINMAYDI.',
+        html: 'Bu HTML sahifaning screenshoti. Tuzilma, teglar, vizual ko\'rinish ko\'rib chiqilsin.',
+        javascript: 'Bu JavaScript dasturining screenshoti. Kod logikasi va natija ko\'rib chiqilsin.',
+        css: 'Bu CSS stilning screenshoti. Vizual dizayn va stillar ko\'rib chiqilsin.',
+        excel: 'Bu Excel fayl screenshoti. Jadvallar, formulalar, diagrammalar ko\'rib chiqilsin.',
+        word: 'Bu Word hujjat screenshoti. Formatlash, tuzilma va mazmun ko\'rib chiqilsin.',
+        scratch: 'Bu Scratch loyihasining screenshoti. Bloklar, animatsiya ko\'rib chiqilsin.',
+      }[a.task_type] || 'Topshiriq talablariga umumiy moslik ko\'rib chiqilsin.';
+
       const visionPrompt = `Sen informatika o'qituvchisisisan. O'quvchi quyidagi topshiriqni bajardi.
 
 TOPSHIRIQ TURI: ${TASK_TYPES[a.task_type]?.label || a.task_type}
 TOPSHIRIQ TALABLARI:
 ${a.instructions}
 
-O'quvchi "${sub.file_name}" nomli rasm yubordi. Rasmni diqqat bilan ko'rib, topshiriq talablariga mosligini baholabing.
+BAHOLASH KO'RSATMASI: ${taskCriteriaForVision}
+
+O'quvchi "${sub.file_name}" nomli rasm yubordi. Rasmni diqqat bilan ko'rib, FAQAT topshiriq talablariga mosligini baholabing.
 
 Quyidagi JSON formatda javob ber (boshqa hech narsa yozma):
 {
