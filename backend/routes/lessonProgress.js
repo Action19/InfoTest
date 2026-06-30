@@ -99,10 +99,21 @@ router.get('/student/all', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/lesson-progress/journal — o'qituvchi jurnali (barcha o'quvchilar × darslar)
+// GET /api/lesson-progress/journal — o'qituvchi jurnali, sinf bo'yicha guruhlangan
 router.get('/journal/teacher', authenticateToken, async (req, res) => {
   try {
     if (req.user.role === 'student') return res.status(403).json({ error: 'Ruxsat yo\'q' });
+
+    // O'qituvchi ma'lumotlari (tuman, maktab, o'qitiladigan sinflar)
+    const teacher = await database.get(
+      'SELECT id, full_name, district, school_number, teaching_classes FROM users WHERE id = ?',
+      [req.user.id]
+    );
+
+    // O'qituvchi o'qitadigan sinflar (masalan: "10-A,10-B,10-V" → ['10-A','10-B','10-V'])
+    const teachingClasses = teacher.teaching_classes
+      ? teacher.teaching_classes.split(',').map(c => c.trim()).filter(Boolean)
+      : [];
 
     // O'qituvchining darslari
     const lessons = await database.all(
@@ -111,31 +122,108 @@ router.get('/journal/teacher', authenticateToken, async (req, res) => {
       [req.user.id]
     );
 
-    // Har dars uchun o'quvchilar progressi
-    const journal = [];
-    for (const lesson of lessons) {
-      const students = await database.all(`
-        SELECT
-          lp.student_id, lp.earned_score, lp.total_possible,
-          lp.percent, lp.grade, lp.updated_at,
-          u.full_name, u.class_name, u.username
-        FROM lesson_progress lp
-        JOIN users u ON lp.student_id = u.id
-        WHERE lp.lesson_id = ?
-        ORDER BY u.class_name, u.full_name
-      `, [lesson.id]);
+    // Har sinf uchun alohida jurnal
+    const classesList = teachingClasses.length > 0 ? teachingClasses : ['Barchasi'];
 
-      journal.push({
-        ...lesson,
-        students: students.map(s => ({
-          ...s,
-          medal: LessonProgress.getMedal(s.grade),
-          medal_label: LessonProgress.getMedalLabel(s.grade)
-        }))
-      });
+    const byClass = {};
+
+    for (const className of classesList) {
+      const classJournal = [];
+
+      for (const lesson of lessons) {
+        // Faqat shu sinfga tegishli grade bo'lgan darslar
+        // (sinf nomi "10-A" → grade = 10)
+        const classGrade = parseInt(className.split('-')[0]);
+        if (lesson.grade !== classGrade && teachingClasses.length > 0) continue;
+
+        // Faqat shu sinfdagi, shu tumandagi, shu maktabdagi o'quvchilar
+        let studentsQuery;
+        let studentsParams;
+
+        if (teachingClasses.length > 0) {
+          studentsQuery = `
+            SELECT
+              lp.student_id, lp.earned_score, lp.total_possible,
+              lp.percent, lp.grade, lp.updated_at,
+              u.full_name, u.class_name, u.username
+            FROM lesson_progress lp
+            JOIN users u ON lp.student_id = u.id
+            WHERE lp.lesson_id = ?
+              AND u.class_name = ?
+              AND u.district = ?
+              AND u.school_number = ?
+            ORDER BY u.full_name
+          `;
+          studentsParams = [lesson.id, className, teacher.district, teacher.school_number];
+        } else {
+          studentsQuery = `
+            SELECT
+              lp.student_id, lp.earned_score, lp.total_possible,
+              lp.percent, lp.grade, lp.updated_at,
+              u.full_name, u.class_name, u.username
+            FROM lesson_progress lp
+            JOIN users u ON lp.student_id = u.id
+            WHERE lp.lesson_id = ?
+            ORDER BY u.class_name, u.full_name
+          `;
+          studentsParams = [lesson.id];
+        }
+
+        const students = await database.all(studentsQuery, studentsParams);
+
+        // Shu sinfda o'quvchi bo'lsa ham bo'lmasa ham darsni qo'shamiz
+        // (o'qituvchi barcha darslarini ko'rishi kerak)
+        classJournal.push({
+          ...lesson,
+          students: students.map(s => ({
+            ...s,
+            medal: LessonProgress.getMedal(s.grade),
+            medal_label: LessonProgress.getMedalLabel(s.grade)
+          }))
+        });
+      }
+
+      if (classJournal.length > 0) {
+        byClass[className] = classJournal;
+      }
     }
 
-    res.json({ journal });
+    // Agar sinflarga bo'linmagan bo'lsa — barcha darslarni qaytarish
+    if (Object.keys(byClass).length === 0 && lessons.length > 0) {
+      const allJournal = [];
+      for (const lesson of lessons) {
+        const students = await database.all(`
+          SELECT lp.student_id, lp.earned_score, lp.total_possible,
+                 lp.percent, lp.grade, lp.updated_at,
+                 u.full_name, u.class_name, u.username
+          FROM lesson_progress lp
+          JOIN users u ON lp.student_id = u.id
+          WHERE lp.lesson_id = ?
+          ORDER BY u.class_name, u.full_name
+        `, [lesson.id]);
+
+        allJournal.push({
+          ...lesson,
+          students: students.map(s => ({
+            ...s,
+            medal: LessonProgress.getMedal(s.grade),
+            medal_label: LessonProgress.getMedalLabel(s.grade)
+          }))
+        });
+      }
+      byClass['Barcha sinflar'] = allJournal;
+    }
+
+    res.json({
+      teacher: {
+        full_name: teacher.full_name,
+        district: teacher.district,
+        school_number: teacher.school_number,
+        teaching_classes: teachingClasses
+      },
+      by_class: byClass,        // { '10-A': [...lessons], '10-B': [...] }
+      all_lessons: lessons       // barcha darslar ro'yxati
+    });
   } catch (err) {
     console.error('Journal error:', err);
     res.status(500).json({ error: 'Jurnalni olishda xatolik' });

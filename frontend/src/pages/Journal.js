@@ -4,29 +4,50 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import '../assets/css/Pages.css';
 
-const getMedal      = (g) => ({ 5:'🥇', 4:'🥈', 3:'🥉', 2:'😢' }[g] || '—');
-const gradeColor    = (g) => ({ 5:'#f59e0b', 4:'#6366f1', 3:'#92400e', 2:'#dc2626' }[g] || '#9ca3af');
-const gradeBg       = (g) => ({ 5:'rgba(245,158,11,0.12)', 4:'rgba(99,102,241,0.12)', 3:'rgba(146,64,14,0.12)', 2:'rgba(220,38,38,0.12)' }[g] || 'transparent');
+// ─── Helpers ─────────────────────────────────────────────────
+const getMedal   = (g) => ({ 5:'🥇', 4:'🥈', 3:'🥉', 2:'😢' }[g] || '—');
+const gradeColor = (g) => ({ 5:'#f59e0b', 4:'#6366f1', 3:'#92400e', 2:'#dc2626' }[g] || '#9ca3af');
+const gradeBg    = (g) => ({
+  5:'rgba(245,158,11,0.12)', 4:'rgba(99,102,241,0.12)',
+  3:'rgba(146,64,14,0.12)',  2:'rgba(220,38,38,0.12)'
+}[g] || 'transparent');
+
+const gradeStats = (students) => {
+  const graded = students.filter(s => s.grade > 0);
+  const avg    = graded.length
+    ? (graded.reduce((a, s) => a + s.grade, 0) / graded.length).toFixed(1)
+    : '—';
+  const counts = [5,4,3,2].map(g => ({ grade:g, count: students.filter(s => s.grade === g).length }));
+  return { total: students.length, graded: graded.length, avg, counts };
+};
 
 const Journal = () => {
   const { user } = useAuth();
-  const [journal, setJournal]     = useState([]);   // [{lesson, students[]}]
-  const [loading, setLoading]     = useState(true);
-  const [activeLesson, setActiveLesson] = useState(null);
-  const [search, setSearch]       = useState('');
-  const [filterClass, setFilterClass] = useState('');
 
-  useEffect(() => {
-    fetchJournal();
-  }, []);
+  const [teacher,      setTeacher]      = useState(null);
+  const [byClass,      setByClass]      = useState({});   // { '10-A': [lessons...] }
+  const [loading,      setLoading]      = useState(true);
+  const [activeClass,  setActiveClass]  = useState(null); // aktiv sinf tab
+  const [activeLesson, setActiveLesson] = useState(null); // aktiv dars
+  const [search,       setSearch]       = useState('');
+
+  useEffect(() => { fetchJournal(); }, []);
 
   const fetchJournal = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/lesson-progress/journal/teacher');
-      const data = res.data.journal || [];
-      setJournal(data);
-      if (data.length > 0) setActiveLesson(data[0].id);
+      const res  = await api.get('/lesson-progress/journal/teacher');
+      const bc   = res.data.by_class || {};
+      setTeacher(res.data.teacher || null);
+      setByClass(bc);
+
+      // Birinchi sinf va darsni tanlash
+      const firstClass = Object.keys(bc)[0];
+      if (firstClass) {
+        setActiveClass(firstClass);
+        const firstLesson = bc[firstClass][0];
+        if (firstLesson) setActiveLesson(firstLesson.id);
+      }
     } catch (err) {
       console.error('Journal fetch error:', err);
     } finally {
@@ -43,34 +64,23 @@ const Journal = () => {
     );
   }
 
-  const activeLessonData = journal.find(l => l.id === activeLesson);
-
-  // Barcha sinflar ro'yxati
-  const allClasses = [...new Set(
-    journal.flatMap(l => l.students.map(s => s.class_name).filter(Boolean))
-  )].sort();
+  const classes      = Object.keys(byClass).sort();
+  const classLessons = byClass[activeClass] || [];
+  const activeLessonData = classLessons.find(l => l.id === activeLesson);
 
   // Filterlangan o'quvchilar
-  const filteredStudents = (activeLessonData?.students || []).filter(s => {
-    const matchSearch = !search ||
-      s.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-      s.username?.toLowerCase().includes(search.toLowerCase());
-    const matchClass = !filterClass || s.class_name === filterClass;
-    return matchSearch && matchClass;
-  });
+  const filteredStudents = (activeLessonData?.students || []).filter(s =>
+    !search ||
+    s.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+    s.username?.toLowerCase().includes(search.toLowerCase())
+  );
 
-  // Statistika
-  const gradeStats = (students) => {
-    const total   = students.length;
-    const graded  = students.filter(s => s.grade > 0).length;
-    const avg     = graded > 0
-      ? (students.filter(s=>s.grade>0).reduce((a,s)=>a+s.grade,0) / graded).toFixed(1)
-      : '—';
-    const counts  = [5,4,3,2].map(g => ({
-      grade: g,
-      count: students.filter(s => s.grade === g).length
-    }));
-    return { total, graded, avg, counts };
+  // Sinf o'zgarganda birinchi darsni tanlash
+  const handleClassChange = (cls) => {
+    setActiveClass(cls);
+    setSearch('');
+    const first = byClass[cls]?.[0];
+    setActiveLesson(first?.id || null);
   };
 
   return (
@@ -80,235 +90,305 @@ const Journal = () => {
       <div className="page-header" style={{ marginBottom: '1.5rem' }}>
         <div>
           <h1>📒 Jurnal</h1>
-          <p className="subtitle">O'quvchilarning darslar bo'yicha bahosi</p>
+          <p className="subtitle">
+            {teacher
+              ? `${teacher.district} · ${teacher.school_number}-maktab · ${teacher.teaching_classes?.join(', ') || ''}`
+              : "O'quvchilarning darslar bo'yicha bahosi"}
+          </p>
         </div>
       </div>
 
-      {journal.length === 0 ? (
+      {classes.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">📒</div>
           <h3>Hali darslar yaratilmagan</h3>
           <p>Darslar yarating va o'quvchilar testlar topshirganda jurnal to'ldiriladi</p>
-          <Link to="/lessons" className="btn btn-primary" style={{ marginTop: '1rem' }}>
+          <Link to="/lessons" className="btn btn-primary" style={{ marginTop:'1rem' }}>
             Darslarga o'tish
           </Link>
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <>
+          {/* ══ SINF VKЛАДKALARI (tab bar) ══ */}
+          <div style={{
+            display: 'flex', gap: '0.25rem', marginBottom: '1.5rem',
+            borderBottom: '2px solid var(--border-color)',
+            overflowX: 'auto', paddingBottom: 0
+          }}>
+            {classes.map(cls => {
+              const clsLessons  = byClass[cls] || [];
+              const allStudents = clsLessons.flatMap(l => l.students);
+              const graded      = allStudents.filter(s => s.grade > 0).length;
+              const total       = allStudents.length;
+              const isActive    = activeClass === cls;
 
-          {/* ── Chap: darslar ro'yxati ── */}
-          <div style={{ flex: '0 0 200px', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)',
-              textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>
-              Darslar
-            </div>
-            {journal.map((lesson, idx) => {
-              const stats = gradeStats(lesson.students);
               return (
-                <button key={lesson.id}
-                  onClick={() => setActiveLesson(lesson.id)}
+                <button key={cls} onClick={() => handleClassChange(cls)}
                   style={{
-                    textAlign: 'left', padding: '0.8rem 0.9rem',
-                    borderRadius: '10px', border: 'none', cursor: 'pointer',
-                    background: activeLesson === lesson.id
-                      ? 'linear-gradient(135deg,rgba(102,126,234,0.15),rgba(118,75,162,0.15))'
-                      : 'var(--card-bg)',
-                    borderLeft: activeLesson === lesson.id
-                      ? '3px solid var(--primary-color)'
-                      : '3px solid transparent',
-                    transition: 'all 0.2s'
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    padding: '0.6rem 1.4rem', border: 'none', cursor: 'pointer',
+                    background: 'transparent', whiteSpace: 'nowrap',
+                    borderBottom: isActive ? '3px solid var(--primary-color)' : '3px solid transparent',
+                    marginBottom: '-2px', transition: 'all 0.2s',
+                    minWidth: '90px'
                   }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                    {idx + 1}-Dars
-                  </div>
-                  <div style={{ fontSize: '0.73rem', color: 'var(--text-secondary)', marginTop: '0.15rem',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {lesson.title}
-                  </div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                    👥 {stats.graded}/{stats.total} baholandi
-                    {stats.graded > 0 && <span style={{ marginLeft: '0.4rem', color: 'var(--primary-color)', fontWeight: 600 }}>
-                      ø{stats.avg}
-                    </span>}
-                  </div>
+                  <span style={{
+                    fontSize: '1rem', fontWeight: 700,
+                    color: isActive ? 'var(--primary-color)' : 'var(--text-primary)'
+                  }}>
+                    {cls}
+                  </span>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+                    {graded}/{total} baholandi
+                  </span>
                 </button>
               );
             })}
           </div>
 
-          {/* ── O'ng: jurnal jadvali ── */}
-          {activeLessonData && (
-            <div style={{ flex: 1, minWidth: 0 }}>
+          {/* ══ SINF TANLANGAN — Kontent ══ */}
+          {activeClass && (
+            <div style={{ display:'flex', gap:'1.5rem', alignItems:'flex-start', flexWrap:'wrap' }}>
 
-              {/* Dars sarlavhasi */}
-              <div style={{
-                background: 'linear-gradient(135deg,var(--primary-color),var(--secondary-color))',
-                borderRadius: '14px', padding: '1rem 1.5rem', color: '#fff',
-                marginBottom: '1rem', display: 'flex', justifyContent: 'space-between',
-                alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem'
-              }}>
-                <div>
-                  <div style={{ fontSize: '0.78rem', opacity: 0.8 }}>
-                    {journal.indexOf(activeLessonData) + 1}-Dars
-                  </div>
-                  <h3 style={{ margin: '0.1rem 0 0', color: '#fff', fontSize: '1.05rem' }}>
-                    {activeLessonData.title}
-                  </h3>
-                  <div style={{ fontSize: '0.78rem', opacity: 0.85 }}>
-                    {activeLessonData.grade}-sinf · {activeLessonData.subject}
-                  </div>
+              {/* ── Chap: darslar ro'yxati ── */}
+              <div style={{ flex:'0 0 210px', display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+                <div style={{
+                  fontSize:'0.72rem', fontWeight:700, color:'var(--text-secondary)',
+                  textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'0.25rem',
+                  paddingLeft:'0.5rem'
+                }}>
+                  📚 {activeClass} — Darslar
                 </div>
-                {/* Statistika */}
-                {(() => {
-                  const st = gradeStats(activeLessonData.students);
+                {classLessons.length === 0 ? (
+                  <div style={{ fontSize:'0.82rem', color:'var(--text-secondary)', padding:'0.75rem 0.5rem' }}>
+                    Bu sinf uchun darslar yo'q
+                  </div>
+                ) : classLessons.map((lesson, idx) => {
+                  const st = gradeStats(lesson.students);
+                  const isAct = activeLesson === lesson.id;
                   return (
-                    <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-                      {st.counts.map(({ grade, count }) => count > 0 && (
-                        <div key={grade} style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '1.3rem' }}>
-                            {{ 5:'🥇', 4:'🥈', 3:'🥉', 2:'😢' }[grade]}
-                          </div>
-                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff' }}>
-                            {grade} — {count} ta
-                          </div>
-                        </div>
-                      ))}
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '1.4rem', fontWeight: 800 }}>ø{st.avg}</div>
-                        <div style={{ fontSize: '0.72rem', opacity: 0.85 }}>o'rtacha baho</div>
+                    <button key={lesson.id}
+                      onClick={() => { setActiveLesson(lesson.id); setSearch(''); }}
+                      style={{
+                        textAlign:'left', padding:'0.8rem 0.9rem',
+                        borderRadius:'10px', border:'none', cursor:'pointer',
+                        background: isAct
+                          ? 'linear-gradient(135deg,rgba(102,126,234,0.15),rgba(118,75,162,0.15))'
+                          : 'var(--card-bg)',
+                        borderLeft: isAct ? '3px solid var(--primary-color)' : '3px solid transparent',
+                        boxShadow: isAct ? '0 2px 8px rgba(0,0,0,0.07)' : 'none',
+                        transition:'all 0.2s'
+                      }}>
+                      <div style={{ fontWeight:700, fontSize:'0.82rem', color:'var(--text-primary)' }}>
+                        {idx+1}-Dars
+                      </div>
+                      <div style={{
+                        fontSize:'0.72rem', color:'var(--text-secondary)', marginTop:'0.15rem',
+                        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'165px'
+                      }}>
+                        {lesson.title}
+                      </div>
+                      <div style={{ fontSize:'0.68rem', color:'var(--text-secondary)', marginTop:'0.2rem', display:'flex', gap:'0.5rem' }}>
+                        <span>👥 {st.graded}/{st.total}</span>
+                        {st.graded > 0 && (
+                          <span style={{ color:'var(--primary-color)', fontWeight:600 }}>ø{st.avg}</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* ── O'ng: jurnal jadvali ── */}
+              {activeLessonData ? (
+                <div style={{ flex:1, minWidth:0 }}>
+
+                  {/* Dars sarlavhasi */}
+                  <div style={{
+                    background:'linear-gradient(135deg,var(--primary-color),var(--secondary-color))',
+                    borderRadius:'14px', padding:'1rem 1.5rem', color:'#fff',
+                    marginBottom:'1rem', display:'flex', justifyContent:'space-between',
+                    alignItems:'center', flexWrap:'wrap', gap:'0.75rem'
+                  }}>
+                    <div>
+                      <div style={{ fontSize:'0.75rem', opacity:0.8 }}>
+                        {activeClass} · {classLessons.indexOf(activeLessonData)+1}-Dars
+                      </div>
+                      <h3 style={{ margin:'0.1rem 0 0', color:'#fff', fontSize:'1.05rem' }}>
+                        {activeLessonData.title}
+                      </h3>
+                      <div style={{ fontSize:'0.78rem', opacity:0.85 }}>
+                        {activeLessonData.grade}-sinf · {activeLessonData.subject}
                       </div>
                     </div>
-                  );
-                })()}
-              </div>
+                    {/* Statistika */}
+                    {(() => {
+                      const st = gradeStats(activeLessonData.students);
+                      return (
+                        <div style={{ display:'flex', gap:'1.25rem', flexWrap:'wrap', alignItems:'center' }}>
+                          {st.counts.map(({ grade, count }) => count > 0 && (
+                            <div key={grade} style={{ textAlign:'center' }}>
+                              <div style={{ fontSize:'1.2rem' }}>
+                                {{ 5:'🥇', 4:'🥈', 3:'🥉', 2:'😢' }[grade]}
+                              </div>
+                              <div style={{ fontSize:'0.82rem', fontWeight:700, color:'#fff' }}>
+                                {grade} — {count} ta
+                              </div>
+                            </div>
+                          ))}
+                          <div style={{ textAlign:'center', borderLeft:'1px solid rgba(255,255,255,0.3)', paddingLeft:'1rem' }}>
+                            <div style={{ fontSize:'1.5rem', fontWeight:800 }}>ø{st.avg}</div>
+                            <div style={{ fontSize:'0.68rem', opacity:0.85 }}>o'rtacha</div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
 
-              {/* Filter qator */}
-              <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                <input
-                  type="text"
-                  placeholder="🔍 O'quvchi ismi..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  style={{
-                    flex: 1, minWidth: '180px', padding: '0.5rem 0.75rem',
-                    borderRadius: '8px', border: '1px solid var(--border-color)',
-                    background: 'var(--card-bg)', color: 'var(--text-primary)', fontSize: '0.88rem'
-                  }}
-                />
-                {allClasses.length > 1 && (
-                  <select
-                    value={filterClass}
-                    onChange={e => setFilterClass(e.target.value)}
-                    style={{
-                      padding: '0.5rem 0.75rem', borderRadius: '8px',
-                      border: '1px solid var(--border-color)',
-                      background: 'var(--card-bg)', color: 'var(--text-primary)', fontSize: '0.88rem'
+                  {/* Qidiruv */}
+                  <div style={{ marginBottom:'0.85rem' }}>
+                    <input
+                      type="text"
+                      placeholder="🔍 O'quvchi ismi yoki login..."
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                      style={{
+                        width:'100%', padding:'0.5rem 0.85rem', boxSizing:'border-box',
+                        borderRadius:'8px', border:'1px solid var(--border-color)',
+                        background:'var(--card-bg)', color:'var(--text-primary)', fontSize:'0.88rem'
+                      }}
+                    />
+                  </div>
+
+                  {/* Jadval */}
+                  {filteredStudents.length === 0 ? (
+                    <div style={{
+                      textAlign:'center', padding:'2.5rem', color:'var(--text-secondary)',
+                      background:'var(--card-bg)', borderRadius:'12px', border:'1px solid var(--border-color)'
                     }}>
-                    <option value="">Barcha sinflar</option>
-                    {allClasses.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                )}
-              </div>
+                      {activeLessonData.students.length === 0
+                        ? `${activeClass} sinfidan hali hech bir o'quvchi bu darsni bajarmagan`
+                        : 'Qidiruv bo\'yicha natijalar topilmadi'}
+                    </div>
+                  ) : (
+                    <div style={{ overflowX:'auto' }}>
+                      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.88rem' }}>
+                        <thead>
+                          <tr style={{ background:'var(--bg-secondary)' }}>
+                            {['#', "O'quvchi", 'Ball', 'Foiz', 'Baho', 'Sana'].map(h => (
+                              <th key={h} style={{
+                                padding:'0.65rem 0.9rem', textAlign:'left', fontWeight:700,
+                                color:'var(--text-secondary)', borderBottom:'2px solid var(--border-color)',
+                                fontSize:'0.75rem', textTransform:'uppercase', letterSpacing:'0.04em',
+                                whiteSpace:'nowrap'
+                              }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredStudents.map((s, idx) => (
+                            <tr key={s.student_id}
+                              style={{ borderBottom:'1px solid var(--border-color)', transition:'background 0.15s' }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
 
-              {/* Jadval */}
-              {filteredStudents.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)',
-                  background: 'var(--card-bg)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                  {activeLessonData.students.length === 0
-                    ? 'Hali hech bir o\'quvchi bu darsni bajarmagan'
-                    : 'Qidiruv bo\'yicha natijalar topilmadi'}
+                              <td style={{ padding:'0.7rem 0.9rem', color:'var(--text-secondary)', fontWeight:500 }}>
+                                {idx+1}
+                              </td>
+
+                              <td style={{ padding:'0.7rem 0.9rem' }}>
+                                <div style={{ fontWeight:600 }}>{s.full_name}</div>
+                                <div style={{ fontSize:'0.7rem', color:'var(--text-secondary)' }}>
+                                  @{s.username} · {s.class_name}
+                                </div>
+                              </td>
+
+                              <td style={{ padding:'0.7rem 0.9rem', fontWeight:600, whiteSpace:'nowrap' }}>
+                                {s.grade > 0
+                                  ? `${s.earned_score} / ${s.total_possible}`
+                                  : <span style={{ color:'var(--text-secondary)', fontWeight:400, fontSize:'0.82rem' }}>—</span>
+                                }
+                              </td>
+
+                              <td style={{ padding:'0.7rem 0.9rem' }}>
+                                {s.grade > 0 ? (
+                                  <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+                                    <div style={{
+                                      width:'55px', height:'6px', borderRadius:'99px',
+                                      background:'var(--bg-secondary)', overflow:'hidden', flexShrink:0
+                                    }}>
+                                      <div style={{
+                                        height:'100%', borderRadius:'99px',
+                                        width:`${Math.min(s.percent || 0, 100)}%`,
+                                        background: s.percent >= 86 ? '#f59e0b'
+                                                   : s.percent >= 60 ? '#6366f1'
+                                                   : s.percent >= 40 ? '#92400e' : '#dc2626'
+                                      }}/>
+                                    </div>
+                                    <span style={{ fontWeight:500, fontSize:'0.85rem' }}>{s.percent||0}%</span>
+                                  </div>
+                                ) : (
+                                  <span style={{ color:'var(--text-secondary)', fontSize:'0.82rem' }}>—</span>
+                                )}
+                              </td>
+
+                              <td style={{ padding:'0.7rem 0.9rem' }}>
+                                {s.grade > 0 ? (
+                                  <div style={{
+                                    display:'inline-flex', alignItems:'center', gap:'0.35rem',
+                                    background:gradeBg(s.grade), borderRadius:'20px',
+                                    padding:'0.2rem 0.7rem', fontWeight:700
+                                  }}>
+                                    <span style={{ fontSize:'1rem' }}>{getMedal(s.grade)}</span>
+                                    <span style={{ color:gradeColor(s.grade) }}>{s.grade}</span>
+                                  </div>
+                                ) : (
+                                  <span style={{
+                                    fontSize:'0.78rem', color:'var(--text-secondary)',
+                                    background:'var(--bg-secondary)', borderRadius:'20px',
+                                    padding:'0.2rem 0.6rem', display:'inline-block'
+                                  }}>
+                                    Baholanmagan
+                                  </span>
+                                )}
+                              </td>
+
+                              <td style={{ padding:'0.7rem 0.9rem', color:'var(--text-secondary)', fontSize:'0.78rem', whiteSpace:'nowrap' }}>
+                                {s.updated_at
+                                  ? new Date(s.updated_at).toLocaleDateString('uz-UZ')
+                                  : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+
+                      {/* Footer statistika */}
+                      <div style={{
+                        marginTop:'0.75rem', padding:'0.5rem 0.9rem',
+                        display:'flex', gap:'1.5rem', fontSize:'0.78rem',
+                        color:'var(--text-secondary)', flexWrap:'wrap'
+                      }}>
+                        <span>👥 Jami: {filteredStudents.length} ta</span>
+                        <span style={{ color:'#16a34a' }}>
+                          ✅ Baholangan: {filteredStudents.filter(s => s.grade > 0).length} ta
+                        </span>
+                        <span style={{ color:'#d97706' }}>
+                          ⏳ Baholanmagan: {filteredStudents.filter(s => !s.grade).length} ta
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
-                    <thead>
-                      <tr style={{ background: 'var(--bg-secondary)' }}>
-                        {['#', "O'quvchi", 'Sinf', 'Ball', 'Foiz', 'Baho', 'Sana'].map(h => (
-                          <th key={h} style={{
-                            padding: '0.7rem 0.9rem', textAlign: 'left',
-                            fontWeight: 700, color: 'var(--text-secondary)',
-                            borderBottom: '2px solid var(--border-color)',
-                            fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em'
-                          }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredStudents.map((s, idx) => (
-                        <tr key={s.student_id}
-                          style={{ borderBottom: '1px solid var(--border-color)',
-                            transition: 'background 0.15s' }}
-                          onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                          <td style={{ padding: '0.75rem 0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
-                            {idx + 1}
-                          </td>
-                          <td style={{ padding: '0.75rem 0.9rem' }}>
-                            <div style={{ fontWeight: 600 }}>{s.full_name}</div>
-                            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>@{s.username}</div>
-                          </td>
-                          <td style={{ padding: '0.75rem 0.9rem', color: 'var(--text-secondary)' }}>
-                            {s.class_name || '—'}
-                          </td>
-                          <td style={{ padding: '0.75rem 0.9rem', fontWeight: 600 }}>
-                            {s.earned_score} / {s.total_possible}
-                          </td>
-                          <td style={{ padding: '0.75rem 0.9rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <div style={{
-                                width: '60px', height: '6px', borderRadius: '99px',
-                                background: 'var(--bg-secondary)', overflow: 'hidden'
-                              }}>
-                                <div style={{
-                                  height: '100%', borderRadius: '99px',
-                                  width: `${Math.min(s.percent || 0, 100)}%`,
-                                  background: s.percent >= 86 ? '#f59e0b'
-                                             : s.percent >= 60 ? '#6366f1'
-                                             : s.percent >= 40 ? '#92400e' : '#dc2626'
-                                }} />
-                              </div>
-                              <span style={{ fontWeight: 500 }}>{s.percent || 0}%</span>
-                            </div>
-                          </td>
-                          <td style={{ padding: '0.75rem 0.9rem' }}>
-                            {s.grade > 0 ? (
-                              <div style={{
-                                display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-                                background: gradeBg(s.grade), borderRadius: '20px',
-                                padding: '0.2rem 0.75rem', fontWeight: 700
-                              }}>
-                                <span>{getMedal(s.grade)}</span>
-                                <span style={{ color: gradeColor(s.grade), fontSize: '0.9rem' }}>
-                                  {s.grade}
-                                </span>
-                              </div>
-                            ) : (
-                              <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-                                Baholanmagan
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ padding: '0.75rem 0.9rem', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-                            {s.updated_at
-                              ? new Date(s.updated_at).toLocaleDateString('uz-UZ')
-                              : '—'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center',
+                  padding:'3rem', color:'var(--text-secondary)' }}>
+                  ← Chap tomondagi darsni tanlang
                 </div>
               )}
-
-              {/* Eksport eslatmasi */}
-              <div style={{ marginTop: '1rem', fontSize: '0.78rem', color: 'var(--text-secondary)',
-                textAlign: 'center', padding: '0.5rem' }}>
-                💡 Jami {filteredStudents.filter(s => s.grade > 0).length} o'quvchi baholangan
-                · {filteredStudents.filter(s => s.grade === 0 || !s.grade).length} baholanmagan
-              </div>
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
