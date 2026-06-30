@@ -115,7 +115,17 @@ router.post('/submit', authenticateToken, async (req, res) => {
     
     // Check for achievements
     await checkAndAwardAchievements(user_id);
-    
+
+    // ── Lesson progress yangilash ─────────────────────────────
+    try {
+      const LessonProgress = require('../models/LessonProgress');
+      if (test.lesson_id) {
+        await LessonProgress.recalculate(test.lesson_id, user_id);
+      }
+    } catch (lpErr) {
+      console.error('LessonProgress update error (non-fatal):', lpErr.message);
+    }
+
     res.json({
       message: 'Test submitted successfully',
       result: {

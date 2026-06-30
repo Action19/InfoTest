@@ -15,6 +15,7 @@ const portfolioRoutes = require('./routes/portfolio');
 const statisticsRoutes = require('./routes/statistics');
 const lessonRoutes = require('./routes/lessons');
 const assignmentRoutes = require('./routes/assignments');
+const lessonProgressRoutes = require('./routes/lessonProgress');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -62,6 +63,7 @@ app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/statistics', statisticsRoutes);
 app.use('/api/lessons', lessonRoutes);
 app.use('/api/assignments', assignmentRoutes);
+app.use('/api/lesson-progress', lessonProgressRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -154,6 +156,24 @@ async function runMigrations(db) {
     await db.run('CREATE INDEX IF NOT EXISTS idx_assignments_lesson  ON assignments(lesson_id)').catch(()=>{});
     await db.run('CREATE INDEX IF NOT EXISTS idx_submissions_assign  ON assignment_submissions(assignment_id)').catch(()=>{});
     await db.run('CREATE INDEX IF NOT EXISTS idx_submissions_student ON assignment_submissions(student_id)').catch(()=>{});
+
+    // lesson_progress
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS lesson_progress (
+        id                SERIAL PRIMARY KEY,
+        lesson_id         INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+        student_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        total_possible    INTEGER DEFAULT 0,
+        earned_score      INTEGER DEFAULT 0,
+        percent           REAL DEFAULT 0,
+        grade             INTEGER DEFAULT 0,
+        grade_awarded     BOOLEAN DEFAULT FALSE,
+        updated_at        TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(lesson_id, student_id)
+      )
+    `);
+    await db.run('CREATE INDEX IF NOT EXISTS idx_lesson_progress_student ON lesson_progress(student_id)').catch(()=>{});
+    await db.run('CREATE INDEX IF NOT EXISTS idx_lesson_progress_lesson  ON lesson_progress(lesson_id)').catch(()=>{});
     console.log('✓ Migrations applied');
   } catch (err) {
     console.error('Migration warning:', err.message);

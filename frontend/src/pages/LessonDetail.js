@@ -34,6 +34,9 @@ const LessonDetail = () => {
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [assignmentSubmissions, setAssignmentSubmissions] = useState([]);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
+
+  // ─── Lesson progress state (faqat o'quvchi uchun) ────────────
+  const [lessonProgress, setLessonProgress] = useState(null);
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
   const [submittingFile, setSubmittingFile] = useState(false);
   const [gradingId, setGradingId] = useState(null);
@@ -88,7 +91,17 @@ const LessonDetail = () => {
   useEffect(() => {
     fetchLesson();
     fetchAssignments();
+    if (user?.role === 'student') fetchProgress();
   }, [id]);
+
+  const fetchProgress = async () => {
+    try {
+      const res = await api.get(`/lesson-progress/${id}`);
+      setLessonProgress(res.data);
+    } catch (err) {
+      // progress yo'q bo'lsa ham davom etadi
+    }
+  };
 
   const fetchLesson = async () => {
     try {
@@ -317,8 +330,8 @@ const LessonDetail = () => {
       const aiResult = res.data.ai_result;
       if (aiResult) {
         setCodeResult(r => ({ ...r, [assignmentId]: aiResult }));
-        // assignments ro'yxatini yangilash (my_submission status)
         await fetchAssignments();
+        await fetchProgress();
       } else {
         alert('✅ Kod yuborildi! O\'qituvchi tez orada baholaydi.');
         await fetchAssignments();
@@ -342,6 +355,7 @@ const LessonDetail = () => {
       });
       alert('✅ Topshiriq muvaffaqiyatli yuklandi!');
       await fetchAssignments();
+      await fetchProgress();
       e.target.value = '';
     } catch (err) {
       alert('Fayl yuklashda xatolik: ' + (err.response?.data?.error || err.message));
@@ -552,9 +566,86 @@ const LessonDetail = () => {
             {lesson.grade}-sinf • {lesson.subject} • {lesson.creator?.full_name || "Noma'lum o'qituvchi"}
           </p>
         </div>
-        {isOwner && (
-          <Link to={`/lessons/${id}/edit`} className="btn btn-outline">✏️ Tahrirlash</Link>
-        )}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.75rem' }}>
+          {isOwner && (
+            <Link to={`/lessons/${id}/edit`} className="btn btn-outline">✏️ Tahrirlash</Link>
+          )}
+          {/* ── O'quvchi uchun o'zlashtirish ko'rsatkichi ── */}
+          {user?.role === 'student' && lessonProgress && lessonProgress.total_possible > 0 && (
+            <div style={{
+              background: 'var(--card-bg)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '14px',
+              padding: '1rem 1.25rem',
+              minWidth: '220px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+            }}>
+              {/* Baho va medal */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '1.6rem' }}>
+                    {lessonProgress.medal || '📊'}
+                  </span>
+                  <div>
+                    <div style={{
+                      fontSize: '1.1rem',
+                      fontWeight: 800,
+                      color: lessonProgress.grade >= 5 ? '#f59e0b'
+                           : lessonProgress.grade === 4 ? '#6366f1'
+                           : lessonProgress.grade === 3 ? '#92400e'
+                           : lessonProgress.grade >= 1 ? '#dc2626' : 'var(--text-secondary)'
+                    }}>
+                      {lessonProgress.grade > 0 ? `${lessonProgress.grade} baho` : "Hali baholanmagan"}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                      {lessonProgress.medal_label}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--primary-color)' }}>
+                    {lessonProgress.percent}%
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                    {lessonProgress.earned_score} / {lessonProgress.total_possible} ball
+                  </div>
+                </div>
+              </div>
+              {/* Progress bar */}
+              <div style={{ background: 'var(--bg-secondary)', borderRadius: '99px', height: '7px', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%',
+                  borderRadius: '99px',
+                  width: `${Math.min(lessonProgress.percent, 100)}%`,
+                  background: lessonProgress.percent >= 86 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)'
+                             : lessonProgress.percent >= 60 ? 'linear-gradient(90deg,#6366f1,#818cf8)'
+                             : lessonProgress.percent >= 40 ? 'linear-gradient(90deg,#92400e,#b45309)'
+                             : 'linear-gradient(90deg,#dc2626,#f87171)',
+                  transition: 'width 0.6s ease'
+                }} />
+              </div>
+              {/* Batafsil */}
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                <span>📝 Test: {lessonProgress.test_score || 0} ball</span>
+                <span>🖥️ Topshiriq: {lessonProgress.assign_score || 0} ball</span>
+              </div>
+            </div>
+          )}
+          {/* Progress yo'q — dars boshlanmagan */}
+          {user?.role === 'student' && (!lessonProgress || lessonProgress.total_possible === 0) && (
+            <div style={{
+              background: 'var(--card-bg)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '14px',
+              padding: '0.75rem 1rem',
+              fontSize: '0.8rem',
+              color: 'var(--text-secondary)',
+              textAlign: 'center'
+            }}>
+              📊 Hali testlar / topshiriqlar bajarilmagan
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Description ── */}

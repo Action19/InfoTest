@@ -363,6 +363,8 @@ router.post('/:id/submit-code', authenticateToken, async (req, res) => {
       });
 
       aiResult.score = score;
+      // Lesson progress yangilash (kod submit + AI grade)
+      await triggerLessonProgress(parseInt(req.params.id), req.user.id);
     } catch (aiErr) {
       console.error('Auto AI grade error (non-fatal):', aiErr.message);
       // AI baholash muvaffaqiyatsiz bo'lsa ham, submission saqlangan
@@ -393,6 +395,19 @@ router.get('/:id/submissions', authenticateToken, requireRole(['teacher','admin'
   }
 });
 
+// Lesson progress triggerini chaqiruvchi helper
+async function triggerLessonProgress(assignmentId, studentId) {
+  try {
+    const LessonProgress = require('../models/LessonProgress');
+    const a = await Assignment.findById(assignmentId);
+    if (a && a.lesson_id) {
+      await LessonProgress.recalculate(a.lesson_id, studentId);
+    }
+  } catch (err) {
+    console.error('LessonProgress trigger error (non-fatal):', err.message);
+  }
+}
+
 // POST /api/assignments/submissions/:subId/grade — qo'lda baholash
 router.post('/submissions/:subId/grade', authenticateToken, requireRole(['teacher','admin']), async (req, res) => {
   try {
@@ -413,6 +428,10 @@ router.post('/submissions/:subId/grade', authenticateToken, requireRole(['teache
       feedback: feedback || '',
       graded_by: 'teacher'
     });
+
+    // Lesson progress yangilash
+    await triggerLessonProgress(sub.assignment_id, sub.student_id);
+
     res.json({ message: 'Baholandi', score: clampedScore });
   } catch (err) {
     console.error('Grade error:', err);
@@ -559,6 +578,9 @@ Quyidagi JSON formatda javob ber (boshqa hech narsa yozma):
       graded_by: 'ai',
       ai_report: JSON.stringify(result)
     });
+
+    // Lesson progress yangilash
+    await triggerLessonProgress(sub.assignment_id, sub.student_id);
 
     res.json({
       message: 'AI baholadi',

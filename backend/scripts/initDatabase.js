@@ -201,6 +201,22 @@ async function initializeTables(db) {
       )
     `);
 
+    // lesson_progress — dars bo'yicha o'quvchi o'zlashtirish ko'rsatkichi
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS lesson_progress (
+        id                SERIAL PRIMARY KEY,
+        lesson_id         INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+        student_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        total_possible    INTEGER DEFAULT 0,   -- darsning maksimal bali (testlar + topshiriqlar)
+        earned_score      INTEGER DEFAULT 0,   -- o'quvchi to'plagan ball
+        percent           REAL DEFAULT 0,      -- foiz
+        grade             INTEGER DEFAULT 0,   -- baho: 2,3,4,5
+        grade_awarded     BOOLEAN DEFAULT FALSE, -- baho bali users.points ga qo'shilganmi
+        updated_at        TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(lesson_id, student_id)
+      )
+    `);
+
     // assignments
     await db.run(`
       CREATE TABLE assignments (
