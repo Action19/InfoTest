@@ -290,20 +290,27 @@ const Register = () => {
               style={{
                 borderColor: usernameStatus.available === true ? '#10B981' : 
                            usernameStatus.available === false ? '#EF4444' : 
-                           'var(--border-color)'
+                           '#E5E7EB'
               }}
             />
             {usernameStatus.message && (
-              <small style={{ 
+              <div style={{ 
                 color: usernameStatus.available === true ? '#10B981' : 
                        usernameStatus.available === false ? '#EF4444' : 
                        '#6B7280',
-                marginTop: '0.25rem',
-                display: 'block',
-                fontWeight: '500'
+                fontSize: '0.875rem',
+                marginTop: '0.5rem',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem'
               }}>
-                {usernameStatus.message}
-              </small>
+                {usernameStatus.checking ? (
+                  <>⏳ Tekshirilmoqda...</>
+                ) : (
+                  <>{usernameStatus.message}</>
+                )}
+              </div>
             )}
           </div>
 
@@ -321,20 +328,27 @@ const Register = () => {
               style={{
                 borderColor: emailStatus.available === true ? '#10B981' : 
                            emailStatus.available === false ? '#EF4444' : 
-                           'var(--border-color)'
+                           '#E5E7EB'
               }}
             />
             {emailStatus.message && (
-              <small style={{ 
+              <div style={{ 
                 color: emailStatus.available === true ? '#10B981' : 
                        emailStatus.available === false ? '#EF4444' : 
                        '#6B7280',
-                marginTop: '0.25rem',
-                display: 'block',
-                fontWeight: '500'
+                fontSize: '0.875rem',
+                marginTop: '0.5rem',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem'
               }}>
-                {emailStatus.message}
-              </small>
+                {emailStatus.checking ? (
+                  <>⏳ Tekshirilmoqda...</>
+                ) : (
+                  <>{emailStatus.message}</>
+                )}
+              </div>
             )}
           </div>
 
