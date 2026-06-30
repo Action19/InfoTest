@@ -111,35 +111,24 @@ app.use((err, req, res, next) => {
 // Start server
 async function startServer() {
   try {
-    // Ensure data directory exists (for Render)
-    const fs = require('fs');
-    const dataDir = path.join(process.cwd(), 'data');
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-      console.log('✓ Created data directory');
-    }
-    
     // Connect to database
     console.log('🔌 Connecting to database...');
     await database.connect();
     console.log('✓ Database connected');
     
-    // Check if database needs initialization
+    // Check if tables exist (PostgreSQL information_schema)
     console.log('🔍 Checking database tables...');
     const checkTablesQuery = `
-      SELECT name FROM sqlite_master 
-      WHERE type='table' AND name='users'
+      SELECT table_name FROM information_schema.tables 
+      WHERE table_schema = 'public' AND table_name = 'users'
     `;
     const tables = await database.get(checkTablesQuery);
     
     if (!tables) {
       console.log('⚠️  Database not initialized. Running initialization...');
-      
-      // Import and run initialization
       const { initializeTables, seedData } = require('./scripts/initDatabase');
       await initializeTables(database);
       await seedData(database);
-      
       console.log('✅ Database initialized successfully!');
     } else {
       console.log('✓ Database already initialized');
@@ -150,7 +139,7 @@ async function startServer() {
       console.log('\n🚀 InfoTest Backend Server Started!');
       console.log(`📍 Server running on: http://0.0.0.0:${PORT}`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`📊 Database: ${process.env.DB_PATH || 'infotest.db'}`);
+      console.log(`📊 Database: PostgreSQL (${process.env.DATABASE_URL ? 'connected' : 'no URL set'})`);
       console.log(`\n✓ Ready to accept requests\n`);
     });
   } catch (error) {

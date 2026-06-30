@@ -47,7 +47,7 @@ router.get('/:userId', authenticateToken, async (req, res) => {
     
     const sql = `
       SELECT * FROM portfolio_items
-      WHERE user_id = ? AND (is_public = 1 OR ? = user_id)
+      WHERE user_id = ? AND (is_public = TRUE OR ? = user_id)
       ORDER BY created_at DESC
     `;
     
@@ -139,7 +139,7 @@ router.post('/', authenticateToken, async (req, res) => {
       content,
       file_url,
       tags ? JSON.stringify(tags) : null,
-      is_public ? 1 : 0
+      is_public ? true : false
     ]);
     
     const item = await database.get(

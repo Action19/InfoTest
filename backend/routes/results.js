@@ -89,7 +89,7 @@ router.post('/submit', authenticateToken, async (req, res) => {
         correctCount,
         time_taken || null,
         JSON.stringify(detailedAnswers),
-        passed ? 1 : 0
+        passed
       ]
     );
     

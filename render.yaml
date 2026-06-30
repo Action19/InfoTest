@@ -20,4 +20,15 @@ services:
         value: 7d
       - key: OPENAI_API_KEY
         sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: infotest-db
+          property: connectionString
     healthCheckPath: /api/health
+
+databases:
+  - name: infotest-db
+    databaseName: infotest
+    user: infotest_user
+    region: singapore
+    plan: free

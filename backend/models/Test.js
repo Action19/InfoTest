@@ -85,7 +85,7 @@ class Test {
 
     if (filters.is_published !== undefined) {
       conditions.push('t.is_published = ?');
-      params.push(filters.is_published ? 1 : 0);
+      params.push(filters.is_published ? true : false);
     }
 
     if (filters.created_by) {
