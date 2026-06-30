@@ -286,11 +286,14 @@ const LessonDetail = () => {
     setAiAssignLoading(true);
     try {
       const res = await api.post('/assignments/ai-generate', {
-        ...aiAssignPrompt, lesson_id: parseInt(id), save: true
+        ...aiAssignPrompt,
+        grade: lesson.grade,   // darsning sinfini avtomatik olish
+        lesson_id: parseInt(id),
+        save: true
       });
       alert(`✅ AI topshiriq yaratildi: "${res.data.assignment.title}"`);
       setShowAIAssignModal(false);
-      setAiAssignPrompt({ task_type:'python', topic:'', grade:10, level:'medium' });
+      setAiAssignPrompt({ task_type:'python', topic:'', level:'medium' });
       await fetchAssignments();
     } catch (err) {
       alert('AI topshiriq yaratishda xatolik: ' + (err.response?.data?.error || err.message));
@@ -1698,29 +1701,19 @@ const LessonDetail = () => {
                 <label>Mavzu *</label>
                 <input type="text" required value={aiAssignPrompt.topic}
                   onChange={e => setAiAssignPrompt({...aiAssignPrompt, topic: e.target.value})}
-                  placeholder={`Masalan: ${ {python:'Ro\'yxatlar bilan ishlash', html:'Shaxsiy sahifa', excel:'Ish haqi hisobi', word:'Rezyume tayyorlash'}[aiAssignPrompt.task_type] || 'Mavzu nomi'}`} />
+                  placeholder={`Masalan: ${ {python:"Ro'yxatlar bilan ishlash", html:'Shaxsiy sahifa', excel:'Ish haqi hisobi', word:'Rezyume tayyorlash'}[aiAssignPrompt.task_type] || 'Mavzu nomi'}`} />
               </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Sinf</label>
-                  <select value={aiAssignPrompt.grade}
-                    onChange={e => setAiAssignPrompt({...aiAssignPrompt, grade: parseInt(e.target.value)})}>
-                    <option value={9}>9-sinf</option>
-                    <option value={10}>10-sinf</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Qiyinlik</label>
-                  <select value={aiAssignPrompt.level}
-                    onChange={e => setAiAssignPrompt({...aiAssignPrompt, level: e.target.value})}>
-                    <option value="easy">Oson</option>
-                    <option value="medium">O'rta</option>
-                    <option value="hard">Qiyin</option>
-                  </select>
-                </div>
+              <div className="form-group">
+                <label>Qiyinlik</label>
+                <select value={aiAssignPrompt.level}
+                  onChange={e => setAiAssignPrompt({...aiAssignPrompt, level: e.target.value})}>
+                  <option value="easy">Oson</option>
+                  <option value="medium">O'rta</option>
+                  <option value="hard">Qiyin</option>
+                </select>
               </div>
               <div style={{ background: 'rgba(168,85,247,0.08)', borderRadius: '8px', padding: '0.75rem', fontSize: '0.85rem', color: '#9333ea', marginBottom: '0.5rem' }}>
-                🤖 AI mavzu va sinf asosida to'liq ko'rsatmalar bilan topshiriq yaratadi
+                🤖 AI <strong>{lesson?.grade}-sinf</strong> uchun, mavzu va qiyinlik asosida to'liq ko'rsatmalar bilan topshiriq yaratadi
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-outline" onClick={() => setShowAIAssignModal(false)} disabled={aiAssignLoading}>Bekor qilish</button>
