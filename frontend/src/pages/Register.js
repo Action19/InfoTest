@@ -141,6 +141,8 @@ const Register = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     
+    console.log(`📝 Field changed: ${name} = ${value}`); // Debug log
+    
     if (name === 'role') {
       // Reset fields when role changes
       setFormData({
@@ -287,7 +289,10 @@ const Register = () => {
               placeholder="Login tanlang"
               required
               disabled={loading}
+              autoComplete="off"
               style={{
+                borderWidth: '2px',
+                borderStyle: 'solid',
                 borderColor: usernameStatus.available === true ? '#10B981' : 
                            usernameStatus.available === false ? '#EF4444' : 
                            '#E5E7EB'
@@ -300,10 +305,15 @@ const Register = () => {
                        '#6B7280',
                 fontSize: '0.875rem',
                 marginTop: '0.5rem',
-                fontWeight: '500',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.25rem'
+                fontWeight: '600',
+                display: 'block',
+                padding: '0.5rem',
+                backgroundColor: usernameStatus.available === true ? '#D1FAE5' :
+                                usernameStatus.available === false ? '#FEE2E2' :
+                                '#F3F4F6',
+                borderRadius: '0.375rem',
+                position: 'relative',
+                zIndex: 10
               }}>
                 {usernameStatus.checking ? (
                   <>⏳ Tekshirilmoqda...</>
@@ -325,7 +335,10 @@ const Register = () => {
               placeholder="emailingizni kiriting"
               required
               disabled={loading}
+              autoComplete="off"
               style={{
+                borderWidth: '2px',
+                borderStyle: 'solid',
                 borderColor: emailStatus.available === true ? '#10B981' : 
                            emailStatus.available === false ? '#EF4444' : 
                            '#E5E7EB'
@@ -338,10 +351,15 @@ const Register = () => {
                        '#6B7280',
                 fontSize: '0.875rem',
                 marginTop: '0.5rem',
-                fontWeight: '500',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.25rem'
+                fontWeight: '600',
+                display: 'block',
+                padding: '0.5rem',
+                backgroundColor: emailStatus.available === true ? '#D1FAE5' :
+                                emailStatus.available === false ? '#FEE2E2' :
+                                '#F3F4F6',
+                borderRadius: '0.375rem',
+                position: 'relative',
+                zIndex: 10
               }}>
                 {emailStatus.checking ? (
                   <>⏳ Tekshirilmoqda...</>
