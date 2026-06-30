@@ -55,6 +55,9 @@ class Test {
         t.*,
         u.username as creator_username,
         u.full_name as creator_name,
+        u.district as creator_district,
+        u.school_number as creator_school,
+        u.teaching_classes as creator_classes,
         COUNT(DISTINCT r.id) as total_attempts,
         AVG(r.percentage) as average_score
       FROM tests t
@@ -83,6 +86,23 @@ class Test {
     if (filters.created_by) {
       conditions.push('t.created_by = ?');
       params.push(filters.created_by);
+    }
+
+    // Filter for students - only see tests from their school and class
+    if (filters.student_district && filters.student_school && filters.student_class) {
+      conditions.push('u.district = ?');
+      params.push(filters.student_district);
+      
+      conditions.push('u.school_number = ?');
+      params.push(filters.student_school);
+      
+      // Check if student's class is in teacher's teaching_classes
+      // Using LIKE to match comma-separated values
+      conditions.push('(u.teaching_classes LIKE ? OR u.teaching_classes LIKE ? OR u.teaching_classes LIKE ? OR u.teaching_classes = ?)');
+      params.push(`%${filters.student_class},%`); // At the beginning or middle
+      params.push(`%,${filters.student_class}%`); // In the middle or end
+      params.push(`%,${filters.student_class},%`); // In the middle
+      params.push(filters.student_class); // Exact match (only one class)
     }
 
     if (conditions.length > 0) {

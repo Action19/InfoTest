@@ -9,15 +9,23 @@ const router = express.Router();
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const { subject, difficulty, published } = req.query;
+    const User = require('../models/User');
+    
+    // Get current user with school info
+    const currentUser = await User.findById(req.user.id);
     
     const filters = {};
     if (subject) filters.subject = subject;
     if (difficulty) filters.difficulty = difficulty;
     
-    // Students can only see published tests
+    // Students can only see published tests from their school
     // Teachers/admins can see all tests they created
     if (req.user.role === 'student') {
       filters.is_published = true;
+      // Add school filtering for students
+      filters.student_district = currentUser.district;
+      filters.student_school = currentUser.school_number;
+      filters.student_class = currentUser.class_name;
     } else if (req.user.role === 'teacher') {
       // If published param is provided, use it, otherwise show all their tests
       if (published !== undefined) {
@@ -42,6 +50,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const test = await Test.findById(id);
+    const User = require('../models/User');
     
     if (!test) {
       return res.status(404).json({ error: 'Test not found' });
@@ -50,6 +59,26 @@ router.get('/:id', authenticateToken, async (req, res) => {
     // Check permissions
     if (req.user.role === 'student' && !test.is_published) {
       return res.status(403).json({ error: 'This test is not published yet' });
+    }
+    
+    // Check school/class access for students
+    if (req.user.role === 'student') {
+      const currentUser = await User.findById(req.user.id);
+      const testCreator = await User.findById(test.created_by);
+      
+      // Check if student is from same school
+      if (testCreator.district !== currentUser.district || 
+          testCreator.school_number !== currentUser.school_number) {
+        return res.status(403).json({ error: 'Bu test sizning maktabingiz uchun emas' });
+      }
+      
+      // Check if student's class is in teacher's teaching classes
+      if (testCreator.teaching_classes) {
+        const teacherClasses = testCreator.teaching_classes.split(',').map(c => c.trim());
+        if (!teacherClasses.includes(currentUser.class_name)) {
+          return res.status(403).json({ error: 'Bu test sizning sinfingiz uchun emas' });
+        }
+      }
     }
     
     if (req.user.role === 'teacher' && test.created_by !== req.user.id) {
@@ -68,6 +97,7 @@ router.get('/:id/full', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const test = await Test.findById(id);
+    const User = require('../models/User');
     
     if (!test) {
       return res.status(404).json({ error: 'Test not found' });
@@ -76,6 +106,26 @@ router.get('/:id/full', authenticateToken, async (req, res) => {
     // Check permissions
     if (req.user.role === 'student' && !test.is_published) {
       return res.status(403).json({ error: 'This test is not published yet' });
+    }
+    
+    // Check school/class access for students
+    if (req.user.role === 'student') {
+      const currentUser = await User.findById(req.user.id);
+      const testCreator = await User.findById(test.created_by);
+      
+      // Check if student is from same school
+      if (testCreator.district !== currentUser.district || 
+          testCreator.school_number !== currentUser.school_number) {
+        return res.status(403).json({ error: 'Bu test sizning maktabingiz uchun emas' });
+      }
+      
+      // Check if student's class is in teacher's teaching classes
+      if (testCreator.teaching_classes) {
+        const teacherClasses = testCreator.teaching_classes.split(',').map(c => c.trim());
+        if (!teacherClasses.includes(currentUser.class_name)) {
+          return res.status(403).json({ error: 'Bu test sizning sinfingiz uchun emas' });
+        }
+      }
     }
     
     if (req.user.role === 'teacher' && test.created_by !== req.user.id) {
