@@ -95,7 +95,16 @@ class User {
 
   // Update user profile
   static async update(id, updates) {
-    const allowedFields = ['full_name', 'email', 'avatar', 'bio'];
+    const allowedFields = [
+      'full_name', 
+      'email', 
+      'avatar', 
+      'bio', 
+      'district', 
+      'school_number', 
+      'class_name', 
+      'teaching_classes'
+    ];
     const fields = [];
     const values = [];
     
