@@ -54,7 +54,7 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
         t.subject,
         COUNT(r.id) as tests_taken,
         AVG(r.percentage) as average_score,
-        SUM(CASE WHEN r.passed = 1 THEN 1 ELSE 0 END) as tests_passed
+        SUM(CASE WHEN r.passed = TRUE THEN 1 ELSE 0 END) as tests_passed
       FROM results r
       LEFT JOIN tests t ON r.test_id = t.id
       WHERE r.user_id = ?
@@ -254,13 +254,13 @@ router.get('/progress/:userId', authenticateToken, async (req, res) => {
     // Get results over time
     const progress = await database.all(`
       SELECT 
-        DATE(created_at) as date,
+        DATE(created_at::timestamp) as date,
         COUNT(*) as tests_taken,
         AVG(percentage) as average_score,
-        SUM(CASE WHEN passed = 1 THEN 1 ELSE 0 END) as tests_passed
+        SUM(CASE WHEN passed = TRUE THEN 1 ELSE 0 END) as tests_passed
       FROM results
       WHERE user_id = ?
-      GROUP BY DATE(created_at)
+      GROUP BY DATE(created_at::timestamp)
       ORDER BY date ASC
     `, [userId]);
     

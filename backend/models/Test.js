@@ -41,10 +41,12 @@ class Test {
     const sql = `
       SELECT 
         t.*,
+        t.duration as time_limit,
         u.username as creator_username,
         u.full_name as creator_name,
         l.title as lesson_title,
-        l.grade as lesson_grade
+        l.grade as lesson_grade,
+        (SELECT COUNT(*) FROM questions q WHERE q.test_id = t.id) as questions_count
       FROM tests t
       LEFT JOIN users u ON t.created_by = u.id
       LEFT JOIN lessons l ON t.lesson_id = l.id
@@ -63,11 +65,12 @@ class Test {
         u.district as creator_district,
         u.school_number as creator_school,
         u.teaching_classes as creator_classes,
-        COUNT(DISTINCT r.id) as total_attempts,
-        AVG(r.percentage) as average_score
+        (SELECT COUNT(*) FROM results r WHERE r.test_id = t.id) as total_attempts,
+        (SELECT AVG(r2.percentage) FROM results r2 WHERE r2.test_id = t.id) as average_score,
+        (SELECT COUNT(*) FROM questions q WHERE q.test_id = t.id) as questions_count,
+        t.duration as time_limit
       FROM tests t
       LEFT JOIN users u ON t.created_by = u.id
-      LEFT JOIN results r ON t.id = r.test_id
     `;
 
     const conditions = [];
@@ -114,7 +117,7 @@ class Test {
       sql += ' WHERE ' + conditions.join(' AND ');
     }
 
-    sql += ' GROUP BY t.id ORDER BY t.created_at DESC';
+    sql += ' ORDER BY t.created_at DESC';
 
     return await database.all(sql, params);
   }
@@ -187,7 +190,7 @@ class Test {
         AVG(r.percentage) as average_score,
         MAX(r.percentage) as highest_score,
         MIN(r.percentage) as lowest_score,
-        SUM(CASE WHEN r.passed = 1 THEN 1 ELSE 0 END) as total_passed,
+        SUM(CASE WHEN r.passed = TRUE THEN 1 ELSE 0 END) as total_passed,
         AVG(r.time_taken) as average_time
       FROM results r
       WHERE r.test_id = ?

@@ -35,7 +35,7 @@ class Lesson {
 
       // Get tests for this lesson (all tests - frontend filters by role)
       lesson.tests = await database.all(
-        `SELECT t.*, 
+        `SELECT t.*, t.duration as time_limit,
           (SELECT COUNT(*) FROM questions WHERE test_id = t.id) as questions_count,
           (SELECT COUNT(*) FROM results WHERE test_id = t.id) as attempts_count
          FROM tests t 
@@ -56,7 +56,7 @@ class Lesson {
       SELECT l.*,
         u.full_name as creator_name,
         (SELECT COUNT(*) FROM lesson_materials WHERE lesson_id = l.id) as materials_count,
-        (SELECT COUNT(*) FROM tests WHERE lesson_id = l.id AND is_published = 1) as tests_count
+        (SELECT COUNT(*) FROM tests WHERE lesson_id = l.id AND is_published = TRUE) as tests_count
       FROM lessons l
       LEFT JOIN users u ON l.created_by = u.id
       WHERE 1=1
@@ -97,7 +97,7 @@ class Lesson {
       SELECT l.*,
         u.full_name as creator_name,
         (SELECT COUNT(*) FROM lesson_materials WHERE lesson_id = l.id) as materials_count,
-        (SELECT COUNT(*) FROM tests WHERE lesson_id = l.id AND is_published = 1) as tests_count
+        (SELECT COUNT(*) FROM tests WHERE lesson_id = l.id AND is_published = TRUE) as tests_count
       FROM lessons l
       LEFT JOIN users u ON l.created_by = u.id
       WHERE l.grade = ?
