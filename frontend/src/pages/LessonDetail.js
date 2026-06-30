@@ -29,6 +29,27 @@ const LessonDetail = () => {
   const [editingQuestion, setEditingQuestion] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
 
+  // ─── Assignment state ─────────────────────────────────────────
+  const [assignments, setAssignments] = useState([]);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [assignmentSubmissions, setAssignmentSubmissions] = useState([]);
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+  const [submittingFile, setSubmittingFile] = useState(false);
+  const [gradingId, setGradingId] = useState(null);
+  const [showCreateAssignModal, setShowCreateAssignModal] = useState(false);
+  const [showAIAssignModal, setShowAIAssignModal] = useState(false);
+  const [aiAssignLoading, setAiAssignLoading] = useState(false);
+  const [newAssignment, setNewAssignment] = useState({
+    title: '', description: '', task_type: 'python',
+    instructions: '', max_score: 100, deadline: ''
+  });
+  const [aiAssignPrompt, setAiAssignPrompt] = useState({
+    task_type: 'python', topic: '', grade: 10, level: 'medium'
+  });
+  const [manualScore, setManualScore] = useState({});
+  const [manualFeedback, setManualFeedback] = useState({});
+
   // New test form
   const [newTest, setNewTest] = useState({
     title: '',
@@ -60,6 +81,7 @@ const LessonDetail = () => {
 
   useEffect(() => {
     fetchLesson();
+    fetchAssignments();
   }, [id]);
 
   const fetchLesson = async () => {
@@ -67,14 +89,36 @@ const LessonDetail = () => {
       setLoading(true);
       const response = await api.get(`/lessons/${id}`);
       setLesson(response.data);
-      // Auto-select the first test if any
-      if (response.data.tests && response.data.tests.length > 0 && !selectedTest) {
-        // Don't auto-select, let user choose
-      }
     } catch (err) {
       setError(err.response?.data?.error || 'Darsni olishda xatolik yuz berdi');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAssignments = async () => {
+    try {
+      setLoadingAssignments(true);
+      const res = await api.get(`/assignments/lesson/${id}`);
+      setAssignments(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error('Assignments fetch error:', err);
+      setAssignments([]);
+    } finally {
+      setLoadingAssignments(false);
+    }
+  };
+
+  const fetchSubmissions = async (assignmentId) => {
+    try {
+      setLoadingSubmissions(true);
+      const res = await api.get(`/assignments/${assignmentId}/submissions`);
+      setAssignmentSubmissions(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error('Submissions fetch error:', err);
+      setAssignmentSubmissions([]);
+    } finally {
+      setLoadingSubmissions(false);
     }
   };
 
@@ -185,6 +229,124 @@ const LessonDetail = () => {
       await fetchLesson();
     } catch (err) {
       alert(err.response?.data?.error || "Testni o'chirishda xatolik");
+    }
+  };
+
+  // ─── Assignment handlers ──────────────────────────────────────
+  const TASK_TYPES = {
+    word:       { label: 'Word',       icon: '📝', ext: '.docx/.doc' },
+    excel:      { label: 'Excel',      icon: '📊', ext: '.xlsx/.xls' },
+    access:     { label: 'Access',     icon: '🗄️', ext: '.accdb/.mdb' },
+    python:     { label: 'Python',     icon: '🐍', ext: '.py' },
+    scratch:    { label: 'Scratch',    icon: '🐱', ext: '.sb3' },
+    html:       { label: 'HTML',       icon: '🌐', ext: '.html' },
+    javascript: { label: 'JavaScript', icon: '💛', ext: '.js' },
+    css:        { label: 'CSS',        icon: '🎨', ext: '.css' },
+    other:      { label: 'Boshqa',     icon: '📁', ext: '*' }
+  };
+
+  const handleCreateAssignment = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/assignments', { ...newAssignment, lesson_id: parseInt(id) });
+      setShowCreateAssignModal(false);
+      setNewAssignment({ title:'', description:'', task_type:'python', instructions:'', max_score:100, deadline:'' });
+      await fetchAssignments();
+    } catch (err) {
+      alert('Topshiriq yaratishda xatolik: ' + (err.response?.data?.error || err.message));
+    }
+  };
+
+  const handleAICreateAssignment = async (e) => {
+    e.preventDefault();
+    setAiAssignLoading(true);
+    try {
+      const res = await api.post('/assignments/ai-generate', {
+        ...aiAssignPrompt, lesson_id: parseInt(id), save: true
+      });
+      alert(`✅ AI topshiriq yaratildi: "${res.data.assignment.title}"`);
+      setShowAIAssignModal(false);
+      setAiAssignPrompt({ task_type:'python', topic:'', grade:10, level:'medium' });
+      await fetchAssignments();
+    } catch (err) {
+      alert('AI topshiriq yaratishda xatolik: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setAiAssignLoading(false);
+    }
+  };
+
+  const handleDeleteAssignment = async (assignId) => {
+    if (!window.confirm("Topshiriqni o'chirishni tasdiqlaysizmi?")) return;
+    try {
+      await api.delete(`/assignments/${assignId}`);
+      if (selectedAssignment?.id === assignId) setSelectedAssignment(null);
+      await fetchAssignments();
+    } catch (err) {
+      alert(err.response?.data?.error || "O'chirishda xatolik");
+    }
+  };
+
+  const handleSelectAssignment = async (assignment) => {
+    setSelectedAssignment(assignment);
+    setAssignmentSubmissions([]);
+    if (user.role !== 'student') {
+      await fetchSubmissions(assignment.id);
+    }
+  };
+
+  const handleSubmitFile = async (assignmentId, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      setSubmittingFile(true);
+      await api.post(`/assignments/${assignmentId}/submit`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      alert('✅ Topshiriq muvaffaqiyatli yuklandi!');
+      await fetchAssignments();
+      e.target.value = '';
+    } catch (err) {
+      alert('Fayl yuklashda xatolik: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setSubmittingFile(false);
+    }
+  };
+
+  const handleManualGrade = async (subId, maxScore) => {
+    const score = parseInt(manualScore[subId]);
+    if (isNaN(score) || score < 0 || score > maxScore) {
+      alert(`Ball 0 dan ${maxScore} gacha bo'lishi kerak`);
+      return;
+    }
+    try {
+      setGradingId(subId);
+      await api.post(`/assignments/submissions/${subId}/grade`, {
+        score, feedback: manualFeedback[subId] || ''
+      });
+      alert('✅ Ball qo\'yildi!');
+      await fetchSubmissions(selectedAssignment.id);
+      setManualScore(s => ({ ...s, [subId]: '' }));
+      setManualFeedback(s => ({ ...s, [subId]: '' }));
+    } catch (err) {
+      alert(err.response?.data?.error || 'Baholashda xatolik');
+    } finally {
+      setGradingId(null);
+    }
+  };
+
+  const handleAIGrade = async (subId) => {
+    if (!window.confirm('AI orqali baholash amalga oshirilsinmi?')) return;
+    try {
+      setGradingId(subId);
+      const res = await api.post(`/assignments/submissions/${subId}/ai-grade`);
+      alert(`🤖 AI baholadi: ${res.data.score} ball\n\n${res.data.feedback}`);
+      await fetchSubmissions(selectedAssignment.id);
+    } catch (err) {
+      alert('AI baholashda xatolik: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setGradingId(null);
     }
   };
 
@@ -667,6 +829,247 @@ const LessonDetail = () => {
 
 
 
+      {/* ═══════════════ AMALIY TOPSHIRIQLAR ═══════════════════ */}
+      <div className="profile-section" style={{ marginTop: '2rem' }}>
+        <div className="section-header">
+          <h3>🖥️ Amaliy Topshiriqlar ({assignments.length})</h3>
+          {isOwner && (
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button onClick={() => setShowCreateAssignModal(true)} className="btn btn-primary">➕ Topshiriq</button>
+              <button onClick={() => setShowAIAssignModal(true)} className="btn btn-success">🤖 AI bilan</button>
+            </div>
+          )}
+        </div>
+
+        {loadingAssignments ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>Yuklanmoqda...</div>
+        ) : assignments.length === 0 ? (
+          <div className="empty-state" style={{ padding: '2rem 0' }}>
+            <div className="empty-icon">🖥️</div>
+            <p>{isOwner ? 'Hali amaliy topshiriq yaratilmagan.' : 'Hozircha amaliy topshiriqlar yo\'q.'}</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1.5rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+
+            {/* Left: assignment list */}
+            <div style={{ flex: '0 0 280px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {assignments.map(a => (
+                <div key={a.id} onClick={() => handleSelectAssignment(a)}
+                  style={{
+                    cursor: 'pointer', padding: '1rem', borderRadius: '12px',
+                    border: selectedAssignment?.id === a.id ? '2px solid var(--primary-color)' : '2px solid var(--border-color)',
+                    background: selectedAssignment?.id === a.id ? 'linear-gradient(135deg,rgba(102,126,234,0.1),rgba(118,75,162,0.1))' : 'var(--card-bg)',
+                    transition: 'all 0.2s'
+                  }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '1.3rem' }}>{TASK_TYPES[a.task_type]?.icon || '📁'}</span>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '0.9rem', lineHeight: 1.3 }}>{a.title}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                          {TASK_TYPES[a.task_type]?.label} • {a.max_score} ball
+                        </div>
+                      </div>
+                    </div>
+                    {a.ai_generated && <span style={{ fontSize: '0.65rem', background: 'rgba(168,85,247,0.15)', color: '#9333ea', padding: '2px 6px', borderRadius: '10px' }}>AI</span>}
+                  </div>
+                  {/* Student submission status */}
+                  {user.role === 'student' && a.my_submission && (
+                    <div style={{ marginTop: '0.5rem', fontSize: '0.75rem' }}>
+                      {a.my_submission.status === 'graded'
+                        ? <span style={{ color: '#16a34a', fontWeight: 600 }}>✅ Baholandi: {a.my_submission.score} ball</span>
+                        : <span style={{ color: '#d97706' }}>⏳ Topshirildi, tekshirilmoqda</span>}
+                    </div>
+                  )}
+                  {/* Teacher submission count */}
+                  {user.role !== 'student' && (
+                    <div style={{ marginTop: '0.4rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      📨 {a.submissions_count || 0} topshirma • ✅ {a.graded_count || 0} baholangan
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Right: assignment detail */}
+            {selectedAssignment && (
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ background: 'var(--card-bg)', borderRadius: '16px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
+
+                  {/* Header */}
+                  <div style={{ padding: '1.25rem 1.5rem', background: 'linear-gradient(135deg,#7c3aed,#2563eb)', color: '#fff' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                          <span style={{ fontSize: '1.5rem' }}>{TASK_TYPES[selectedAssignment.task_type]?.icon}</span>
+                          <h3 style={{ margin: 0, color: '#fff' }}>{selectedAssignment.title}</h3>
+                        </div>
+                        <p style={{ margin: '0.3rem 0 0', opacity: 0.85, fontSize: '0.85rem' }}>
+                          {TASK_TYPES[selectedAssignment.task_type]?.label} • {selectedAssignment.max_score} ball
+                          {selectedAssignment.deadline && ` • Muddat: ${new Date(selectedAssignment.deadline).toLocaleDateString('uz-UZ')}`}
+                        </p>
+                      </div>
+                      {isOwner && (
+                        <button onClick={() => handleDeleteAssignment(selectedAssignment.id)}
+                          className="btn btn-sm"
+                          style={{ background: 'rgba(255,80,80,0.3)', color: '#fff', border: '1px solid rgba(255,80,80,0.5)' }}>
+                          🗑️
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '1.5rem' }}>
+                    {/* Description */}
+                    {selectedAssignment.description && (
+                      <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
+                        {selectedAssignment.description}
+                      </p>
+                    )}
+
+                    {/* Instructions */}
+                    <div style={{ background: 'var(--bg-secondary)', borderRadius: '10px', padding: '1rem', marginBottom: '1.5rem', border: '1px solid var(--border-color)' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        📋 Bajarish ko'rsatmalari
+                        {selectedAssignment.ai_generated && <span style={{ fontSize: '0.7rem', background: 'rgba(168,85,247,0.15)', color: '#9333ea', padding: '2px 8px', borderRadius: '10px' }}>🤖 AI yaratgan</span>}
+                      </div>
+                      <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.8, fontSize: '0.9rem' }}>
+                        {selectedAssignment.instructions}
+                      </div>
+                    </div>
+
+                    {/* ── STUDENT: fayl yuklash ── */}
+                    {user.role === 'student' && (
+                      <div style={{ background: 'rgba(34,197,94,0.06)', borderRadius: '10px', padding: '1.25rem', border: '1px solid rgba(34,197,94,0.2)' }}>
+                        <h4 style={{ margin: '0 0 0.75rem', color: '#16a34a' }}>📤 Topshiriqni yuklash</h4>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+                          Qabul qilinadigan fayl: <strong>{TASK_TYPES[selectedAssignment.task_type]?.ext}</strong>
+                        </p>
+                        {/* Avvalgi topshirma */}
+                        {selectedAssignment.my_submission && (
+                          <div style={{ marginBottom: '0.75rem', padding: '0.6rem 0.9rem', background: 'var(--card-bg)', borderRadius: '8px', fontSize: '0.85rem', border: '1px solid var(--border-color)' }}>
+                            {selectedAssignment.my_submission.status === 'graded' ? (
+                              <div>
+                                <div style={{ color: '#16a34a', fontWeight: 600, marginBottom: '0.25rem' }}>
+                                  ✅ Ball: {selectedAssignment.my_submission.score} / {selectedAssignment.max_score}
+                                </div>
+                                {selectedAssignment.my_submission.feedback && (
+                                  <div style={{ color: 'var(--text-secondary)' }}>
+                                    💬 {selectedAssignment.my_submission.feedback}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span style={{ color: '#d97706' }}>
+                                ⏳ "{selectedAssignment.my_submission.file_name}" yuklangan, tekshirilmoqda...
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        <label className="btn btn-primary" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                          {submittingFile ? '⏳ Yuklanmoqda...' : (selectedAssignment.my_submission ? '🔄 Qayta yuklash' : '📎 Fayl tanlash va yuklash')}
+                          <input type="file" style={{ display: 'none' }} disabled={submittingFile}
+                            onChange={(e) => handleSubmitFile(selectedAssignment.id, e)} />
+                        </label>
+                      </div>
+                    )}
+
+                    {/* ── TEACHER: submissions list ── */}
+                    {isOwner && (
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                          <h4 style={{ margin: 0 }}>📨 Topshirmalar ({assignmentSubmissions.length})</h4>
+                          <button onClick={() => fetchSubmissions(selectedAssignment.id)} className="btn btn-sm btn-outline">🔄 Yangilash</button>
+                        </div>
+
+                        {loadingSubmissions ? (
+                          <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-secondary)' }}>Yuklanmoqda...</div>
+                        ) : assignmentSubmissions.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-secondary)', background: 'var(--bg-secondary)', borderRadius: '10px' }}>
+                            Hali hech kim topshirmadi
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {assignmentSubmissions.map(sub => (
+                              <div key={sub.id} style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '1rem', border: '1px solid var(--border-color)' }}>
+                                {/* Student info */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                  <div>
+                                    <span style={{ fontWeight: 600 }}>{sub.student_name}</span>
+                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '0.5rem' }}>{sub.class_name}</span>
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                    {sub.status === 'graded'
+                                      ? <span style={{ background: 'rgba(34,197,94,0.15)', color: '#16a34a', padding: '2px 10px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 600 }}>✅ {sub.score} ball</span>
+                                      : <span style={{ background: 'rgba(245,158,11,0.15)', color: '#d97706', padding: '2px 10px', borderRadius: '10px', fontSize: '0.8rem' }}>⏳ Kutilmoqda</span>
+                                    }
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                      {new Date(sub.submitted_at).toLocaleDateString('uz-UZ')}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* File download */}
+                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                                  <a href={`${(process.env.REACT_APP_API_URL||'').replace('/api','')}${sub.file_path}`}
+                                    target="_blank" rel="noopener noreferrer"
+                                    className="btn btn-sm btn-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                                    ⬇️ {sub.file_name}
+                                  </a>
+                                  {sub.graded_by === 'ai' && <span style={{ fontSize: '0.75rem', color: '#9333ea' }}>🤖 AI baholagan</span>}
+                                  {sub.graded_by === 'teacher' && <span style={{ fontSize: '0.75rem', color: '#2563eb' }}>👨‍🏫 O'qituvchi baholagan</span>}
+                                </div>
+
+                                {/* Previous feedback */}
+                                {sub.feedback && (
+                                  <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', padding: '0.5rem', background: 'var(--card-bg)', borderRadius: '6px', borderLeft: '3px solid var(--primary-color)' }}>
+                                    💬 {sub.feedback}
+                                  </div>
+                                )}
+
+                                {/* Grading panel */}
+                                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                                  <div>
+                                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '3px' }}>
+                                      Ball (0–{selectedAssignment.max_score})
+                                    </label>
+                                    <input type="number" min="0" max={selectedAssignment.max_score}
+                                      value={manualScore[sub.id] ?? (sub.score ?? '')}
+                                      onChange={e => setManualScore(s => ({ ...s, [sub.id]: e.target.value }))}
+                                      style={{ width: '70px', padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontSize: '0.9rem' }} />
+                                  </div>
+                                  <div style={{ flex: 1, minWidth: '160px' }}>
+                                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '3px' }}>Izoh</label>
+                                    <input type="text" placeholder="Izoh (ixtiyoriy)"
+                                      value={manualFeedback[sub.id] ?? (sub.feedback ?? '')}
+                                      onChange={e => setManualFeedback(s => ({ ...s, [sub.id]: e.target.value }))}
+                                      style={{ width: '100%', padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontSize: '0.85rem' }} />
+                                  </div>
+                                  <button onClick={() => handleManualGrade(sub.id, selectedAssignment.max_score)}
+                                    disabled={gradingId === sub.id}
+                                    className="btn btn-sm btn-primary">
+                                    {gradingId === sub.id ? '⏳' : '✅ Ball qo\'y'}
+                                  </button>
+                                  <button onClick={() => handleAIGrade(sub.id)}
+                                    disabled={gradingId === sub.id}
+                                    className="btn btn-sm btn-success">
+                                    {gradingId === sub.id ? '⏳ AI...' : '🤖 AI baho'}
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* ════════════════════════ MODALS ════════════════════════ */}
 
       {/* Create Test Modal */}
@@ -918,6 +1321,119 @@ const LessonDetail = () => {
                 <button type="button" className="btn btn-outline" onClick={() => setShowAIModal(false)} disabled={aiLoading}>Bekor qilish</button>
                 <button type="submit" className="btn btn-success" disabled={aiLoading}>
                   {aiLoading ? '⏳ Yaratilmoqda...' : '🤖 Yaratish'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Create Assignment Modal */}
+      {showCreateAssignModal && (
+        <div className="modal-overlay" onClick={() => setShowCreateAssignModal(false)}>
+          <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>🖥️ Amaliy topshiriq yaratish</h2>
+              <button className="close-btn" onClick={() => setShowCreateAssignModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleCreateAssignment} className="modal-form">
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Topshiriq turi *</label>
+                  <select value={newAssignment.task_type} onChange={e => setNewAssignment({...newAssignment, task_type: e.target.value})} required>
+                    {Object.entries(TASK_TYPES).map(([k, v]) => (
+                      <option key={k} value={k}>{v.icon} {v.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Maksimal ball</label>
+                  <input type="number" min="1" max="100" value={newAssignment.max_score}
+                    onChange={e => setNewAssignment({...newAssignment, max_score: parseInt(e.target.value)})} />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Topshiriq nomi *</label>
+                <input type="text" value={newAssignment.title} required
+                  onChange={e => setNewAssignment({...newAssignment, title: e.target.value})}
+                  placeholder={`Masalan: ${TASK_TYPES[newAssignment.task_type]?.label} da hujjat tayyorlash`} />
+              </div>
+              <div className="form-group">
+                <label>Qisqacha tavsif</label>
+                <textarea rows="2" value={newAssignment.description}
+                  onChange={e => setNewAssignment({...newAssignment, description: e.target.value})}
+                  placeholder="Topshiriq haqida qisqacha..." />
+              </div>
+              <div className="form-group">
+                <label>Bajarish ko'rsatmalari * <small style={{color:'var(--text-secondary)'}}>(nima qilish kerak, qanday, qanday talablar)</small></label>
+                <textarea rows="7" value={newAssignment.instructions} required
+                  onChange={e => setNewAssignment({...newAssignment, instructions: e.target.value})}
+                  placeholder={`${TASK_TYPES[newAssignment.task_type]?.label} da bajarish kerak bo'lgan vazifalarni batafsil yozing...`} />
+              </div>
+              <div className="form-group">
+                <label>Topshirish muddati (ixtiyoriy)</label>
+                <input type="datetime-local" value={newAssignment.deadline}
+                  onChange={e => setNewAssignment({...newAssignment, deadline: e.target.value})} />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setShowCreateAssignModal(false)}>Bekor qilish</button>
+                <button type="submit" className="btn btn-primary">✅ Yaratish</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* AI Assignment Modal */}
+      {showAIAssignModal && (
+        <div className="modal-overlay" onClick={() => setShowAIAssignModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>🤖 AI bilan topshiriq yaratish</h2>
+              <button className="close-btn" onClick={() => setShowAIAssignModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleAICreateAssignment} className="modal-form">
+              <div className="form-group">
+                <label>Topshiriq turi *</label>
+                <select value={aiAssignPrompt.task_type}
+                  onChange={e => setAiAssignPrompt({...aiAssignPrompt, task_type: e.target.value})}>
+                  {Object.entries(TASK_TYPES).map(([k, v]) => (
+                    <option key={k} value={k}>{v.icon} {v.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Mavzu *</label>
+                <input type="text" required value={aiAssignPrompt.topic}
+                  onChange={e => setAiAssignPrompt({...aiAssignPrompt, topic: e.target.value})}
+                  placeholder={`Masalan: ${ {python:'Ro\'yxatlar bilan ishlash', html:'Shaxsiy sahifa', excel:'Ish haqi hisobi', word:'Rezyume tayyorlash'}[aiAssignPrompt.task_type] || 'Mavzu nomi'}`} />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Sinf</label>
+                  <select value={aiAssignPrompt.grade}
+                    onChange={e => setAiAssignPrompt({...aiAssignPrompt, grade: parseInt(e.target.value)})}>
+                    <option value={9}>9-sinf</option>
+                    <option value={10}>10-sinf</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Qiyinlik</label>
+                  <select value={aiAssignPrompt.level}
+                    onChange={e => setAiAssignPrompt({...aiAssignPrompt, level: e.target.value})}>
+                    <option value="easy">Oson</option>
+                    <option value="medium">O'rta</option>
+                    <option value="hard">Qiyin</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ background: 'rgba(168,85,247,0.08)', borderRadius: '8px', padding: '0.75rem', fontSize: '0.85rem', color: '#9333ea', marginBottom: '0.5rem' }}>
+                🤖 AI mavzu va sinf asosida to'liq ko'rsatmalar bilan topshiriq yaratadi
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setShowAIAssignModal(false)} disabled={aiAssignLoading}>Bekor qilish</button>
+                <button type="submit" className="btn btn-success" disabled={aiAssignLoading}>
+                  {aiAssignLoading ? '⏳ Yaratilmoqda...' : '🤖 AI yaratsin'}
                 </button>
               </div>
             </form>

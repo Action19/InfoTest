@@ -14,6 +14,7 @@ const resultRoutes = require('./routes/results');
 const portfolioRoutes = require('./routes/portfolio');
 const statisticsRoutes = require('./routes/statistics');
 const lessonRoutes = require('./routes/lessons');
+const assignmentRoutes = require('./routes/assignments');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -60,6 +61,7 @@ app.use('/api/results', resultRoutes);
 app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/statistics', statisticsRoutes);
 app.use('/api/lessons', lessonRoutes);
+app.use('/api/assignments', assignmentRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -109,6 +111,55 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
+async function runMigrations(db) {
+  try {
+    // assignments table
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS assignments (
+        id            SERIAL PRIMARY KEY,
+        lesson_id     INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+        created_by    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title         TEXT NOT NULL,
+        description   TEXT NOT NULL DEFAULT '',
+        task_type     TEXT NOT NULL CHECK(task_type IN (
+          'word','excel','access','python','scratch','html','javascript','css','other'
+        )),
+        instructions  TEXT NOT NULL,
+        max_score     INTEGER DEFAULT 100,
+        deadline      TIMESTAMPTZ,
+        ai_generated  BOOLEAN DEFAULT FALSE,
+        created_at    TIMESTAMPTZ DEFAULT NOW(),
+        updated_at    TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    // assignment_submissions table
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS assignment_submissions (
+        id              SERIAL PRIMARY KEY,
+        assignment_id   INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+        student_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        file_name       TEXT NOT NULL,
+        file_path       TEXT NOT NULL,
+        file_size       INTEGER,
+        submitted_at    TIMESTAMPTZ DEFAULT NOW(),
+        score           INTEGER,
+        feedback        TEXT,
+        graded_by       TEXT CHECK(graded_by IN ('teacher','ai')),
+        graded_at       TIMESTAMPTZ,
+        ai_report       TEXT,
+        status          TEXT DEFAULT 'submitted' CHECK(status IN ('submitted','graded')),
+        UNIQUE(assignment_id, student_id)
+      )
+    `);
+    await db.run('CREATE INDEX IF NOT EXISTS idx_assignments_lesson  ON assignments(lesson_id)').catch(()=>{});
+    await db.run('CREATE INDEX IF NOT EXISTS idx_submissions_assign  ON assignment_submissions(assignment_id)').catch(()=>{});
+    await db.run('CREATE INDEX IF NOT EXISTS idx_submissions_student ON assignment_submissions(student_id)').catch(()=>{});
+    console.log('✓ Migrations applied');
+  } catch (err) {
+    console.error('Migration warning:', err.message);
+  }
+}
+
 async function startServer() {
   try {
     // Connect to database
@@ -132,6 +183,8 @@ async function startServer() {
       console.log('✅ Database initialized successfully!');
     } else {
       console.log('✓ Database already initialized');
+      // Run incremental migrations for new tables
+      await runMigrations(database);
     }
     
     // Start listening

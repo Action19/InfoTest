@@ -201,6 +201,47 @@ async function initializeTables(db) {
       )
     `);
 
+    // assignments
+    await db.run(`
+      CREATE TABLE assignments (
+        id            SERIAL PRIMARY KEY,
+        lesson_id     INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+        created_by    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title         TEXT NOT NULL,
+        description   TEXT NOT NULL,
+        task_type     TEXT NOT NULL CHECK(task_type IN (
+          'word','excel','access','python','scratch','html','javascript','css','other'
+        )),
+        instructions  TEXT NOT NULL,
+        max_score     INTEGER DEFAULT 100,
+        deadline      TIMESTAMPTZ,
+        ai_generated  BOOLEAN DEFAULT FALSE,
+        created_at    TIMESTAMPTZ DEFAULT NOW(),
+        updated_at    TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    // assignment_submissions
+    await db.run(`
+      CREATE TABLE assignment_submissions (
+        id              SERIAL PRIMARY KEY,
+        assignment_id   INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+        student_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        file_name       TEXT NOT NULL,
+        file_path       TEXT NOT NULL,
+        file_size       INTEGER,
+        submitted_at    TIMESTAMPTZ DEFAULT NOW(),
+        score           INTEGER,
+        feedback        TEXT,
+        graded_by       TEXT CHECK(graded_by IN ('teacher','ai')),
+        graded_at       TIMESTAMPTZ,
+        ai_report       TEXT,
+        status          TEXT DEFAULT 'submitted'
+                        CHECK(status IN ('submitted','graded')),
+        UNIQUE(assignment_id, student_id)
+      )
+    `);
+
     // Indexes
     await db.run('CREATE INDEX idx_users_username        ON users(username)');
     await db.run('CREATE INDEX idx_users_email           ON users(email)');
@@ -209,6 +250,9 @@ async function initializeTables(db) {
     await db.run('CREATE INDEX idx_lessons_created_by    ON lessons(created_by)');
     await db.run('CREATE INDEX idx_lessons_grade         ON lessons(grade)');
     await db.run('CREATE INDEX idx_lesson_materials_lid  ON lesson_materials(lesson_id)');
+    await db.run('CREATE INDEX idx_assignments_lesson    ON assignments(lesson_id)');
+    await db.run('CREATE INDEX idx_submissions_assign    ON assignment_submissions(assignment_id)');
+    await db.run('CREATE INDEX idx_submissions_student   ON assignment_submissions(student_id)');
     await db.run('CREATE INDEX idx_questions_test_id     ON questions(test_id)');
     await db.run('CREATE INDEX idx_results_user_id       ON results(user_id)');
     await db.run('CREATE INDEX idx_results_test_id       ON results(test_id)');
