@@ -4,6 +4,7 @@ const fs = require('fs');
 const multer = require('multer');
 const Assignment = require('../models/Assignment');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { readFileForAI } = require('../utils/fileReader');
 
 const router = express.Router();
 
@@ -67,21 +68,29 @@ function buildAIGradePrompt(task_type, instructions, fileContent) {
   return `Sen informatika o'qituvchisisisan. O'quvchi quyidagi amaliy topshiriqni bajardi.
 
 TOPSHIRIQ TURI: ${TASK_TYPES[task_type]?.label || task_type}
-TOPSHIRIQ TALABLARI:
+
+TOPSHIRIQ TALABLARI (o'qituvchi bergan):
 ${instructions}
 
-O'QUVCHI TOPSHIRGAN FAYL TARKIBI / TAVSIFI:
+O'QUVCHI TOPSHIRGAN FAYL TARKIBI:
 ${fileContent}
 
-O'quvchining ishini baholab, quyidagi JSON formatda javob ber (boshqa hech narsa yozma):
+MUHIM KO'RSATMALAR:
+- Topshiriq talablarida aytilgan HAR BIR narsani tekshir (formulalar, diagrammalar, jadvallar, funksiyalar va h.k.)
+- Agar talabda "diagramma qo'sh" deyilgan bo'lsa va diagramma yo'q bo'lsa — bu katta xato, ball keskin kamaytir
+- Agar talabda formula ishlatish kerak bo'lsa va formulalar yo'q bo'lsa (faqat qiymatlar) — bu xato
+- Fayl tarkibida aniq ko'rsatilgan ma'lumotlar asosida baholab, taxmin qilma
+- Agar "❌ Diagramma topilmadi" yoki "Formulalar soni: 0" ko'rsatilsa — buni jiddiy kamchilik deb hisoblash
+
+Quyidagi JSON formatda javob ber (boshqa hech narsa yozma):
 {
-  "score_percent": 85,
-  "feedback": "O'quvchining ishi haqida batafsil fikr (nima to'g'ri qilingan, nima yetishmaydi)",
-  "strengths": "Ijobiy tomonlar",
-  "improvements": "Yaxshilash kerak bo'lgan tomonlar"
+  "score_percent": 45,
+  "feedback": "O'quvchining ishi haqida batafsil fikr — nima bajarilgan, nima bajarilmagan",
+  "strengths": "Bajarilgan ijobiy tomonlar (yo'q bo'lsa 'Topshiriq to'liq bajarilmagan' deb yoz)",
+  "improvements": "Yaxshilash kerak bo'lgan tomonlar — aniq ko'rsatmalar bilan"
 }
 
-score_percent 0 dan 100 gacha bo'lsin.`;
+score_percent 0 dan 100 gacha bo'lsin. Baholashda qat'iy bo'l — bajarilmagan talablar uchun ball bera ko'rma.`;
 }
 
 // ─── ROUTES ──────────────────────────────────────────────────
@@ -315,7 +324,7 @@ router.post('/submissions/:subId/ai-grade', authenticateToken, requireRole(['tea
     const fileCheck = checkFileType(a.task_type, sub.file_name);
     if (!fileCheck.ok) {
       const feedback = `❌ Noto'g'ri fayl turi yuklangan!\n\nTopshiriq: ${TASK_TYPES[a.task_type]?.label} (${fileCheck.expected})\nYuklangan fayl: "${sub.file_name}" (${fileCheck.got})\n\nO'quvchi topshiriq talablariga mos fayl yuklamagan. Iltimos, to'g'ri formatdagi faylni qaytadan yuklang.`;
-      
+
       await Assignment.gradeSubmission(req.params.subId, {
         score: 0,
         feedback,
@@ -325,44 +334,36 @@ router.post('/submissions/:subId/ai-grade', authenticateToken, requireRole(['tea
 
       return res.json({
         message: 'AI baholadi',
-        score: 0,
-        score_percent: 0,
+        score: 0, score_percent: 0,
         feedback,
         strengths: '',
         improvements: `To'g'ri fayl turini yuklang: ${fileCheck.expected}`
       });
     }
 
-    // ── 2. Fayl tarkibini tayyorlash ──────────────────────────
+    // ── 2. Faylni o'qish ──────────────────────────────────────
     const filePath = path.join(__dirname, '..', sub.file_path);
-    const ext = path.extname(sub.file_name).toLowerCase();
-    const textExts = ['.py', '.html', '.htm', '.css', '.js', '.txt'];
-    const imageExts = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'];
+    const fileData = await readFileForAI(filePath, sub.file_name);
+
     const OpenAI = require('openai');
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     let result;
 
-    if (imageExts.includes(ext) && fs.existsSync(filePath)) {
-      // ── 3a. Rasm fayl — Vision API orqali baholash ────────────
-      const imageData = fs.readFileSync(filePath);
-      const base64 = imageData.toString('base64');
-      const mimeType = { '.png':'image/png', '.jpg':'image/jpeg', '.jpeg':'image/jpeg', '.gif':'image/gif', '.webp':'image/webp' }[ext] || 'image/png';
-
+    if (fileData.type === 'image') {
+      // ── 3a. Rasm — Vision API ─────────────────────────────
       const visionPrompt = `Sen informatika o'qituvchisisisan. O'quvchi quyidagi topshiriqni bajardi.
 
 TOPSHIRIQ TURI: ${TASK_TYPES[a.task_type]?.label || a.task_type}
 TOPSHIRIQ TALABLARI:
 ${a.instructions}
 
-O'quvchi yuborgan fayl: "${sub.file_name}" (rasm shaklida)
-
-Rasmda ko'rsatilgan ishni diqqat bilan ko'rib chiqing va topshiriq talablariga mosligini baholang.
+O'quvchi "${sub.file_name}" nomli rasm yubordi. Rasmni diqqat bilan ko'rib, topshiriq talablariga mosligini baholabing.
 
 Quyidagi JSON formatda javob ber (boshqa hech narsa yozma):
 {
-  "score_percent": 75,
-  "feedback": "Ishni ko'rib chiqdim. Batafsil tahlil...",
+  "score_percent": 60,
+  "feedback": "Rasmda ko'rinadiganlarga asoslanib batafsil tahlil",
   "strengths": "Ijobiy tomonlar",
   "improvements": "Yaxshilash kerak bo'lgan tomonlar"
 }`;
@@ -373,66 +374,32 @@ Quyidagi JSON formatda javob ber (boshqa hech narsa yozma):
           role: 'user',
           content: [
             { type: 'text', text: visionPrompt },
-            { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}`, detail: 'high' } }
+            { type: 'image_url', image_url: { url: `data:${fileData.mimeType};base64,${fileData.content}`, detail: 'high' } }
           ]
         }],
-        temperature: 0.3,
+        temperature: 0.2,
         max_tokens: 1000
       });
 
-      try {
-        const raw = completion.choices[0].message.content.trim();
-        const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
-        result = JSON.parse(jsonStr);
-      } catch {
-        return res.status(500).json({ error: 'AI javobini parse qilishda xatolik' });
-      }
-
-    } else if (textExts.includes(ext) && fs.existsSync(filePath)) {
-      // ── 3b. Matn fayl — to'g'ridan o'qib baholash ────────────
-      let fileContent = `Fayl nomi: ${sub.file_name}`;
-      try {
-        const content = fs.readFileSync(filePath, 'utf8');
-        fileContent += `\n\nFayl tarkibi:\n${content.slice(0, 4000)}`;
-      } catch { fileContent += '\n(Fayl o\'qilmadi)'; }
-
-      const prompt = buildAIGradePrompt(a.task_type, a.instructions, fileContent);
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
-        max_tokens: 1000
-      });
-
-      try {
-        const raw = completion.choices[0].message.content.trim();
-        const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
-        result = JSON.parse(jsonStr);
-      } catch {
-        return res.status(500).json({ error: 'AI javobini parse qilishda xatolik' });
-      }
+      const raw = completion.choices[0].message.content.trim();
+      const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
+      result = JSON.parse(jsonStr);
 
     } else {
-      // ── 3c. Binary fayl (Word, Excel, Access, Scratch) ───────
-      // Fayl nomini va hajmini ko'rib, topshiriq talablariga mos ekanini tasdiqlaydi
-      // Tarkibini o'qib bo'lmaydi lekin fayl turi to'g'ri (yuqorida tekshirildi)
-      const fileContent = `Fayl nomi: ${sub.file_name}\nFayl turi: ${TASK_TYPES[a.task_type]?.label}\nFayl hajmi: ${Math.round((sub.file_size||0)/1024)} KB\n\nEslatma: Bu fayl turi (${ext}) bevosita o'qib bo'lmaydi. Fayl topshiriq talablariga mos formatda yuklangan. Tarkibini to'liq baholash uchun faylni yuklab olib qo'lda tekshirish tavsiya etiladi.`;
+      // ── 3b. Matn yoki binary — to'liq tarkib bilan ────────
+      // binary_unreadable bo'lsa ham — aniq "o'qilmadi" xabari bilan AI ga beramiz
+      const prompt = buildAIGradePrompt(a.task_type, a.instructions, fileData.content);
 
-      const prompt = buildAIGradePrompt(a.task_type, a.instructions, fileContent);
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
-        max_tokens: 800
+        temperature: 0.2,
+        max_tokens: 1000
       });
 
-      try {
-        const raw = completion.choices[0].message.content.trim();
-        const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
-        result = JSON.parse(jsonStr);
-      } catch {
-        return res.status(500).json({ error: 'AI javobini parse qilishda xatolik' });
-      }
+      const raw = completion.choices[0].message.content.trim();
+      const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
+      result = JSON.parse(jsonStr);
     }
 
     // ── 4. Natijani saqlash ───────────────────────────────────
@@ -452,6 +419,7 @@ Quyidagi JSON formatda javob ber (boshqa hech narsa yozma):
       strengths: result.strengths,
       improvements: result.improvements
     });
+
   } catch (err) {
     console.error('AI grade error:', err);
     res.status(500).json({ error: 'AI baholashda xatolik: ' + err.message });
