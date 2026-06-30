@@ -13,6 +13,8 @@ async function initializeTables(db) {
       'DROP TABLE IF EXISTS achievements',
       'DROP TABLE IF EXISTS statistics',
       'DROP TABLE IF EXISTS portfolio_items',
+      'DROP TABLE IF EXISTS lesson_materials',
+      'DROP TABLE IF EXISTS lessons',
       'DROP TABLE IF EXISTS results',
       'DROP TABLE IF EXISTS test_attempts',
       'DROP TABLE IF EXISTS questions',
@@ -54,6 +56,7 @@ async function initializeTables(db) {
         title TEXT NOT NULL,
         description TEXT,
         subject TEXT NOT NULL,
+        lesson_id INTEGER,
         duration INTEGER NOT NULL,
         total_questions INTEGER DEFAULT 0,
         difficulty TEXT CHECK(difficulty IN ('easy', 'medium', 'hard')),
@@ -62,7 +65,38 @@ async function initializeTables(db) {
         created_by INTEGER NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE SET NULL
+      )
+    `);
+
+    // Create lessons table
+    await db.run(`
+      CREATE TABLE lessons (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        description TEXT,
+        grade INTEGER NOT NULL CHECK(grade IN (9, 10)),
+        subject TEXT NOT NULL,
+        content TEXT,
+        created_by INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Create lesson_materials table
+    await db.run(`
+      CREATE TABLE lesson_materials (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        lesson_id INTEGER NOT NULL,
+        file_name TEXT NOT NULL,
+        file_path TEXT NOT NULL,
+        file_type TEXT NOT NULL,
+        file_size INTEGER,
+        uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
       )
     `);
 
@@ -186,6 +220,10 @@ async function initializeTables(db) {
     await db.run('CREATE INDEX idx_users_username ON users(username)');
     await db.run('CREATE INDEX idx_users_email ON users(email)');
     await db.run('CREATE INDEX idx_tests_created_by ON tests(created_by)');
+    await db.run('CREATE INDEX idx_tests_lesson_id ON tests(lesson_id)');
+    await db.run('CREATE INDEX idx_lessons_created_by ON lessons(created_by)');
+    await db.run('CREATE INDEX idx_lessons_grade ON lessons(grade)');
+    await db.run('CREATE INDEX idx_lesson_materials_lesson_id ON lesson_materials(lesson_id)');
     await db.run('CREATE INDEX idx_questions_test_id ON questions(test_id)');
     await db.run('CREATE INDEX idx_results_user_id ON results(user_id)');
     await db.run('CREATE INDEX idx_results_test_id ON results(test_id)');

@@ -1,0 +1,189 @@
+const database = require('../config/database');
+
+class Lesson {
+  // Create new lesson
+  static async create(lessonData) {
+    const { title, description, grade, subject, content, created_by } = lessonData;
+    
+    const result = await database.run(`
+      INSERT INTO lessons (title, description, grade, subject, content, created_by)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [title, description, grade, subject, content, created_by]);
+    
+    return result.id;
+  }
+
+  // Get lesson by ID with materials
+  static async findById(id) {
+    const lesson = await database.get(
+      'SELECT * FROM lessons WHERE id = ?',
+      [id]
+    );
+
+    if (lesson) {
+      // Get materials for this lesson
+      lesson.materials = await database.all(
+        'SELECT * FROM lesson_materials WHERE lesson_id = ? ORDER BY uploaded_at DESC',
+        [id]
+      );
+
+      // Get creator info
+      lesson.creator = await database.get(
+        'SELECT id, username, full_name FROM users WHERE id = ?',
+        [lesson.created_by]
+      );
+
+      // Get tests for this lesson
+      lesson.tests = await database.all(
+        `SELECT t.*, 
+          (SELECT COUNT(*) FROM questions WHERE test_id = t.id) as questions_count,
+          (SELECT COUNT(*) FROM results WHERE test_id = t.id) as attempts_count
+         FROM tests t 
+         WHERE t.lesson_id = ? AND t.is_published = 1
+         ORDER BY t.created_at DESC`,
+        [id]
+      );
+    }
+
+    return lesson;
+  }
+
+  // Get all lessons with optional filters
+  static async getAll(filters = {}) {
+    let query = `
+      SELECT l.*,
+        u.full_name as creator_name,
+        (SELECT COUNT(*) FROM lesson_materials WHERE lesson_id = l.id) as materials_count,
+        (SELECT COUNT(*) FROM tests WHERE lesson_id = l.id AND is_published = 1) as tests_count
+      FROM lessons l
+      LEFT JOIN users u ON l.created_by = u.id
+      WHERE 1=1
+    `;
+    
+    const params = [];
+
+    if (filters.grade) {
+      query += ' AND l.grade = ?';
+      params.push(filters.grade);
+    }
+
+    if (filters.subject) {
+      query += ' AND l.subject LIKE ?';
+      params.push(`%${filters.subject}%`);
+    }
+
+    if (filters.created_by) {
+      query += ' AND l.created_by = ?';
+      params.push(filters.created_by);
+    }
+
+    if (filters.search) {
+      query += ' AND (l.title LIKE ? OR l.description LIKE ?)';
+      params.push(`%${filters.search}%`, `%${filters.search}%`);
+    }
+
+    query += ' ORDER BY l.created_at DESC';
+
+    const lessons = await database.all(query, params);
+    return lessons;
+  }
+
+  // Get lessons for specific grade (for students)
+  static async getByGrade(grade, teacherDistrict, teacherSchool, teacherClasses) {
+    // Get lessons created by teachers from same district, school, and teaching this grade
+    const lessons = await database.all(`
+      SELECT l.*,
+        u.full_name as creator_name,
+        (SELECT COUNT(*) FROM lesson_materials WHERE lesson_id = l.id) as materials_count,
+        (SELECT COUNT(*) FROM tests WHERE lesson_id = l.id AND is_published = 1) as tests_count
+      FROM lessons l
+      LEFT JOIN users u ON l.created_by = u.id
+      WHERE l.grade = ?
+        AND u.district = ?
+        AND u.school_number = ?
+      ORDER BY l.created_at DESC
+    `, [grade, teacherDistrict, teacherSchool]);
+
+    return lessons;
+  }
+
+  // Update lesson
+  static async update(id, updates) {
+    const fields = [];
+    const params = [];
+
+    if (updates.title !== undefined) {
+      fields.push('title = ?');
+      params.push(updates.title);
+    }
+    if (updates.description !== undefined) {
+      fields.push('description = ?');
+      params.push(updates.description);
+    }
+    if (updates.subject !== undefined) {
+      fields.push('subject = ?');
+      params.push(updates.subject);
+    }
+    if (updates.content !== undefined) {
+      fields.push('content = ?');
+      params.push(updates.content);
+    }
+
+    if (fields.length === 0) return;
+
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    params.push(id);
+
+    await database.run(
+      `UPDATE lessons SET ${fields.join(', ')} WHERE id = ?`,
+      params
+    );
+  }
+
+  // Delete lesson
+  static async delete(id) {
+    // Delete associated materials first (cascade should handle this, but explicit is better)
+    await database.run('DELETE FROM lesson_materials WHERE lesson_id = ?', [id]);
+    
+    // Update tests to remove lesson reference
+    await database.run('UPDATE tests SET lesson_id = NULL WHERE lesson_id = ?', [id]);
+    
+    // Delete lesson
+    await database.run('DELETE FROM lessons WHERE id = ?', [id]);
+  }
+
+  // Add material to lesson
+  static async addMaterial(materialData) {
+    const { lesson_id, file_name, file_path, file_type, file_size } = materialData;
+    
+    const result = await database.run(`
+      INSERT INTO lesson_materials (lesson_id, file_name, file_path, file_type, file_size)
+      VALUES (?, ?, ?, ?, ?)
+    `, [lesson_id, file_name, file_path, file_type, file_size]);
+    
+    return result.id;
+  }
+
+  // Get materials for lesson
+  static async getMaterials(lessonId) {
+    return await database.all(
+      'SELECT * FROM lesson_materials WHERE lesson_id = ? ORDER BY uploaded_at DESC',
+      [lessonId]
+    );
+  }
+
+  // Delete material
+  static async deleteMaterial(materialId) {
+    await database.run('DELETE FROM lesson_materials WHERE id = ?', [materialId]);
+  }
+
+  // Get material by ID
+  static async getMaterialById(id) {
+    return await database.get(
+      'SELECT * FROM lesson_materials WHERE id = ?',
+      [id]
+    );
+  }
+}
+
+module.exports = Lesson;

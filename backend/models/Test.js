@@ -7,6 +7,7 @@ class Test {
       title,
       description,
       subject,
+      lesson_id = null,
       duration,
       difficulty = 'medium',
       passing_score = 60,
@@ -15,16 +16,17 @@ class Test {
 
     const sql = `
       INSERT INTO tests (
-        title, description, subject, duration, difficulty, 
+        title, description, subject, lesson_id, duration, difficulty, 
         passing_score, created_by
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const result = await database.run(sql, [
       title,
       description,
       subject,
+      lesson_id,
       duration,
       difficulty,
       passing_score,
@@ -40,9 +42,12 @@ class Test {
       SELECT 
         t.*,
         u.username as creator_username,
-        u.full_name as creator_name
+        u.full_name as creator_name,
+        l.title as lesson_title,
+        l.grade as lesson_grade
       FROM tests t
       LEFT JOIN users u ON t.created_by = u.id
+      LEFT JOIN lessons l ON t.lesson_id = l.id
       WHERE t.id = ?
     `;
     return await database.get(sql, [id]);
