@@ -57,6 +57,10 @@ const Navbar = () => {
             <span className="nav-icon">🏠</span>
             Bosh sahifa
           </Link>
+          <Link to="/lessons" className={`navbar-link ${isActive('/lessons') ? 'active' : ''}`}>
+            <span className="nav-icon">📚</span>
+            Darslar
+          </Link>
           <Link to="/tests" className={`navbar-link ${isActive('/tests') ? 'active' : ''}`}>
             <span className="nav-icon">📝</span>
             Testlar

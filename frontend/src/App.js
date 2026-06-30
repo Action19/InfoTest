@@ -15,6 +15,8 @@ import Profile from './pages/Profile';
 import Leaderboard from './pages/Leaderboard';
 import Students from './pages/Students';
 import StudentPortfolio from './pages/StudentPortfolio';
+import Lessons from './pages/Lessons';
+import LessonDetail from './pages/LessonDetail';
 import './assets/css/App.css';
 
 function App() {
@@ -104,6 +106,22 @@ function App() {
                 element={
                   <PrivateRoute>
                     <StudentPortfolio />
+                  </PrivateRoute>
+                } 
+              />
+              <Route 
+                path="/lessons" 
+                element={
+                  <PrivateRoute>
+                    <Lessons />
+                  </PrivateRoute>
+                } 
+              />
+              <Route 
+                path="/lessons/:id" 
+                element={
+                  <PrivateRoute>
+                    <LessonDetail />
                   </PrivateRoute>
                 } 
               />
