@@ -1,8 +1,45 @@
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const database = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
+
+// ─── Portfolio fayl yuklash config ───────────────────────────
+const PORTFOLIO_DIR = path.join(__dirname, '..', 'uploads', 'portfolio');
+if (!fs.existsSync(PORTFOLIO_DIR)) fs.mkdirSync(PORTFOLIO_DIR, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, PORTFOLIO_DIR),
+  filename: (req, file, cb) => {
+    const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, `${Date.now()}_u${req.user.id}_${safe}`);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpg|jpeg|png|gif|webp|pdf|doc|docx|zip|txt|mp4|mov/i;
+    const ext = path.extname(file.originalname).slice(1);
+    allowed.test(ext) ? cb(null, true) : cb(new Error('Fayl turi qabul qilinmaydi'));
+  }
+});
+
+// ─── Fayl turi aniqlovchi ────────────────────────────────────
+function getFileType(fileName) {
+  const ext = path.extname(fileName).toLowerCase();
+  if (['.jpg','.jpeg','.png','.gif','.webp'].includes(ext)) return 'image';
+  if (ext === '.pdf') return 'pdf';
+  if (['.doc','.docx'].includes(ext)) return 'doc';
+  if (['.mp4','.mov'].includes(ext)) return 'video';
+  if (ext === '.zip') return 'zip';
+  return 'file';
+}
+
 
 // Get current user's portfolio
 router.get('/', authenticateToken, async (req, res) => {
@@ -95,6 +132,27 @@ router.get('/item/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Get portfolio item error:', error);
     res.status(500).json({ error: 'Failed to get portfolio item' });
+  }
+});
+
+// POST /api/portfolio/upload — fayl yuklash (rasm, PDF va h.k.)
+router.post('/upload', authenticateToken, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Fayl yuklanmadi' });
+
+    const fileType = getFileType(req.file.originalname);
+    const filePath = `/uploads/portfolio/${req.file.filename}`;
+
+    res.json({
+      file_url: filePath,
+      file_name: req.file.originalname,
+      file_size: req.file.size,
+      file_type: fileType,
+      is_image: fileType === 'image'
+    });
+  } catch (err) {
+    console.error('Portfolio upload error:', err);
+    res.status(500).json({ error: 'Fayl yuklashda xatolik: ' + err.message });
   }
 });
 
