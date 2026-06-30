@@ -50,6 +50,12 @@ const LessonDetail = () => {
   const [manualScore, setManualScore] = useState({});
   const [manualFeedback, setManualFeedback] = useState({});
 
+  // Kod editor state (python, html, js, css)
+  const CODE_TYPES = ['python', 'html', 'javascript', 'css'];
+  const [codeInput, setCodeInput] = useState({});      // { [assignmentId]: "kod matni" }
+  const [codeResult, setCodeResult] = useState({});    // { [assignmentId]: { score, feedback, ... } }
+  const [submittingCode, setSubmittingCode] = useState(false);
+
   // New test form
   const [newTest, setNewTest] = useState({
     title: '',
@@ -299,6 +305,31 @@ const LessonDetail = () => {
     }
   };
 
+  const handleSubmitCode = async (assignmentId) => {
+    const code = codeInput[assignmentId];
+    if (!code || !code.trim()) {
+      alert('Kod bo\'sh bo\'lishi mumkin emas!');
+      return;
+    }
+    try {
+      setSubmittingCode(true);
+      const res = await api.post(`/assignments/${assignmentId}/submit-code`, { code });
+      const aiResult = res.data.ai_result;
+      if (aiResult) {
+        setCodeResult(r => ({ ...r, [assignmentId]: aiResult }));
+        // assignments ro'yxatini yangilash (my_submission status)
+        await fetchAssignments();
+      } else {
+        alert('✅ Kod yuborildi! O\'qituvchi tez orada baholaydi.');
+        await fetchAssignments();
+      }
+    } catch (err) {
+      alert('Kod yuborishda xatolik: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setSubmittingCode(false);
+    }
+  };
+
   const handleSubmitFile = async (assignmentId, e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -467,6 +498,16 @@ const LessonDetail = () => {
 
   const getDifficultyLabel = (d) => ({ easy: 'Oson', medium: "O'rta", hard: 'Qiyin' }[d] || d);
   const getDifficultyColor = (d) => ({ easy: 'badge-success', medium: 'badge-warning', hard: 'badge-danger' }[d] || 'badge-secondary');
+
+  const getCodePlaceholder = (task_type) => {
+    const ph = {
+      python: `# Bu yerga Python kodingizni yozing\n# Masalan:\n\nname = input("Ismingizni kiriting: ")\nprint(f"Salom, {name}!")`,
+      html: `<!DOCTYPE html>\n<html lang="uz">\n<head>\n    <meta charset="UTF-8">\n    <title>Mening sahifam</title>\n</head>\n<body>\n    <!-- Bu yerga HTML kodingizni yozing -->\n    <h1>Salom!</h1>\n</body>\n</html>`,
+      javascript: `// Bu yerga JavaScript kodingizni yozing\n// Masalan:\n\nfunction salom(ism) {\n    return \`Salom, \${ism}!\`;\n}\n\nconsole.log(salom("Akmal"));`,
+      css: `/* Bu yerga CSS kodingizni yozing */\n/* Masalan: */\n\nbody {\n    font-family: Arial, sans-serif;\n    background-color: #f0f0f0;\n}\n\nh1 {\n    color: #333;\n    text-align: center;\n}`
+    };
+    return ph[task_type] || '// Kodingizni bu yerga yozing...';
+  };
 
   const isOwner = user && lesson && (user.id === lesson.created_by || user.role === 'admin');
 
@@ -943,39 +984,159 @@ const LessonDetail = () => {
                       </div>
                     </div>
 
-                    {/* ── STUDENT: fayl yuklash ── */}
+                    {/* ── STUDENT: kod editor yoki fayl yuklash ── */}
                     {user.role === 'student' && (
-                      <div style={{ background: 'rgba(34,197,94,0.06)', borderRadius: '10px', padding: '1.25rem', border: '1px solid rgba(34,197,94,0.2)' }}>
-                        <h4 style={{ margin: '0 0 0.75rem', color: '#16a34a' }}>📤 Topshiriqni yuklash</h4>
-                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-                          Qabul qilinadigan fayl: <strong>{TASK_TYPES[selectedAssignment.task_type]?.ext}</strong>
-                        </p>
-                        {/* Avvalgi topshirma */}
-                        {selectedAssignment.my_submission && (
-                          <div style={{ marginBottom: '0.75rem', padding: '0.6rem 0.9rem', background: 'var(--card-bg)', borderRadius: '8px', fontSize: '0.85rem', border: '1px solid var(--border-color)' }}>
-                            {selectedAssignment.my_submission.status === 'graded' ? (
-                              <div>
-                                <div style={{ color: '#16a34a', fontWeight: 600, marginBottom: '0.25rem' }}>
-                                  ✅ Ball: {selectedAssignment.my_submission.score} / {selectedAssignment.max_score}
-                                </div>
-                                {selectedAssignment.my_submission.feedback && (
-                                  <div style={{ color: 'var(--text-secondary)' }}>
-                                    💬 {selectedAssignment.my_submission.feedback}
+                      <div>
+                        {CODE_TYPES.includes(selectedAssignment.task_type) ? (
+                          /* ── Dasturlash: kod yozish maydoni ── */
+                          <div style={{ background: 'rgba(99,102,241,0.05)', borderRadius: '12px', padding: '1.25rem', border: '1px solid rgba(99,102,241,0.2)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                              <h4 style={{ margin: 0, color: '#4f46e5' }}>
+                                {TASK_TYPES[selectedAssignment.task_type]?.icon} {TASK_TYPES[selectedAssignment.task_type]?.label} kodini yozing
+                              </h4>
+                              {selectedAssignment.my_submission?.status === 'graded' && (
+                                <span style={{ fontSize: '0.8rem', background: 'rgba(34,197,94,0.15)', color: '#16a34a', padding: '3px 10px', borderRadius: '20px', fontWeight: 600 }}>
+                                  ✅ {selectedAssignment.my_submission.score} / {selectedAssignment.max_score} ball
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Avvalgi natija */}
+                            {(codeResult[selectedAssignment.id] || (selectedAssignment.my_submission?.status === 'graded')) && (
+                              <div style={{ marginBottom: '1rem', padding: '0.9rem 1rem', background: 'var(--card-bg)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                                {(() => {
+                                  const r = codeResult[selectedAssignment.id];
+                                  const sub = selectedAssignment.my_submission;
+                                  const score = r?.score ?? sub?.score;
+                                  const feedback = r?.feedback ?? sub?.feedback;
+                                  const maxScore = selectedAssignment.max_score;
+                                  const pct = r?.score_percent ?? (score != null ? Math.round(score / maxScore * 100) : null);
+                                  const scoreColor = pct >= 85 ? '#16a34a' : pct >= 60 ? '#d97706' : '#dc2626';
+                                  return (
+                                    <div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                                        <span style={{ fontSize: '1.5rem', fontWeight: 800, color: scoreColor }}>{score} / {maxScore}</span>
+                                        <span style={{ fontSize: '0.9rem', fontWeight: 600, color: scoreColor }}>{pct}%</span>
+                                        <span style={{ fontSize: '0.75rem', color: '#9333ea', background: 'rgba(168,85,247,0.1)', padding: '2px 8px', borderRadius: '10px' }}>🤖 AI baho</span>
+                                      </div>
+                                      {feedback && <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{feedback}</p>}
+                                      {r?.strengths && (
+                                        <div style={{ marginTop: '0.5rem', fontSize: '0.82rem' }}>
+                                          <span style={{ color: '#16a34a' }}>✅ {r.strengths}</span>
+                                        </div>
+                                      )}
+                                      {r?.improvements && (
+                                        <div style={{ marginTop: '0.3rem', fontSize: '0.82rem' }}>
+                                          <span style={{ color: '#dc2626' }}>💡 {r.improvements}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            )}
+
+                            {/* Kod yozish maydoni */}
+                            <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
+                              <div style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                background: '#1e1e2e', padding: '0.5rem 0.75rem',
+                                borderRadius: '8px 8px 0 0',
+                                borderBottom: '1px solid rgba(255,255,255,0.1)'
+                              }}>
+                                <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.6)', fontFamily: 'monospace' }}>
+                                  {TASK_TYPES[selectedAssignment.task_type]?.icon} {selectedAssignment.task_type === 'python' ? 'python' : selectedAssignment.task_type === 'html' ? 'html' : selectedAssignment.task_type === 'javascript' ? 'javascript' : 'css'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setCodeInput(c => ({ ...c, [selectedAssignment.id]: '' }))}
+                                  style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: '0.75rem' }}
+                                >
+                                  🗑️ Tozalash
+                                </button>
+                              </div>
+                              <textarea
+                                value={codeInput[selectedAssignment.id] || ''}
+                                onChange={e => setCodeInput(c => ({ ...c, [selectedAssignment.id]: e.target.value }))}
+                                placeholder={getCodePlaceholder(selectedAssignment.task_type)}
+                                spellCheck={false}
+                                style={{
+                                  width: '100%',
+                                  minHeight: '280px',
+                                  background: '#1e1e2e',
+                                  color: '#cdd6f4',
+                                  fontFamily: '"Fira Code", "Cascadia Code", "Consolas", monospace',
+                                  fontSize: '0.88rem',
+                                  lineHeight: '1.6',
+                                  padding: '1rem',
+                                  border: 'none',
+                                  borderRadius: '0 0 8px 8px',
+                                  resize: 'vertical',
+                                  outline: 'none',
+                                  boxSizing: 'border-box',
+                                  tabSize: 4,
+                                }}
+                                onKeyDown={e => {
+                                  // Tab tugmasi 4 bo'sh joy kiritsin
+                                  if (e.key === 'Tab') {
+                                    e.preventDefault();
+                                    const start = e.target.selectionStart;
+                                    const end = e.target.selectionEnd;
+                                    const val = e.target.value;
+                                    const newVal = val.substring(0, start) + '    ' + val.substring(end);
+                                    setCodeInput(c => ({ ...c, [selectedAssignment.id]: newVal }));
+                                    setTimeout(() => { e.target.selectionStart = e.target.selectionEnd = start + 4; }, 0);
+                                  }
+                                }}
+                              />
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                              <button
+                                onClick={() => handleSubmitCode(selectedAssignment.id)}
+                                disabled={submittingCode || !codeInput[selectedAssignment.id]?.trim()}
+                                className="btn btn-primary"
+                                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                              >
+                                {submittingCode ? '⏳ Yuklanmoqda...' : '🚀 Yuborish va baholash'}
+                              </button>
+                              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                🤖 Yuborilgandan so'ng AI avtomatik baholaydi
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          /* ── Fayl yuklash (Word, Excel, Access, Scratch) ── */
+                          <div style={{ background: 'rgba(34,197,94,0.06)', borderRadius: '10px', padding: '1.25rem', border: '1px solid rgba(34,197,94,0.2)' }}>
+                            <h4 style={{ margin: '0 0 0.75rem', color: '#16a34a' }}>📤 Topshiriqni yuklash</h4>
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+                              Qabul qilinadigan fayl: <strong>{TASK_TYPES[selectedAssignment.task_type]?.ext}</strong>
+                            </p>
+                            {selectedAssignment.my_submission && (
+                              <div style={{ marginBottom: '0.75rem', padding: '0.6rem 0.9rem', background: 'var(--card-bg)', borderRadius: '8px', fontSize: '0.85rem', border: '1px solid var(--border-color)' }}>
+                                {selectedAssignment.my_submission.status === 'graded' ? (
+                                  <div>
+                                    <div style={{ color: '#16a34a', fontWeight: 600, marginBottom: '0.25rem' }}>
+                                      ✅ Ball: {selectedAssignment.my_submission.score} / {selectedAssignment.max_score}
+                                    </div>
+                                    {selectedAssignment.my_submission.feedback && (
+                                      <div style={{ color: 'var(--text-secondary)' }}>💬 {selectedAssignment.my_submission.feedback}</div>
+                                    )}
                                   </div>
+                                ) : (
+                                  <span style={{ color: '#d97706' }}>
+                                    ⏳ "{selectedAssignment.my_submission.file_name}" yuklangan, tekshirilmoqda...
+                                  </span>
                                 )}
                               </div>
-                            ) : (
-                              <span style={{ color: '#d97706' }}>
-                                ⏳ "{selectedAssignment.my_submission.file_name}" yuklangan, tekshirilmoqda...
-                              </span>
                             )}
+                            <label className="btn btn-primary" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                              {submittingFile ? '⏳ Yuklanmoqda...' : (selectedAssignment.my_submission ? '🔄 Qayta yuklash' : '📎 Fayl tanlash va yuklash')}
+                              <input type="file" style={{ display: 'none' }} disabled={submittingFile}
+                                onChange={(e) => handleSubmitFile(selectedAssignment.id, e)} />
+                            </label>
                           </div>
                         )}
-                        <label className="btn btn-primary" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                          {submittingFile ? '⏳ Yuklanmoqda...' : (selectedAssignment.my_submission ? '🔄 Qayta yuklash' : '📎 Fayl tanlash va yuklash')}
-                          <input type="file" style={{ display: 'none' }} disabled={submittingFile}
-                            onChange={(e) => handleSubmitFile(selectedAssignment.id, e)} />
-                        </label>
                       </div>
                     )}
 

@@ -243,6 +243,87 @@ router.post('/:id/submit', authenticateToken, upload.single('file'), async (req,
   }
 });
 
+// POST /api/assignments/:id/submit-code — o'quvchi kodni matn sifatida yuboradi (python/html/js/css)
+// Avtomatik AI baholash ham shu yerda amalga oshiriladi
+const CODE_TYPES = ['python', 'html', 'javascript', 'css'];
+const CODE_EXTENSIONS = { python: '.py', html: '.html', javascript: '.js', css: '.css' };
+
+router.post('/:id/submit-code', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'student')
+      return res.status(403).json({ error: 'Faqat o\'quvchilar topshiriq yuboradi' });
+
+    const { code } = req.body;
+    if (!code || !code.trim())
+      return res.status(400).json({ error: 'Kod bo\'sh bo\'lishi mumkin emas' });
+
+    const assignment = await Assignment.findById(req.params.id);
+    if (!assignment) return res.status(404).json({ error: 'Topshiriq topilmadi' });
+
+    if (!CODE_TYPES.includes(assignment.task_type)) {
+      return res.status(400).json({ error: 'Bu topshiriq turi kod yozishni qo\'llab-quvvatlamaydi' });
+    }
+
+    // Kodni faylga yozish
+    const ext = CODE_EXTENSIONS[assignment.task_type] || '.txt';
+    const safeName = `code_${Date.now()}_u${req.user.id}${ext}`;
+    const filePath = path.join(UPLOAD_DIR, safeName);
+    fs.writeFileSync(filePath, code, 'utf8');
+
+    // Submission saqla
+    const subId = await Assignment.submitFile({
+      assignment_id: parseInt(req.params.id),
+      student_id: req.user.id,
+      file_name: `kod${ext}`,
+      file_path: `/uploads/submissions/${safeName}`,
+      file_size: Buffer.byteLength(code, 'utf8')
+    });
+
+    // ── Avtomatik AI baholash ────────────────────────────────
+    let aiResult = null;
+    try {
+      const OpenAI = require('openai');
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+      const codeContent = `Fayl: kod${ext}\n\nO'quvchi yozgan kod:\n\`\`\`${assignment.task_type}\n${code.slice(0, 5000)}\n\`\`\``;
+      const prompt = buildAIGradePrompt(assignment.task_type, assignment.instructions, codeContent);
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.2,
+        max_tokens: 1000
+      });
+
+      const raw = completion.choices[0].message.content.trim();
+      const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
+      aiResult = JSON.parse(jsonStr);
+
+      const score = Math.round(((aiResult.score_percent || 0) / 100) * (assignment.max_score || 100));
+      await Assignment.gradeSubmission(subId, {
+        score,
+        feedback: aiResult.feedback || '',
+        graded_by: 'ai',
+        ai_report: JSON.stringify(aiResult)
+      });
+
+      aiResult.score = score;
+    } catch (aiErr) {
+      console.error('Auto AI grade error (non-fatal):', aiErr.message);
+      // AI baholash muvaffaqiyatsiz bo'lsa ham, submission saqlangan
+    }
+
+    res.status(201).json({
+      message: 'Kod yuborildi va baholandi',
+      submission_id: subId,
+      ai_result: aiResult
+    });
+  } catch (err) {
+    console.error('Submit code error:', err);
+    res.status(500).json({ error: 'Kod yuborishda xatolik: ' + err.message });
+  }
+});
+
 // GET /api/assignments/:id/submissions — o'qituvchi barcha javoblarni ko'radi
 router.get('/:id/submissions', authenticateToken, requireRole(['teacher','admin']), async (req, res) => {
   try {
