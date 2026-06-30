@@ -763,7 +763,12 @@ const LessonDetail = () => {
                   {/* O'quvchi uchun topshirilgan holati */}
                   {user.role === 'student' && test.already_attempted && (
                     <div style={{ marginTop: '0.4rem', fontSize: '0.73rem', color: '#16a34a', fontWeight: 600 }}>
-                      ✅ Topshirildi · {Number(test.my_attempt?.percentage || 0).toFixed(0)}%
+                      ✅ {Number(test.my_attempt?.percentage || 0).toFixed(0)}%
+                      {test.my_attempt?.correct_answers != null && (
+                        <span style={{ color: '#6366f1', marginLeft: '0.3rem' }}>
+                          · {test.my_attempt.correct_answers * 2} ball
+                        </span>
+                      )}
                     </div>
                   )}
                   {user.role === 'student' && !test.already_attempted && test.is_published && (
@@ -806,8 +811,11 @@ const LessonDetail = () => {
                               }}>
                                 ✅ Topshirildi
                                 {selectedTest.my_attempt && (
-                                  <span style={{ opacity: 0.85 }}>
+                                  <span style={{ opacity: 0.9 }}>
                                     · {Number(selectedTest.my_attempt.percentage || 0).toFixed(0)}%
+                                    {selectedTest.my_attempt.correct_answers != null && (
+                                      <span> · {selectedTest.my_attempt.correct_answers * 2} ball</span>
+                                    )}
                                   </span>
                                 )}
                               </div>

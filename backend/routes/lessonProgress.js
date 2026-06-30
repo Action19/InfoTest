@@ -49,7 +49,7 @@ router.get('/student/all', authenticateToken, async (req, res) => {
       p.test_results = await database.all(`
         SELECT
           t.id AS test_id, t.title AS test_title,
-          t.questions_count,
+          (SELECT COUNT(*) FROM questions WHERE test_id = t.id) AS questions_count,
           r.id AS result_id, r.correct_answers, r.total_questions,
           r.percentage, r.passed, r.created_at AS submitted_at
         FROM tests t

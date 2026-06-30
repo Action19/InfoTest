@@ -121,12 +121,6 @@ router.post('/submit', authenticateToken, async (req, res) => {
       [passed ? 1 : 0, user_id, user_id]
     );
     
-    // Award points to user
-    const pointsToAward = Math.floor(percentage / 10); // 10 points per 10%
-    if (pointsToAward > 0) {
-      await User.addPoints(user_id, pointsToAward);
-    }
-    
     // Check for achievements
     await checkAndAwardAchievements(user_id);
 

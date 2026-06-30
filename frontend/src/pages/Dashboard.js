@@ -261,6 +261,7 @@ const Dashboard = () => {
                     <p className="item-meta">
                       <strong>{item.score_percentage?.toFixed(1)}%</strong>
                       {' · '}{item.correct_answers}/{item.total_questions} to'g'ri
+                      {' · '}<strong style={{color:'#6366f1'}}>{(item.correct_answers||0) * 2} ball</strong>
                       {' · '}{new Date(item.submitted_at || item.created_at).toLocaleDateString('uz-UZ')}
                     </p>
                   ) : (
