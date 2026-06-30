@@ -215,7 +215,11 @@ const Register = () => {
       await register(registerData);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.error || "Ro'yxatdan o'tish xatosi. Qaytadan urinib ko'ring.");
+      console.error('Registration error:', err);
+      const errorMessage = err.response?.data?.error || 
+                          err.response?.data?.message || 
+                          "Ro'yxatdan o'tish xatosi. Qaytadan urinib ko'ring.";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

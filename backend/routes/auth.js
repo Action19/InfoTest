@@ -127,7 +127,21 @@ router.post('/register', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error('❌ Registration error:', error);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
+    
+    // Handle SQLite UNIQUE constraint violation
+    if (error.message && error.message.includes('UNIQUE constraint failed')) {
+      if (error.message.includes('username')) {
+        return res.status(400).json({ error: 'Bu login allaqachon band' });
+      }
+      if (error.message.includes('email')) {
+        return res.status(400).json({ error: 'Bu email allaqachon ro\'yxatdan o\'tgan' });
+      }
+      return res.status(400).json({ error: 'Bu login yoki email allaqachon mavjud' });
+    }
+    
     res.status(500).json({ error: 'Ro\'yxatdan o\'tish amalga oshmadi', details: error.message });
   }
 });

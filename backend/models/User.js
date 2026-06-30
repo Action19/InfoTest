@@ -17,6 +17,8 @@ class User {
       teaching_classes = ''
     } = userData;
     
+    console.log('🔷 Creating user:', { username, email, role });
+    
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
     
@@ -25,26 +27,33 @@ class User {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
-    const result = await database.run(sql, [
-      username,
-      email,
-      hashedPassword,
-      full_name,
-      role,
-      bio,
-      district,
-      school_number,
-      class_name,
-      teaching_classes
-    ]);
-    
-    // Create initial statistics for user
-    await database.run(
-      'INSERT INTO statistics (user_id) VALUES (?)',
-      [result.id]
-    );
-    
-    return result.id;
+    try {
+      const result = await database.run(sql, [
+        username,
+        email,
+        hashedPassword,
+        full_name,
+        role,
+        bio,
+        district,
+        school_number,
+        class_name,
+        teaching_classes
+      ]);
+      
+      console.log('✅ User created with ID:', result.id);
+      
+      // Create initial statistics for user
+      await database.run(
+        'INSERT INTO statistics (user_id) VALUES (?)',
+        [result.id]
+      );
+      
+      return result.id;
+    } catch (error) {
+      console.error('❌ User creation failed:', error.message);
+      throw error; // Re-throw to be caught by auth route
+    }
   }
 
   // Find user by ID
