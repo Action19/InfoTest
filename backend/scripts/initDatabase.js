@@ -310,22 +310,8 @@ async function seedData(db) {
        "10-sinf o'quvchisi, dasturlashga qiziqadi",150,2,'Namangan tumani','15','10-A']
     );
 
-    const s2 = await db.run(
-      `INSERT INTO users (username,email,password,full_name,role,bio,points,level,district,school_number,class_name)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-      ['dilshod_karimov','dilshod@infotest.uz',studentPwd,'Dilshod Karimov','student',
-       "10-sinf o'quvchisi",120,2,'Namangan tumani','15','10-B']
-    );
-
-    const s3 = await db.run(
-      `INSERT INTO users (username,email,password,full_name,role,bio,points,level,district,school_number,class_name)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-      ['madina_rashidova','madina@infotest.uz',studentPwd,'Madina Rashidova','student',
-       "9-sinf o'quvchisi",90,1,'Pop tumani','8','9-A']
-    );
-
     // Statistics rows
-    for (const r of [adminResult, teacherResult, s1, s2, s3]) {
+    for (const r of [adminResult, teacherResult, s1]) {
       await db.run('INSERT INTO statistics (user_id) VALUES (?)', [r.id]);
     }
 

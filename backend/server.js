@@ -174,6 +174,22 @@ async function runMigrations(db) {
     `);
     await db.run('CREATE INDEX IF NOT EXISTS idx_lesson_progress_student ON lesson_progress(student_id)').catch(()=>{});
     await db.run('CREATE INDEX IF NOT EXISTS idx_lesson_progress_lesson  ON lesson_progress(lesson_id)').catch(()=>{});
+
+    // Demo foydalanuvchilarni o'chirish (dilshod_karimov, madina_rashidova)
+    try {
+      const demoUsers = await db.all(
+        `SELECT id FROM users WHERE username IN ('dilshod_karimov', 'madina_rashidova')`
+      );
+      for (const u of demoUsers) {
+        await db.run('DELETE FROM users WHERE id = ?', [u.id]);
+      }
+      if (demoUsers.length > 0) {
+        console.log(`✓ Removed ${demoUsers.length} demo user(s): dilshod_karimov, madina_rashidova`);
+      }
+    } catch (e) {
+      console.error('Demo user cleanup error (non-fatal):', e.message);
+    }
+
     console.log('✓ Migrations applied');
   } catch (err) {
     console.error('Migration warning:', err.message);
