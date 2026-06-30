@@ -82,13 +82,15 @@ const LessonDetail = () => {
     try {
       setLoadingTest(true);
       const [questionsRes, statsRes] = await Promise.all([
-        api.get(`/questions/test/${testId}`),
+        api.get(`/questions/test/${testId}`).catch(() => ({ data: [] })),
         api.get(`/tests/${testId}/statistics`).catch(() => ({ data: null }))
       ]);
       setTestQuestions(Array.isArray(questionsRes.data) ? questionsRes.data : []);
       setTestStats(statsRes.data);
     } catch (err) {
       console.error('Error fetching test details:', err);
+      setTestQuestions([]);
+      setTestStats(null);
     } finally {
       setLoadingTest(false);
     }

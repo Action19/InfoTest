@@ -377,9 +377,20 @@ router.get('/:id/statistics', authenticateToken, isTeacherOrAdmin, async (req, r
       return res.status(404).json({ error: 'Test not found' });
     }
     
-    // Check ownership
+    // Allow: test creator, admin, or teacher who owns the lesson
     if (req.user.role === 'teacher' && test.created_by !== req.user.id) {
-      return res.status(403).json({ error: 'Access denied' });
+      // Check if this teacher owns the lesson containing this test
+      let allowed = false;
+      if (test.lesson_id) {
+        const Lesson = require('../models/Lesson');
+        const lesson = await Lesson.findById(test.lesson_id);
+        if (lesson && lesson.created_by === req.user.id) {
+          allowed = true;
+        }
+      }
+      if (!allowed) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
     }
     
     const statistics = await Test.getStatistics(id);

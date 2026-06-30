@@ -20,8 +20,19 @@ router.get('/test/:testId', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Test is not published' });
     }
     
+    // Teacher can see questions if: they created the test OR they own the lesson
     if (req.user.role === 'teacher' && test.created_by !== req.user.id) {
-      return res.status(403).json({ error: 'Access denied' });
+      let allowed = false;
+      if (test.lesson_id) {
+        const Lesson = require('../models/Lesson');
+        const lesson = await Lesson.findById(test.lesson_id);
+        if (lesson && lesson.created_by === req.user.id) {
+          allowed = true;
+        }
+      }
+      if (!allowed) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
     }
     
     // Hide correct answers for students
