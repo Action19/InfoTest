@@ -760,6 +760,17 @@ const LessonDetail = () => {
                     <span>❓ {test.questions_count || 0} savol</span>
                     <span>⏱️ {test.time_limit || test.duration} daq</span>
                   </div>
+                  {/* O'quvchi uchun topshirilgan holati */}
+                  {user.role === 'student' && test.already_attempted && (
+                    <div style={{ marginTop: '0.4rem', fontSize: '0.73rem', color: '#16a34a', fontWeight: 600 }}>
+                      ✅ Topshirildi · {Number(test.my_attempt?.percentage || 0).toFixed(0)}%
+                    </div>
+                  )}
+                  {user.role === 'student' && !test.already_attempted && test.is_published && (
+                    <div style={{ marginTop: '0.4rem', fontSize: '0.73rem', color: '#6366f1', fontWeight: 500 }}>
+                      ▶ Topshirilmagan
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -786,9 +797,25 @@ const LessonDetail = () => {
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                           {user.role === 'student' && selectedTest.is_published && (
-                            <Link to={`/tests/${selectedTest.id}`} className="btn btn-sm" style={{ background: '#fff', color: 'var(--primary-color)', fontWeight: 600 }}>
-                              🚀 Testni boshlash
-                            </Link>
+                            selectedTest.already_attempted ? (
+                              <div style={{
+                                display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                background: 'rgba(255,255,255,0.15)',
+                                borderRadius: '8px', padding: '0.3rem 0.75rem',
+                                fontSize: '0.82rem', color: '#fff', fontWeight: 600
+                              }}>
+                                ✅ Topshirildi
+                                {selectedTest.my_attempt && (
+                                  <span style={{ opacity: 0.85 }}>
+                                    · {Number(selectedTest.my_attempt.percentage || 0).toFixed(0)}%
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <Link to={`/tests/${selectedTest.id}`} className="btn btn-sm" style={{ background: '#fff', color: 'var(--primary-color)', fontWeight: 600 }}>
+                                🚀 Testni boshlash
+                              </Link>
+                            )
                           )}
                           {isOwner && (
                             <>

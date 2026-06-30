@@ -79,6 +79,10 @@ const Navbar = () => {
                 <span className="nav-icon">👥</span>
                 O'quvchilar
               </Link>
+              <Link to="/journal" className={`navbar-link ${isActive('/journal') ? 'active' : ''}`}>
+                <span className="nav-icon">📒</span>
+                Jurnal
+              </Link>
               <Link to="/leaderboard" className={`navbar-link ${isActive('/leaderboard') ? 'active' : ''}`}>
                 <span className="nav-icon">🏆</span>
                 Reyting

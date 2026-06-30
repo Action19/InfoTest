@@ -77,13 +77,14 @@ router.get('/', authenticateToken, async (req, res) => {
 // Get lesson by ID
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
-    const lesson = await Lesson.findById(req.params.id);
+    const user = await User.findById(req.user.id);
+    // O'quvchi bo'lsa my_attempt ma'lumotlari ham qo'shiladi
+    const student_id = user.role === 'student' ? user.id : null;
+    const lesson = await Lesson.findById(req.params.id, student_id);
 
     if (!lesson) {
       return res.status(404).json({ error: 'Dars topilmadi' });
     }
-
-    const user = await User.findById(req.user.id);
 
     // Check if student has access to this lesson
     if (user.role === 'student') {
@@ -92,7 +93,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
         return res.status(403).json({ error: 'Bu darsga ruxsatingiz yo\'q' });
       }
       // Students only see published tests
-      lesson.tests = lesson.tests_published || lesson.tests.filter(t => t.is_published);
+      lesson.tests = (lesson.tests_published || lesson.tests.filter(t => t.is_published));
     }
     // Teachers and admins see all tests (published + drafts)
 

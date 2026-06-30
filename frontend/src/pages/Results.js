@@ -5,67 +5,67 @@ import api from '../services/api';
 import '../assets/css/Pages.css';
 
 // ─── Helpers ─────────────────────────────────────────────────
-const getMedal = (grade) => ({ 5: '🥇', 4: '🥈', 3: '🥉', 2: '😢' }[grade] || '');
-const getMedalLabel = (grade) => ({
-  5: 'Oltin medal', 4: 'Kumush medal', 3: 'Bronza medal', 2: 'Qizil stiker'
-}[grade] || '');
-const getGradeColor = (grade) => ({
-  5: '#f59e0b', 4: '#6366f1', 3: '#92400e', 2: '#dc2626'
-}[grade] || '#6b7280');
-const getGradeBg = (grade) => ({
-  5: 'rgba(245,158,11,0.1)', 4: 'rgba(99,102,241,0.1)',
-  3: 'rgba(146,64,14,0.1)', 2: 'rgba(220,38,38,0.1)'
-}[grade] || 'rgba(107,114,128,0.1)');
+const getMedal      = (g) => ({ 5:'🥇', 4:'🥈', 3:'🥉', 2:'😢' }[g] || '');
+const getMedalLabel = (g) => ({ 5:'Oltin medal', 4:'Kumush medal', 3:'Bronza medal', 2:'Qizil stiker' }[g] || '');
+const gradeColor    = (g) => ({ 5:'#f59e0b', 4:'#6366f1', 3:'#92400e', 2:'#dc2626' }[g] || '#6b7280');
+const gradeBg       = (g) => ({ 5:'rgba(245,158,11,0.1)', 4:'rgba(99,102,241,0.1)', 3:'rgba(146,64,14,0.1)', 2:'rgba(220,38,38,0.1)' }[g] || 'transparent');
+const barColor      = (pct) =>
+  pct >= 86 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)'
+  : pct >= 60 ? 'linear-gradient(90deg,#6366f1,#818cf8)'
+  : pct >= 40 ? 'linear-gradient(90deg,#92400e,#b45309)'
+  : 'linear-gradient(90deg,#dc2626,#f87171)';
 
-const getScoreClass  = (pct) => pct >= 85 ? 'excellent' : pct >= 70 ? 'good' : pct >= 50 ? 'average' : 'poor';
-const getScoreLabel  = (pct) => pct >= 85 ? "A'lo" : pct >= 70 ? 'Yaxshi' : pct >= 50 ? "O'rta" : 'Qoniqarsiz';
-
-// ─── Tabs ─────────────────────────────────────────────────────
-const TABS = [
-  { id: 'overview', label: '📊 Umumiy', icon: '📊' },
-  { id: 'tests',    label: '📝 Testlar', icon: '📝' },
-  { id: 'lessons',  label: '🎓 Darslar', icon: '🎓' },
-];
+const taskTypeIcon = (t) =>
+  ({ word:'📝', excel:'📊', access:'🗄️', python:'🐍', scratch:'🐱',
+     html:'🌐', javascript:'💛', css:'🎨' }[t] || '📁');
 
 const Results = () => {
   const { user } = useAuth();
-  const location = useLocation();
+  const location  = useLocation();
   const fromLessonId = location.state?.lessonId;
 
-  const [activeTab, setActiveTab]       = useState('overview');
-  const [results, setResults]           = useState([]);
-  const [selectedResult, setSelectedResult] = useState(null);
-  const [lessonProgresses, setLessonProgresses] = useState([]);
-  const [summary, setSummary]           = useState(null);
-  const [loading, setLoading]           = useState(true);
+  // Barcha o'quvchi ma'lumotlari
+  const [progresses,   setProgresses]   = useState([]);   // darslar progressi + test/topshiriq natijalari
+  const [summary,      setSummary]      = useState(null);
+  const [allResults,   setAllResults]   = useState([]);   // /results/my-results (fallback)
+  const [loading,      setLoading]      = useState(true);
+
+  // Tanlangan dars
+  const [activeLessonId, setActiveLessonId] = useState(null);
+  // Har dars ichida faol tab
+  const [lessonTab,  setLessonTab]  = useState('summary'); // 'summary' | 'tests' | 'assignments'
+  // Test batafsil
+  const [detailResult, setDetailResult] = useState(null);
 
   useEffect(() => {
-    Promise.all([fetchResults(), fetchLessonProgresses()])
+    Promise.all([fetchProgresses(), fetchAllResults()])
       .finally(() => setLoading(false));
   }, []);
 
+  // Test topshirilgandan keyin kelsa shu darsni ochish
   useEffect(() => {
-    if (!location.state?.showDetails || results.length === 0) return;
-    const r = results.find(x =>
-      x.attempt_id === location.state.resultId || x.id === location.state.resultId
-    ) || results[0];
-    setSelectedResult(r);
-    setActiveTab('tests');
-  }, [results, location]);
+    if (!location.state?.showDetails || progresses.length === 0) return;
+    if (fromLessonId) {
+      setActiveLessonId(fromLessonId);
+      setLessonTab('tests');
+    } else {
+      setActiveLessonId(progresses[0]?.lesson_id);
+    }
+  }, [progresses, location]);
 
-  const fetchResults = async () => {
-    try {
-      const res = await api.get('/results/my-results');
-      setResults(Array.isArray(res.data) ? res.data : []);
-    } catch { setResults([]); }
-  };
-
-  const fetchLessonProgresses = async () => {
+  const fetchProgresses = async () => {
     try {
       const res = await api.get('/lesson-progress/student/all');
-      setLessonProgresses(res.data.progresses || []);
+      setProgresses(res.data.progresses || []);
       setSummary(res.data.summary || null);
-    } catch { setLessonProgresses([]); }
+    } catch { setProgresses([]); }
+  };
+
+  const fetchAllResults = async () => {
+    try {
+      const res = await api.get('/results/my-results');
+      setAllResults(Array.isArray(res.data) ? res.data : []);
+    } catch { setAllResults([]); }
   };
 
   if (loading) {
@@ -77,22 +77,24 @@ const Results = () => {
     );
   }
 
-  // Yillik hisoblar
-  const totalTestPoints  = results.reduce((s, r) => s + (r.correct_answers || 0) * 2, 0);
-  const avgTestPct       = results.length
-    ? Math.round(results.reduce((s, r) => s + (r.score_percentage || 0), 0) / results.length)
-    : 0;
+  // Aktiv dars
+  const activeLp = progresses.find(p => p.lesson_id === activeLessonId) || progresses[0];
+  const medals   = summary?.medals || { gold:0, silver:0, bronze:0, red:0 };
   const totalGradePoints = summary?.total_grade_points || 0;
-  const medals           = summary?.medals || { gold: 0, silver: 0, bronze: 0, red: 0 };
+
+  // Umumiy statistika
+  const avgTestPct = allResults.length
+    ? Math.round(allResults.reduce((s,r) => s + (r.score_percentage || 0), 0) / allResults.length)
+    : 0;
 
   return (
     <div className="page-container">
 
-      {/* ── Header ── */}
-      <div className="page-header" style={{ marginBottom: '1.5rem' }}>
+      {/* ── Sarlavha ── */}
+      <div className="page-header" style={{ marginBottom:'1.5rem' }}>
         <div>
-          <h1>Mening natijalarim</h1>
-          <p className="subtitle">Testlar, darslar va medallar</p>
+          <h1>📊 Mening natijalarim</h1>
+          <p className="subtitle">Darslar bo'yicha test va topshiriq natijalari</p>
         </div>
         {fromLessonId && (
           <Link to={`/lessons/${fromLessonId}`} className="btn btn-outline">
@@ -101,369 +103,387 @@ const Results = () => {
         )}
       </div>
 
-      {/* ── Yillik statistika kartochkalari ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '1rem', marginBottom: '2rem' }}>
-        {/* Umumiy ball */}
-        <div style={{ background: 'linear-gradient(135deg,#667eea,#764ba2)', borderRadius: '14px', padding: '1.2rem', color: '#fff', textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem', fontWeight: 800 }}>{user?.points || 0}</div>
-          <div style={{ fontSize: '0.8rem', opacity: 0.9, marginTop: '0.25rem' }}>⭐ Umumiy ball</div>
-        </div>
-
-        {/* Darslar */}
-        <div style={{ background: 'linear-gradient(135deg,#11998e,#38ef7d)', borderRadius: '14px', padding: '1.2rem', color: '#fff', textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem', fontWeight: 800 }}>{lessonProgresses.length}</div>
-          <div style={{ fontSize: '0.8rem', opacity: 0.9, marginTop: '0.25rem' }}>🎓 Darslar bajarildi</div>
-        </div>
-
-        {/* Testlar */}
-        <div style={{ background: 'linear-gradient(135deg,#f093fb,#f5576c)', borderRadius: '14px', padding: '1.2rem', color: '#fff', textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem', fontWeight: 800 }}>{results.length}</div>
-          <div style={{ fontSize: '0.8rem', opacity: 0.9, marginTop: '0.25rem' }}>📝 Testlar topshirildi</div>
-        </div>
-
-        {/* O'rtacha test foizi */}
-        <div style={{ background: 'linear-gradient(135deg,#4facfe,#00f2fe)', borderRadius: '14px', padding: '1.2rem', color: '#fff', textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem', fontWeight: 800 }}>{avgTestPct}%</div>
-          <div style={{ fontSize: '0.8rem', opacity: 0.9, marginTop: '0.25rem' }}>📊 O'rtacha test bali</div>
-        </div>
+      {/* ── Yillik statistika ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:'1rem', marginBottom:'1.5rem' }}>
+        <StatCard value={user?.points || 0}      label="⭐ Umumiy ball"      gradient="linear-gradient(135deg,#667eea,#764ba2)" />
+        <StatCard value={progresses.length}       label="🎓 Bajarilgan darslar" gradient="linear-gradient(135deg,#11998e,#38ef7d)" />
+        <StatCard value={allResults.length}       label="📝 Topshirilgan testlar" gradient="linear-gradient(135deg,#f093fb,#f5576c)" />
+        <StatCard value={`${avgTestPct}%`}        label="📊 O'rtacha test bali"   gradient="linear-gradient(135deg,#4facfe,#00f2fe)" />
       </div>
 
-      {/* ── Medallar vitrinasi ── */}
+      {/* ── Medal vitrinasi ── */}
       {(medals.gold + medals.silver + medals.bronze + medals.red) > 0 && (
-        <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '1.5rem', marginBottom: '2rem' }}>
-          <h3 style={{ margin: '0 0 1rem' }}>🏆 Medal vitrinasi</h3>
-          <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            {medals.gold > 0 && (
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '2.5rem' }}>🥇</div>
-                <div style={{ fontWeight: 700, fontSize: '1.2rem', color: '#f59e0b' }}>×{medals.gold}</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Oltin</div>
-              </div>
-            )}
-            {medals.silver > 0 && (
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '2.5rem' }}>🥈</div>
-                <div style={{ fontWeight: 700, fontSize: '1.2rem', color: '#6366f1' }}>×{medals.silver}</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Kumush</div>
-              </div>
-            )}
-            {medals.bronze > 0 && (
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '2.5rem' }}>🥉</div>
-                <div style={{ fontWeight: 700, fontSize: '1.2rem', color: '#92400e' }}>×{medals.bronze}</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Bronza</div>
-              </div>
-            )}
-            {medals.red > 0 && (
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '2.5rem' }}>😢</div>
-                <div style={{ fontWeight: 700, fontSize: '1.2rem', color: '#dc2626' }}>×{medals.red}</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Qizil</div>
-              </div>
-            )}
-            <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--primary-color)' }}>
-                +{totalGradePoints}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                darslardan qo'shilgan ball
-              </div>
+        <div style={{ background:'var(--card-bg)', border:'1px solid var(--border-color)', borderRadius:'16px', padding:'1.25rem 1.5rem', marginBottom:'1.5rem' }}>
+          <h3 style={{ margin:'0 0 1rem', fontSize:'1rem' }}>🏆 Medal vitrinasi</h3>
+          <div style={{ display:'flex', gap:'1.5rem', flexWrap:'wrap', alignItems:'center' }}>
+            {medals.gold   > 0 && <MedalBadge emoji="🥇" count={medals.gold}   color="#f59e0b" label="Oltin" />}
+            {medals.silver > 0 && <MedalBadge emoji="🥈" count={medals.silver} color="#6366f1" label="Kumush" />}
+            {medals.bronze > 0 && <MedalBadge emoji="🥉" count={medals.bronze} color="#92400e" label="Bronza" />}
+            {medals.red    > 0 && <MedalBadge emoji="😢" count={medals.red}    color="#dc2626" label="Qizil" />}
+            <div style={{ marginLeft:'auto', textAlign:'right' }}>
+              <div style={{ fontSize:'1.4rem', fontWeight:800, color:'var(--primary-color)' }}>+{totalGradePoints}</div>
+              <div style={{ fontSize:'0.72rem', color:'var(--text-secondary)' }}>darslardan qo'shilgan ball</div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Tab navigation ── */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '2px solid var(--border-color)', paddingBottom: '0' }}>
-        {TABS.map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            style={{
-              padding: '0.6rem 1.25rem',
-              border: 'none', cursor: 'pointer',
-              background: 'transparent',
-              borderBottom: activeTab === tab.id ? '3px solid var(--primary-color)' : '3px solid transparent',
-              color: activeTab === tab.id ? 'var(--primary-color)' : 'var(--text-secondary)',
-              fontWeight: activeTab === tab.id ? 700 : 400,
-              fontSize: '0.9rem',
-              marginBottom: '-2px',
-              transition: 'all 0.2s'
-            }}>
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {progresses.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">📚</div>
+          <h3>Hali darslar bajarilmagan</h3>
+          <p>Darslarga kiring, testlar topshing va topshiriqlarni bajaring!</p>
+        </div>
+      ) : (
+        <div style={{ display:'flex', gap:'1.5rem', alignItems:'flex-start', flexWrap:'wrap' }}>
 
-      {/* ════════════ OVERVIEW TAB ════════════ */}
-      {activeTab === 'overview' && (
-        <div>
-          {lessonProgresses.length === 0 && results.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">📊</div>
-              <h3>Hali natijalar yo'q</h3>
-              <p>Darslarga kiring, testlar topshing va topshiriqlarni bajaring!</p>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: '1rem' }}>
-              {/* So'nggi test natijalari */}
-              {results.slice(0, 5).map(r => (
-                <div key={r.id} onClick={() => { setSelectedResult(r); setActiveTab('tests'); }}
-                  style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1rem', cursor: 'pointer', transition: 'box-shadow 0.2s' }}
-                  onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
-                  onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>📝 {r.test_title}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                        {new Date(r.submitted_at).toLocaleDateString('uz-UZ')}
-                      </div>
+          {/* ══ Chap: darslar ro'yxati ══ */}
+          <div style={{ flex:'0 0 220px', display:'flex', flexDirection:'column', gap:'0.6rem' }}>
+            {progresses.map((lp, idx) => (
+              <button key={lp.lesson_id}
+                onClick={() => { setActiveLessonId(lp.lesson_id); setLessonTab('summary'); setDetailResult(null); }}
+                style={{
+                  textAlign:'left', padding:'0.85rem 1rem',
+                  borderRadius:'12px', border:'none', cursor:'pointer',
+                  background: activeLessonId === lp.lesson_id
+                    ? 'linear-gradient(135deg,rgba(102,126,234,0.15),rgba(118,75,162,0.15))'
+                    : 'var(--card-bg)',
+                  borderLeft: activeLessonId === lp.lesson_id
+                    ? '3px solid var(--primary-color)'
+                    : '3px solid transparent',
+                  boxShadow: activeLessonId === lp.lesson_id ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+                  transition:'all 0.2s'
+                }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <span style={{ fontWeight:600, fontSize:'0.88rem', color:'var(--text-primary)' }}>
+                    {idx + 1}-Dars
+                  </span>
+                  <span style={{ fontSize:'1rem' }}>{getMedal(lp.grade) || '—'}</span>
+                </div>
+                <div style={{ fontSize:'0.75rem', color:'var(--text-secondary)', marginTop:'0.2rem',
+                  overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'160px' }}>
+                  {lp.lesson_title}
+                </div>
+                {lp.grade > 0 && (
+                  <div style={{ fontSize:'0.72rem', fontWeight:700, color: gradeColor(lp.grade), marginTop:'0.2rem' }}>
+                    {lp.grade} baho · {lp.percent}%
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* ══ O'ng: tanlangan dars detail ══ */}
+          {activeLp && (
+            <div style={{ flex:1, minWidth:0 }}>
+
+              {/* Dars sarlavhasi + progress */}
+              <div style={{
+                background:'linear-gradient(135deg,var(--primary-color),var(--secondary-color))',
+                borderRadius:'16px', padding:'1.25rem 1.5rem', color:'#fff', marginBottom:'1rem'
+              }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:'0.75rem' }}>
+                  <div>
+                    <div style={{ fontSize:'0.8rem', opacity:0.8, marginBottom:'0.2rem' }}>
+                      {progresses.indexOf(activeLp) + 1}-Dars
                     </div>
-                    <span className={`score-badge score-${getScoreClass(r.score_percentage)}`}>
-                      {r.score_percentage?.toFixed(1)}%
-                    </span>
+                    <h3 style={{ margin:0, color:'#fff', fontSize:'1.1rem' }}>{activeLp.lesson_title}</h3>
+                    <div style={{ fontSize:'0.8rem', opacity:0.85, marginTop:'0.2rem' }}>
+                      {activeLp.lesson_grade}-sinf · {activeLp.subject}
+                    </div>
+                  </div>
+                  {activeLp.grade > 0 && (
+                    <div style={{ textAlign:'center', background:'rgba(255,255,255,0.15)', borderRadius:'10px', padding:'0.5rem 0.9rem' }}>
+                      <div style={{ fontSize:'1.8rem' }}>{getMedal(activeLp.grade)}</div>
+                      <div style={{ fontSize:'0.85rem', fontWeight:800, color:'#fff' }}>{activeLp.grade} baho</div>
+                      <div style={{ fontSize:'0.65rem', opacity:0.8 }}>{getMedalLabel(activeLp.grade)}</div>
+                    </div>
+                  )}
+                </div>
+                {/* Progress bar */}
+                <div style={{ marginTop:'1rem' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:'0.78rem', opacity:0.9, marginBottom:'0.3rem' }}>
+                    <span>{activeLp.earned_score} / {activeLp.total_possible} ball</span>
+                    <span>{activeLp.percent}%</span>
+                  </div>
+                  <div style={{ background:'rgba(255,255,255,0.2)', borderRadius:'99px', height:'8px' }}>
+                    <div style={{ height:'100%', borderRadius:'99px', width:`${Math.min(activeLp.percent,100)}%`,
+                      background:'rgba(255,255,255,0.9)', transition:'width 0.6s ease' }} />
                   </div>
                 </div>
-              ))}
-              {/* So'nggi dars natijalari */}
-              {lessonProgresses.slice(0, 5).map(lp => (
-                <Link key={lp.id} to={`/lessons/${lp.lesson_id}`}
-                  style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1rem', textDecoration: 'none', display: 'block', transition: 'box-shadow 0.2s' }}
-                  onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
-                  onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
-                        🎓 {lp.lesson_title}
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                        {lp.lesson_grade}-sinf • {lp.subject}
-                      </div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '1.4rem' }}>{getMedal(lp.grade)}</div>
-                      <div style={{ fontSize: '0.72rem', color: getGradeColor(lp.grade), fontWeight: 600 }}>
-                        {lp.grade > 0 ? `${lp.grade} baho` : '—'}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ marginTop: '0.5rem', background: 'var(--bg-secondary)', borderRadius: '99px', height: '5px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${Math.min(lp.percent, 100)}%`, background: 'linear-gradient(90deg,var(--primary-color),var(--secondary-color))', borderRadius: '99px' }} />
-                  </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
-                    {lp.percent}% • {lp.earned_score}/{lp.total_possible} ball
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+              </div>
 
-      {/* ════════════ TESTS TAB ════════════ */}
-      {activeTab === 'tests' && (
-        <div>
-          {results.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">📝</div>
-              <h3>Hali testlar topshirilmagan</h3>
-            </div>
-          ) : (
-            <div className="results-layout">
-              <div className="results-list">
-                {results.map(result => (
-                  <div key={result.id}
-                    className={`result-card ${selectedResult?.id === result.id ? 'selected' : ''}`}
-                    onClick={() => setSelectedResult(result)}>
-                    <div className="result-header">
-                      <h3>{result.test_title}</h3>
-                      <span className={`score-badge score-${getScoreClass(result.score_percentage)}`}>
-                        {result.score_percentage?.toFixed(1)}%
-                      </span>
-                    </div>
-                    <div className="result-info">
-                      <div className="result-stat">
-                        <span className="stat-label">Ball:</span>
-                        <span className="stat-value">{result.correct_answers} / {result.total_questions}</span>
-                      </div>
-                      <div className="result-stat">
-                        <span className="stat-label">Baho:</span>
-                        <span className="stat-value">{getScoreLabel(result.score_percentage)}</span>
-                      </div>
-                      <div className="result-stat">
-                        <span className="stat-label">Sana:</span>
-                        <span className="stat-value">{new Date(result.submitted_at).toLocaleString('uz-UZ')}</span>
-                      </div>
-                    </div>
-                    {result.passed !== null && (
-                      <div className={`result-status ${result.passed ? 'passed' : 'failed'}`}>
-                        {result.passed ? "✓ O'tdi" : "✗ O'tmadi"}
-                      </div>
-                    )}
-                  </div>
+              {/* Tabs: Umumiy | Testlar | Amaliy */}
+              <div style={{ display:'flex', gap:'0.25rem', marginBottom:'1rem',
+                borderBottom:'2px solid var(--border-color)', paddingBottom:0 }}>
+                {[
+                  { id:'summary',     label:`📊 Umumiy` },
+                  { id:'tests',       label:`📝 Testlar (${activeLp.test_results?.length || 0})` },
+                  { id:'assignments', label:`🖥️ Amaliy (${activeLp.assignment_results?.length || 0})` },
+                ].map(tab => (
+                  <button key={tab.id} onClick={() => { setLessonTab(tab.id); setDetailResult(null); }}
+                    style={{
+                      padding:'0.5rem 1rem', border:'none', cursor:'pointer', background:'transparent',
+                      borderBottom: lessonTab === tab.id ? '3px solid var(--primary-color)' : '3px solid transparent',
+                      color: lessonTab === tab.id ? 'var(--primary-color)' : 'var(--text-secondary)',
+                      fontWeight: lessonTab === tab.id ? 700 : 400,
+                      fontSize:'0.85rem', marginBottom:'-2px', transition:'all 0.2s'
+                    }}>
+                    {tab.label}
+                  </button>
                 ))}
               </div>
 
-              {selectedResult && (
-                <div className="result-details">
-                  <div className="detail-header">
-                    <h2>{selectedResult.test_title}</h2>
-                    <button onClick={() => setSelectedResult(null)} className="btn btn-sm btn-outline">Yopish</button>
-                  </div>
-                  <div className="detail-summary">
-                    <div className={`score-circle score-${getScoreClass(selectedResult.score_percentage)}`}>
-                      <div className="score-number">{selectedResult.score_percentage?.toFixed(1)}%</div>
-                      <div className="score-text">{getScoreLabel(selectedResult.score_percentage)}</div>
-                    </div>
-                    <div className="summary-stats">
-                      <div className="summary-stat">
-                        <div className="stat-icon">✓</div>
-                        <div className="stat-content">
-                          <div className="stat-number">{selectedResult.correct_answers || 0}</div>
-                          <div className="stat-label">To'g'ri</div>
-                        </div>
-                      </div>
-                      <div className="summary-stat">
-                        <div className="stat-icon">✗</div>
-                        <div className="stat-content">
-                          <div className="stat-number">{selectedResult.total_questions - (selectedResult.correct_answers || 0)}</div>
-                          <div className="stat-label">Noto'g'ri</div>
-                        </div>
-                      </div>
-                      <div className="summary-stat">
-                        <div className="stat-icon">⭐</div>
-                        <div className="stat-content">
-                          <div className="stat-number">{(selectedResult.correct_answers || 0) * 2}</div>
-                          <div className="stat-label">Ball</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {selectedResult.detailed_answers && (() => {
-                    try {
-                      const answers = typeof selectedResult.detailed_answers === 'string'
-                        ? JSON.parse(selectedResult.detailed_answers) : selectedResult.detailed_answers;
-                      if (!Array.isArray(answers) || !answers.length) return null;
-                      return (
-                        <div className="detailed-answers">
-                          <h3>Batafsil javoblar</h3>
-                          {answers.map((ans, i) => (
-                            <div key={i} className={`answer-item ${ans.is_correct ? 'correct' : 'incorrect'}`}>
-                              <div className="answer-header">
-                                <span className="answer-number">Savol {i + 1}</span>
-                                <span className={`answer-status ${ans.is_correct ? 'correct' : 'incorrect'}`}>
-                                  {ans.is_correct ? "✓ To'g'ri" : "✗ Noto'g'ri"}
-                                </span>
-                                <span className="answer-points">{ans.is_correct ? ans.points : 0} / {ans.points} ball</span>
-                              </div>
-                              <div className="answer-content">
-                                <p className="question-text">{ans.question_text}</p>
-                                <div className="answer-details">
-                                  <div className="answer-row">
-                                    <strong>Sizning javobingiz:</strong>
-                                    <span className={ans.is_correct ? 'text-success' : 'text-danger'}>
-                                      {ans.user_answer != null ? String(ans.user_answer) : '(Javob berilmagan)'}
-                                    </span>
-                                  </div>
-                                  {!ans.is_correct && ans.correct_answer && (
-                                    <div className="answer-row">
-                                      <strong>To'g'ri javob:</strong>
-                                      <span className="text-success">{ans.correct_answer}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    } catch { return null; }
-                  })()}
+              {/* ── Umumiy tab ── */}
+              {lessonTab === 'summary' && (
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:'1rem' }}>
+                  <SummaryCard
+                    icon="📝" title="Testlar"
+                    value={`${activeLp.test_results?.filter(t => t.result_id).length || 0} / ${activeLp.test_results?.length || 0}`}
+                    sub="topshirildi"
+                    color="#6366f1"
+                  />
+                  <SummaryCard
+                    icon="🖥️" title="Amaliy"
+                    value={`${activeLp.assignment_results?.filter(a => a.submission_id).length || 0} / ${activeLp.assignment_results?.length || 0}`}
+                    sub="topshirildi"
+                    color="#10b981"
+                  />
+                  <SummaryCard
+                    icon="📊" title="Test bali"
+                    value={`${activeLp.test_score || 0}`}
+                    sub="ball"
+                    color="#f59e0b"
+                  />
+                  <SummaryCard
+                    icon="🎯" title="Topshiriq bali"
+                    value={`${activeLp.assign_score || 0}`}
+                    sub="ball"
+                    color="#ec4899"
+                  />
                 </div>
               )}
+
+              {/* ── Testlar tab ── */}
+              {lessonTab === 'tests' && (
+                <div>
+                  {!activeLp.test_results?.length ? (
+                    <div className="empty-state" style={{ padding:'2rem 0' }}>
+                      <p>Bu darsda nashr qilingan testlar yo'q</p>
+                    </div>
+                  ) : detailResult ? (
+                    /* Batafsil test natijasi */
+                    <TestDetailPanel result={detailResult} onBack={() => setDetailResult(null)} />
+                  ) : (
+                    <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+                      {activeLp.test_results.map((tr, idx) => (
+                        <div key={tr.test_id} style={{
+                          background:'var(--card-bg)', border:'1px solid var(--border-color)',
+                          borderRadius:'12px', padding:'1rem 1.25rem',
+                          display:'flex', justifyContent:'space-between', alignItems:'center', gap:'1rem', flexWrap:'wrap'
+                        }}>
+                          <div style={{ flex:1 }}>
+                            <div style={{ fontWeight:600, marginBottom:'0.2rem' }}>
+                              {idx + 1}. {tr.test_title}
+                            </div>
+                            {tr.result_id ? (
+                              <div style={{ fontSize:'0.8rem', color:'var(--text-secondary)' }}>
+                                ✅ {tr.correct_answers}/{tr.total_questions} to'g'ri ·{' '}
+                                {Number(tr.percentage || 0).toFixed(1)}% ·{' '}
+                                {tr.correct_answers * 2} ball ·{' '}
+                                {new Date(tr.submitted_at).toLocaleDateString('uz-UZ')}
+                              </div>
+                            ) : (
+                              <div style={{ fontSize:'0.8rem', color:'#d97706' }}>▶ Hali topshirilmagan</div>
+                            )}
+                          </div>
+                          {tr.result_id ? (
+                            <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
+                              <span style={{
+                                fontWeight:800, fontSize:'1.1rem',
+                                color: tr.percentage >= 86 ? '#16a34a' : tr.percentage >= 60 ? '#6366f1' : '#dc2626'
+                              }}>
+                                {Number(tr.percentage || 0).toFixed(0)}%
+                              </span>
+                              <button
+                                onClick={() => setDetailResult(tr)}
+                                className="btn btn-sm btn-outline"
+                              >
+                                Batafsil
+                              </button>
+                            </div>
+                          ) : (
+                            <Link to={`/tests/${tr.test_id}`} className="btn btn-sm btn-primary">
+                              Boshlash
+                            </Link>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Amaliy tab ── */}
+              {lessonTab === 'assignments' && (
+                <div>
+                  {!activeLp.assignment_results?.length ? (
+                    <div className="empty-state" style={{ padding:'2rem 0' }}>
+                      <p>Bu darsda amaliy topshiriqlar yo'q</p>
+                    </div>
+                  ) : (
+                    <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+                      {activeLp.assignment_results.map((ar, idx) => (
+                        <div key={ar.assignment_id} style={{
+                          background:'var(--card-bg)', border:'1px solid var(--border-color)',
+                          borderRadius:'12px', padding:'1rem 1.25rem',
+                          display:'flex', justifyContent:'space-between', alignItems:'center', gap:'1rem', flexWrap:'wrap'
+                        }}>
+                          <div style={{ flex:1 }}>
+                            <div style={{ fontWeight:600, marginBottom:'0.25rem', display:'flex', gap:'0.4rem', alignItems:'center' }}>
+                              <span>{taskTypeIcon(ar.task_type)}</span>
+                              {idx + 1}. {ar.assignment_title}
+                            </div>
+                            {ar.submission_id ? (
+                              <div>
+                                <div style={{ fontSize:'0.8rem', color:'var(--text-secondary)' }}>
+                                  {ar.status === 'graded' ? (
+                                    <>
+                                      ✅ {ar.score}/{ar.max_score} ball ·{' '}
+                                      {ar.graded_by === 'ai' ? '🤖 AI' : '👨‍🏫 O\'qituvchi'} baholadi ·{' '}
+                                      {new Date(ar.submitted_at).toLocaleDateString('uz-UZ')}
+                                    </>
+                                  ) : (
+                                    <>⏳ Topshirildi, tekshirilmoqda · {new Date(ar.submitted_at).toLocaleDateString('uz-UZ')}</>
+                                  )}
+                                </div>
+                                {ar.feedback && (
+                                  <div style={{ fontSize:'0.78rem', color:'var(--text-secondary)', marginTop:'0.25rem',
+                                    borderLeft:'3px solid var(--primary-color)', paddingLeft:'0.5rem' }}>
+                                    💬 {ar.feedback}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div style={{ fontSize:'0.8rem', color:'#d97706' }}>▶ Hali topshirilmagan</div>
+                            )}
+                          </div>
+                          {ar.status === 'graded' && (
+                            <div style={{
+                              fontWeight:800, fontSize:'1.2rem',
+                              color: (ar.score/ar.max_score) >= 0.86 ? '#16a34a'
+                                   : (ar.score/ar.max_score) >= 0.60 ? '#6366f1' : '#dc2626'
+                            }}>
+                              {ar.score}/{ar.max_score}
+                            </div>
+                          )}
+                          {!ar.submission_id && (
+                            <Link to={`/lessons/${activeLp.lesson_id}`} className="btn btn-sm btn-primary">
+                              Bajarish
+                            </Link>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
             </div>
           )}
         </div>
       )}
+    </div>
+  );
+};
 
-      {/* ════════════ LESSONS TAB ════════════ */}
-      {activeTab === 'lessons' && (
-        <div>
-          {lessonProgresses.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">🎓</div>
-              <h3>Hali darslar bajarilmagan</h3>
-              <p>Darslarga kiring va testlar, topshiriqlarni bajaring!</p>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {lessonProgresses.map(lp => (
-                <Link key={lp.id} to={`/lessons/${lp.lesson_id}`}
-                  style={{ textDecoration: 'none', display: 'block' }}>
-                  <div style={{
-                    background: 'var(--card-bg)',
-                    border: `2px solid ${lp.grade >= 5 ? '#f59e0b' : lp.grade === 4 ? '#6366f1' : lp.grade === 3 ? '#92400e' : lp.grade === 2 ? '#dc2626' : 'var(--border-color)'}`,
-                    borderRadius: '14px', padding: '1.25rem',
-                    transition: 'box-shadow 0.2s',
-                  }}
-                    onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.1)'}
-                    onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
-                      {/* Dars info */}
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
-                          {lp.lesson_title}
-                        </div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-                          {lp.lesson_grade}-sinf • {lp.subject} •{' '}
-                          {new Date(lp.updated_at).toLocaleDateString('uz-UZ')}
-                        </div>
-                        {/* Progress bar */}
-                        <div style={{ background: 'var(--bg-secondary)', borderRadius: '99px', height: '8px', overflow: 'hidden', marginBottom: '0.4rem' }}>
-                          <div style={{
-                            height: '100%', borderRadius: '99px',
-                            width: `${Math.min(lp.percent, 100)}%`,
-                            background: lp.percent >= 86
-                              ? 'linear-gradient(90deg,#f59e0b,#fbbf24)'
-                              : lp.percent >= 60
-                              ? 'linear-gradient(90deg,#6366f1,#818cf8)'
-                              : lp.percent >= 40
-                              ? 'linear-gradient(90deg,#92400e,#b45309)'
-                              : 'linear-gradient(90deg,#dc2626,#f87171)',
-                            transition: 'width 0.6s ease'
-                          }} />
-                        </div>
-                        <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
-                          <span>📊 {lp.percent}% o'zlashtirish</span>
-                          <span>✏️ {lp.earned_score} / {lp.total_possible} ball</span>
+// ── Kichik komponentlar ──────────────────────────────────────
+
+const StatCard = ({ value, label, gradient }) => (
+  <div style={{ background:gradient, borderRadius:'14px', padding:'1.1rem', color:'#fff', textAlign:'center' }}>
+    <div style={{ fontSize:'1.8rem', fontWeight:800 }}>{value}</div>
+    <div style={{ fontSize:'0.78rem', opacity:0.9, marginTop:'0.2rem' }}>{label}</div>
+  </div>
+);
+
+const MedalBadge = ({ emoji, count, color, label }) => (
+  <div style={{ textAlign:'center' }}>
+    <div style={{ fontSize:'2.2rem' }}>{emoji}</div>
+    <div style={{ fontWeight:700, fontSize:'1.1rem', color }}>×{count}</div>
+    <div style={{ fontSize:'0.7rem', color:'var(--text-secondary)' }}>{label}</div>
+  </div>
+);
+
+const SummaryCard = ({ icon, title, value, sub, color }) => (
+  <div style={{ background:'var(--card-bg)', border:'1px solid var(--border-color)', borderRadius:'12px', padding:'1rem', textAlign:'center' }}>
+    <div style={{ fontSize:'1.5rem', marginBottom:'0.3rem' }}>{icon}</div>
+    <div style={{ fontSize:'0.8rem', color:'var(--text-secondary)', marginBottom:'0.25rem' }}>{title}</div>
+    <div style={{ fontSize:'1.4rem', fontWeight:800, color }}>{value}</div>
+    <div style={{ fontSize:'0.72rem', color:'var(--text-secondary)' }}>{sub}</div>
+  </div>
+);
+
+// Batafsil test natijasi paneli
+const TestDetailPanel = ({ result, onBack }) => {
+  const [detailData, setDetailData] = useState(null);
+
+  useEffect(() => {
+    if (!result.result_id) return;
+    api.get('/results/my-results').then(res => {
+      const all = Array.isArray(res.data) ? res.data : [];
+      const found = all.find(r => r.test_id === result.test_id);
+      setDetailData(found || null);
+    }).catch(() => {});
+  }, [result]);
+
+  return (
+    <div>
+      <button onClick={onBack} className="btn btn-outline btn-sm" style={{ marginBottom:'1rem' }}>
+        ← Orqaga
+      </button>
+      <div style={{ background:'var(--card-bg)', border:'1px solid var(--border-color)', borderRadius:'12px', padding:'1.25rem' }}>
+        <h4 style={{ margin:'0 0 0.75rem' }}>{result.test_title}</h4>
+        <div style={{ display:'flex', gap:'1rem', marginBottom:'1rem', flexWrap:'wrap' }}>
+          <span style={{ color:'#16a34a', fontWeight:700 }}>✅ {result.correct_answers}/{result.total_questions} to'g'ri</span>
+          <span style={{ fontWeight:700 }}>{Number(result.percentage||0).toFixed(1)}%</span>
+          <span style={{ color:'var(--text-secondary)' }}>{result.correct_answers * 2} ball</span>
+        </div>
+        {detailData?.detailed_answers && (() => {
+          try {
+            const answers = typeof detailData.detailed_answers === 'string'
+              ? JSON.parse(detailData.detailed_answers) : detailData.detailed_answers;
+            if (!Array.isArray(answers)) return null;
+            return (
+              <div>
+                {answers.map((ans, i) => (
+                  <div key={i} style={{
+                    padding:'0.75rem', borderRadius:'8px', marginBottom:'0.5rem',
+                    background: ans.is_correct ? 'rgba(34,197,94,0.06)' : 'rgba(220,38,38,0.06)',
+                    border: `1px solid ${ans.is_correct ? 'rgba(34,197,94,0.2)' : 'rgba(220,38,38,0.2)'}`
+                  }}>
+                    <div style={{ display:'flex', gap:'0.5rem', alignItems:'flex-start' }}>
+                      <span style={{ color: ans.is_correct ? '#16a34a' : '#dc2626', fontWeight:700, flexShrink:0 }}>
+                        {ans.is_correct ? '✓' : '✗'} {i+1}.
+                      </span>
+                      <div>
+                        <div style={{ fontWeight:500, fontSize:'0.88rem' }}>{ans.question_text}</div>
+                        <div style={{ fontSize:'0.78rem', marginTop:'0.25rem', color:'var(--text-secondary)' }}>
+                          Javob: <span style={{ color: ans.is_correct ? '#16a34a' : '#dc2626', fontWeight:600 }}>
+                            {ans.user_answer != null ? String(ans.user_answer) : '(berilmagan)'}
+                          </span>
+                          {!ans.is_correct && ans.correct_answer && (
+                            <> · To'g'ri: <span style={{ color:'#16a34a', fontWeight:600 }}>{ans.correct_answer}</span></>
+                          )}
                         </div>
                       </div>
-                      {/* Medal */}
-                      {lp.grade > 0 && (
-                        <div style={{
-                          textAlign: 'center',
-                          background: getGradeBg(lp.grade),
-                          borderRadius: '12px',
-                          padding: '0.75rem 1rem',
-                          minWidth: '80px'
-                        }}>
-                          <div style={{ fontSize: '2rem' }}>{getMedal(lp.grade)}</div>
-                          <div style={{ fontSize: '0.9rem', fontWeight: 800, color: getGradeColor(lp.grade) }}>
-                            {lp.grade} baho
-                          </div>
-                          <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
-                            {getMedalLabel(lp.grade)}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
+                ))}
+              </div>
+            );
+          } catch { return null; }
+        })()}
+      </div>
     </div>
   );
 };

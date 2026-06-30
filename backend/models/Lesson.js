@@ -13,27 +13,22 @@ class Lesson {
     return result.id;
   }
 
-  // Get lesson by ID with materials
-  static async findById(id) {
+  // Get lesson by ID with materials (student_id berilsa — har testda my_attempt qo'shiladi)
+  static async findById(id, student_id = null) {
     const lesson = await database.get(
       'SELECT * FROM lessons WHERE id = ?',
       [id]
     );
 
     if (lesson) {
-      // Get materials for this lesson
       lesson.materials = await database.all(
         'SELECT * FROM lesson_materials WHERE lesson_id = ? ORDER BY uploaded_at DESC',
         [id]
       );
-
-      // Get creator info
       lesson.creator = await database.get(
         'SELECT id, username, full_name FROM users WHERE id = ?',
         [lesson.created_by]
       );
-
-      // Get tests for this lesson (all tests - frontend filters by role)
       lesson.tests = await database.all(
         `SELECT t.*, t.duration as time_limit,
           (SELECT COUNT(*) FROM questions WHERE test_id = t.id) as questions_count,
@@ -43,6 +38,22 @@ class Lesson {
          ORDER BY t.created_at DESC`,
         [id]
       );
+
+      // O'quvchi uchun har bir testda topshirganmi tekshiruvi
+      if (student_id) {
+        for (const test of lesson.tests) {
+          const attempt = await database.get(
+            `SELECT r.id, r.percentage, r.correct_answers, r.total_questions, r.created_at
+             FROM results r
+             WHERE r.test_id = ? AND r.user_id = ?
+             ORDER BY r.created_at DESC LIMIT 1`,
+            [test.id, student_id]
+          );
+          test.my_attempt = attempt || null;
+          test.already_attempted = !!attempt;
+        }
+      }
+
       lesson.tests_all = lesson.tests;
       lesson.tests_published = lesson.tests.filter(t => t.is_published);
     }

@@ -15,6 +15,8 @@ const TestDetail = () => {
   const [questions, setQuestions] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [alreadyAttempted, setAlreadyAttempted] = useState(false);
+  const [myResult, setMyResult] = useState(null);
   const [showAddQuestionModal, setShowAddQuestionModal] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
   const [showEditQuestionModal, setShowEditQuestionModal] = useState(false);
@@ -47,26 +49,29 @@ const TestDetail = () => {
   const fetchTestDetails = async () => {
     try {
       setLoading(true);
-      console.log('Fetching test details for ID:', id);
-      
+
       const [testRes, questionsRes, statsRes] = await Promise.all([
         api.get(`/tests/${id}`),
-        api.get(`/questions/test/${id}`),
-        api.get(`/tests/${id}/statistics`).catch(() => ({ data: null })) // Statistics might fail
+        api.get(`/questions/test/${id}`).catch(() => ({ data: [] })),
+        api.get(`/tests/${id}/statistics`).catch(() => ({ data: null }))
       ]);
 
-      console.log('Test data:', testRes.data);
-      console.log('Questions data:', questionsRes.data);
-      console.log('Stats data:', statsRes.data);
-
       setTest(testRes.data);
-      
-      // Ensure questions is an array and force update
-      const questionsData = Array.isArray(questionsRes.data) ? questionsRes.data : [];
-      console.log('Questions count:', questionsData.length);
-      console.log('Setting questions state with:', questionsData);
-      setQuestions([...questionsData]); // Force new array reference
-      
+      setQuestions(Array.isArray(questionsRes.data) ? [...questionsRes.data] : []);
+      setStats(statsRes.data);
+
+      // O'quvchi uchun — avval topshirilganmi tekshirish
+      if (user?.role === 'student') {
+        try {
+          const resultsRes = await api.get('/results/my-results');
+          const results = Array.isArray(resultsRes.data) ? resultsRes.data : [];
+          const prev = results.find(r => r.test_id === parseInt(id) || r.test_id === id);
+          if (prev) {
+            setAlreadyAttempted(true);
+            setMyResult(prev);
+          }
+        } catch { /* ignore */ }
+      }
       setStats(statsRes.data);
     } catch (error) {
       console.error('Error fetching test details:', error);
@@ -321,12 +326,45 @@ const TestDetail = () => {
 
           {user.role === 'student' && (
             <div className="start-test-section">
-              <button onClick={startTest} className="btn btn-primary btn-lg btn-block">
-                🚀 Testni boshlash
-              </button>
-              <p className="test-warning">
-                ⚠️ Test boshlanishi bilan vaqt hisoblash boshlanadi. Testni tugatishdan oldin sahifani yopmang!
-              </p>
+              {alreadyAttempted ? (
+                <div style={{
+                  background: 'rgba(34,197,94,0.08)',
+                  border: '1px solid rgba(34,197,94,0.3)',
+                  borderRadius: '12px',
+                  padding: '1.25rem',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>✅</div>
+                  <div style={{ fontWeight: 700, color: '#16a34a', fontSize: '1rem', marginBottom: '0.25rem' }}>
+                    Siz bu testni topshirgansiz
+                  </div>
+                  {myResult && (
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+                      <span style={{ fontWeight: 600, color: '#16a34a' }}>
+                        {myResult.correct_answers} / {myResult.total_questions} to'g'ri
+                      </span>
+                      {' · '}
+                      <span style={{ fontWeight: 600 }}>
+                        {Number(myResult.score_percentage || myResult.percentage || 0).toFixed(1)}%
+                      </span>
+                      {' · '}
+                      <span>{new Date(myResult.submitted_at || myResult.created_at).toLocaleDateString('uz-UZ')}</span>
+                    </div>
+                  )}
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.75rem', marginBottom: 0 }}>
+                    ℹ️ Har bir test faqat bir marta topshiriladi
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <button onClick={startTest} className="btn btn-primary btn-lg btn-block">
+                    🚀 Testni boshlash
+                  </button>
+                  <p className="test-warning">
+                    ⚠️ Test boshlanishi bilan vaqt hisoblash boshlanadi. Testni tugatishdan oldin sahifani yopmang!
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>

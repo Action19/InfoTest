@@ -27,6 +27,20 @@ router.post('/submit', authenticateToken, async (req, res) => {
     if (!test.is_published) {
       return res.status(400).json({ error: 'Test is not published' });
     }
+
+    // O'quvchi bu testni avval topshirganmi tekshiruvi
+    if (req.user.role === 'student') {
+      const existingResult = await database.get(
+        'SELECT id FROM results WHERE user_id = ? AND test_id = ?',
+        [user_id, test_id]
+      );
+      if (existingResult) {
+        return res.status(403).json({
+          error: 'Siz bu testni allaqachon topshirgansiz. Har bir test faqat bir marta topshiriladi.',
+          already_attempted: true
+        });
+      }
+    }
     
     // Get all questions with correct answers
     const questions = await Question.getByTestId(test_id, true);
