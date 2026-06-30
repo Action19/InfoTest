@@ -279,6 +279,77 @@ router.put('/profile', authenticateToken, async (req, res) => {
   }
 });
 
+// Check if username is available
+router.post('/check-username', async (req, res) => {
+  try {
+    const { username } = req.body;
+
+    if (!username || username.length < 3) {
+      return res.status(400).json({ 
+        available: false, 
+        message: 'Login kamida 3 belgidan iborat bo\'lishi kerak' 
+      });
+    }
+
+    const exists = await User.usernameExists(username);
+
+    if (exists) {
+      return res.json({ 
+        available: false, 
+        message: '❌ Bu login band' 
+      });
+    }
+
+    res.json({ 
+      available: true, 
+      message: '✅ Bu login bo\'sh' 
+    });
+  } catch (error) {
+    console.error('Check username error:', error);
+    res.status(500).json({ error: 'Failed to check username' });
+  }
+});
+
+// Check if email is available
+router.post('/check-email', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ 
+        available: false, 
+        message: 'Email kiritilishi shart' 
+      });
+    }
+
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ 
+        available: false, 
+        message: 'Noto\'g\'ri email formati' 
+      });
+    }
+
+    const exists = await User.emailExists(email);
+
+    if (exists) {
+      return res.json({ 
+        available: false, 
+        message: '❌ Bu pochta ro\'yxatdan o\'tkazilgan' 
+      });
+    }
+
+    res.json({ 
+      available: true, 
+      message: '✅ Bu pochta bo\'sh' 
+    });
+  } catch (error) {
+    console.error('Check email error:', error);
+    res.status(500).json({ error: 'Failed to check email' });
+  }
+});
+
 // Change password
 router.put('/change-password', authenticateToken, async (req, res) => {
   try {

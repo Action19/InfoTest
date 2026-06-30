@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -17,6 +18,8 @@ const Register = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState({ checking: false, message: '', available: null });
+  const [emailStatus, setEmailStatus] = useState({ checking: false, message: '', available: null });
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -39,6 +42,79 @@ const Register = () => {
     '9-A', '9-B', '9-V', '9-G', '9-D',
     '10-A', '10-B', '10-V', '10-G', '10-D'
   ];
+
+  // Debounce timer
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (formData.username.length >= 3) {
+        checkUsername(formData.username);
+      } else if (formData.username.length > 0) {
+        setUsernameStatus({ 
+          checking: false, 
+          message: '⚠️ Login kamida 3 belgidan iborat bo\'lishi kerak', 
+          available: false 
+        });
+      } else {
+        setUsernameStatus({ checking: false, message: '', available: null });
+      }
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timer);
+  }, [formData.username]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (formData.email.length > 0) {
+        checkEmail(formData.email);
+      } else {
+        setEmailStatus({ checking: false, message: '', available: null });
+      }
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timer);
+  }, [formData.email]);
+
+  const checkUsername = async (username) => {
+    setUsernameStatus({ checking: true, message: 'Tekshirilmoqda...', available: null });
+    
+    try {
+      const response = await api.post('/auth/check-username', { username });
+      setUsernameStatus({ 
+        checking: false, 
+        message: response.data.message, 
+        available: response.data.available 
+      });
+    } catch (error) {
+      if (error.response?.data) {
+        setUsernameStatus({ 
+          checking: false, 
+          message: error.response.data.message || '❌ Xatolik', 
+          available: false 
+        });
+      }
+    }
+  };
+
+  const checkEmail = async (email) => {
+    setEmailStatus({ checking: true, message: 'Tekshirilmoqda...', available: null });
+    
+    try {
+      const response = await api.post('/auth/check-email', { email });
+      setEmailStatus({ 
+        checking: false, 
+        message: response.data.message, 
+        available: response.data.available 
+      });
+    } catch (error) {
+      if (error.response?.data) {
+        setEmailStatus({ 
+          checking: false, 
+          message: error.response.data.message || '❌ Xatolik', 
+          available: false 
+        });
+      }
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -74,6 +150,17 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Check if username and email are available
+    if (!usernameStatus.available) {
+      setError('Login band yoki noto\'g\'ri!');
+      return;
+    }
+
+    if (!emailStatus.available) {
+      setError('Email allaqachon ro\'yxatdan o\'tgan yoki noto\'g\'ri!');
+      return;
+    }
 
     // Validation
     if (formData.password !== formData.confirmPassword) {
@@ -174,7 +261,24 @@ const Register = () => {
               placeholder="Login tanlang"
               required
               disabled={loading}
+              style={{
+                borderColor: usernameStatus.available === true ? '#10B981' : 
+                           usernameStatus.available === false ? '#EF4444' : 
+                           'var(--border-color)'
+              }}
             />
+            {usernameStatus.message && (
+              <small style={{ 
+                color: usernameStatus.available === true ? '#10B981' : 
+                       usernameStatus.available === false ? '#EF4444' : 
+                       '#6B7280',
+                marginTop: '0.25rem',
+                display: 'block',
+                fontWeight: '500'
+              }}>
+                {usernameStatus.message}
+              </small>
+            )}
           </div>
 
           <div className="form-group">
@@ -188,7 +292,24 @@ const Register = () => {
               placeholder="emailingizni kiriting"
               required
               disabled={loading}
+              style={{
+                borderColor: emailStatus.available === true ? '#10B981' : 
+                           emailStatus.available === false ? '#EF4444' : 
+                           'var(--border-color)'
+              }}
             />
+            {emailStatus.message && (
+              <small style={{ 
+                color: emailStatus.available === true ? '#10B981' : 
+                       emailStatus.available === false ? '#EF4444' : 
+                       '#6B7280',
+                marginTop: '0.25rem',
+                display: 'block',
+                fontWeight: '500'
+              }}>
+                {emailStatus.message}
+              </small>
+            )}
           </div>
 
           <div className="form-group">
@@ -329,7 +450,7 @@ const Register = () => {
           <button
             type="submit"
             className="btn btn-primary btn-block"
-            disabled={loading}
+            disabled={loading || !usernameStatus.available || !emailStatus.available}
           >
             {loading ? "Yuklanmoqda..." : "Ro'yxatdan o'tish"}
           </button>
