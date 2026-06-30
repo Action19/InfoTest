@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import '../assets/css/Pages.css';
 import { useParams, useNavigate } from 'react-router-dom';
+import '../assets/css/Pages.css';
 import api from '../services/api';
+import '../assets/css/Pages.css';
 
 const TakeTest = () => {
   const { id } = useParams();

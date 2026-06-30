@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import '../assets/css/Pages.css';
 import { useNavigate } from 'react-router-dom';
+import '../assets/css/Pages.css';
 import { useAuth } from '../context/AuthContext';
+import '../assets/css/Pages.css';
 import api from '../services/api';
+import '../assets/css/Pages.css';
 
 const Students = () => {
   const { user } = useAuth();
