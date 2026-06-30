@@ -264,156 +264,146 @@ const Register = () => {
         )}
 
         <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label htmlFor="full_name">To'liq ism *</label>
-            <input
-              type="text"
-              id="full_name"
-              name="full_name"
-              value={formData.full_name}
-              onChange={handleChange}
-              placeholder="Ismingizni kiriting"
-              required
-              disabled={loading}
-            />
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="full_name">To'liq ism *</label>
+              <input
+                type="text"
+                id="full_name"
+                name="full_name"
+                value={formData.full_name}
+                onChange={handleChange}
+                placeholder="Ismingiz"
+                required
+                disabled={loading}
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="email">Email *</label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="email@example.com"
+                required
+                disabled={loading}
+                autoComplete="off"
+                style={{
+                  borderColor: emailStatus.available === true ? '#10B981' : 
+                             emailStatus.available === false ? '#EF4444' : 
+                             '#E5E7EB'
+                }}
+              />
+              {emailStatus.message && (
+                <div style={{ 
+                  color: emailStatus.available === true ? '#10B981' : 
+                         emailStatus.available === false ? '#EF4444' : 
+                         '#6B7280',
+                  fontSize: '0.8125rem',
+                  marginTop: '0.5rem',
+                  fontWeight: '600',
+                  display: 'block',
+                  padding: '0.5rem',
+                  backgroundColor: emailStatus.available === true ? '#D1FAE5' :
+                                  emailStatus.available === false ? '#FEE2E2' :
+                                  '#F3F4F6',
+                  borderRadius: '0.5rem'
+                }}>
+                  {emailStatus.checking ? '⏳ Tekshirilmoqda...' : emailStatus.message}
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="username">Login *</label>
-            <input
-              type="text"
-              id="username"
-              name="username"
-              value={formData.username}
-              onChange={handleChange}
-              placeholder="Login tanlang"
-              required
-              disabled={loading}
-              autoComplete="off"
-              style={{
-                borderWidth: '2px',
-                borderStyle: 'solid',
-                borderColor: usernameStatus.available === true ? '#10B981' : 
-                           usernameStatus.available === false ? '#EF4444' : 
-                           '#E5E7EB'
-              }}
-            />
-            {usernameStatus.message && (
-              <div style={{ 
-                color: usernameStatus.available === true ? '#10B981' : 
-                       usernameStatus.available === false ? '#EF4444' : 
-                       '#6B7280',
-                fontSize: '0.875rem',
-                marginTop: '0.5rem',
-                fontWeight: '600',
-                display: 'block',
-                padding: '0.5rem',
-                backgroundColor: usernameStatus.available === true ? '#D1FAE5' :
-                                usernameStatus.available === false ? '#FEE2E2' :
-                                '#F3F4F6',
-                borderRadius: '0.375rem',
-                position: 'relative',
-                zIndex: 10
-              }}>
-                {usernameStatus.checking ? (
-                  <>⏳ Tekshirilmoqda...</>
-                ) : (
-                  <>{usernameStatus.message}</>
-                )}
-              </div>
-            )}
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="username">Login *</label>
+              <input
+                type="text"
+                id="username"
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
+                placeholder="Login tanlang"
+                required
+                disabled={loading}
+                autoComplete="off"
+                style={{
+                  borderColor: usernameStatus.available === true ? '#10B981' : 
+                             usernameStatus.available === false ? '#EF4444' : 
+                             '#E5E7EB'
+                }}
+              />
+              {usernameStatus.message && (
+                <div style={{ 
+                  color: usernameStatus.available === true ? '#10B981' : 
+                         usernameStatus.available === false ? '#EF4444' : 
+                         '#6B7280',
+                  fontSize: '0.8125rem',
+                  marginTop: '0.5rem',
+                  fontWeight: '600',
+                  display: 'block',
+                  padding: '0.5rem',
+                  backgroundColor: usernameStatus.available === true ? '#D1FAE5' :
+                                  usernameStatus.available === false ? '#FEE2E2' :
+                                  '#F3F4F6',
+                  borderRadius: '0.5rem'
+                }}>
+                  {usernameStatus.checking ? '⏳ Tekshirilmoqda...' : usernameStatus.message}
+                </div>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="role">Rol *</label>
+              <select
+                id="role"
+                name="role"
+                value={formData.role}
+                onChange={handleChange}
+                disabled={loading}
+                required
+              >
+                <option value="student">O'quvchi</option>
+                <option value="teacher">O'qituvchi</option>
+              </select>
+            </div>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="email">Email *</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="emailingizni kiriting"
-              required
-              disabled={loading}
-              autoComplete="off"
-              style={{
-                borderWidth: '2px',
-                borderStyle: 'solid',
-                borderColor: emailStatus.available === true ? '#10B981' : 
-                           emailStatus.available === false ? '#EF4444' : 
-                           '#E5E7EB'
-              }}
-            />
-            {emailStatus.message && (
-              <div style={{ 
-                color: emailStatus.available === true ? '#10B981' : 
-                       emailStatus.available === false ? '#EF4444' : 
-                       '#6B7280',
-                fontSize: '0.875rem',
-                marginTop: '0.5rem',
-                fontWeight: '600',
-                display: 'block',
-                padding: '0.5rem',
-                backgroundColor: emailStatus.available === true ? '#D1FAE5' :
-                                emailStatus.available === false ? '#FEE2E2' :
-                                '#F3F4F6',
-                borderRadius: '0.375rem',
-                position: 'relative',
-                zIndex: 10
-              }}>
-                {emailStatus.checking ? (
-                  <>⏳ Tekshirilmoqda...</>
-                ) : (
-                  <>{emailStatus.message}</>
-                )}
-              </div>
-            )}
-          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="district">Tuman *</label>
+              <select
+                id="district"
+                name="district"
+                value={formData.district}
+                onChange={handleChange}
+                disabled={loading}
+                required
+              >
+                <option value="">Tanlang</option>
+                {districts.map(district => (
+                  <option key={district} value={district}>{district}</option>
+                ))}
+              </select>
+            </div>
 
-          <div className="form-group">
-            <label htmlFor="role">Kirish huquqi *</label>
-            <select
-              id="role"
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              disabled={loading}
-              required
-            >
-              <option value="student">O'quvchi</option>
-              <option value="teacher">O'qituvchi</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="district">Tuman *</label>
-            <select
-              id="district"
-              name="district"
-              value={formData.district}
-              onChange={handleChange}
-              disabled={loading}
-              required
-            >
-              <option value="">Tumanni tanlang</option>
-              {districts.map(district => (
-                <option key={district} value={district}>{district}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="school_number">Maktab raqami *</label>
-            <input
-              type="text"
-              id="school_number"
-              name="school_number"
-              value={formData.school_number}
-              onChange={handleChange}
-              placeholder="Masalan: 15"
-              required
-              disabled={loading}
-            />
+            <div className="form-group">
+              <label htmlFor="school_number">Maktab № *</label>
+              <input
+                type="text"
+                id="school_number"
+                name="school_number"
+                value={formData.school_number}
+                onChange={handleChange}
+                placeholder="15"
+                required
+                disabled={loading}
+              />
+            </div>
           </div>
 
           {formData.role === 'student' && (
@@ -437,7 +427,7 @@ const Register = () => {
 
           {formData.role === 'teacher' && (
             <div className="form-group">
-              <label>Dars o'tadi gan sinflar * (bir nechtasini tanlash mumkin)</label>
+              <label>Dars o'tiladigan sinflar * (bir nechtasini tanlash mumkin)</label>
               <div style={{ 
                 display: 'grid', 
                 gridTemplateColumns: 'repeat(5, 1fr)', 
@@ -450,9 +440,13 @@ const Register = () => {
                     style={{ 
                       display: 'flex', 
                       alignItems: 'center',
-                      padding: '0.5rem',
-                      border: '2px solid var(--border-color)',
-                      borderRadius: 'var(--border-radius)',
+                      justifyContent: 'center',
+                      padding: '0.625rem 0.5rem',
+                      border: '2px solid',
+                      borderColor: formData.teaching_classes.includes(className) 
+                        ? 'var(--primary-color)' 
+                        : '#E5E7EB',
+                      borderRadius: '8px',
                       cursor: 'pointer',
                       backgroundColor: formData.teaching_classes.includes(className) 
                         ? 'var(--primary-color)' 
@@ -460,7 +454,9 @@ const Register = () => {
                       color: formData.teaching_classes.includes(className) 
                         ? 'white' 
                         : 'var(--text-primary)',
-                      transition: 'var(--transition)'
+                      transition: 'all 0.2s',
+                      fontWeight: '600',
+                      fontSize: '0.875rem'
                     }}
                   >
                     <input
@@ -468,7 +464,7 @@ const Register = () => {
                       checked={formData.teaching_classes.includes(className)}
                       onChange={() => handleTeachingClassesChange(className)}
                       disabled={loading}
-                      style={{ marginRight: '0.5rem' }}
+                      style={{ display: 'none' }}
                     />
                     {className}
                   </label>
@@ -477,32 +473,34 @@ const Register = () => {
             </div>
           )}
 
-          <div className="form-group">
-            <label htmlFor="password">Parol *</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="Parol kiriting (min 6 belgi)"
-              required
-              disabled={loading}
-            />
-          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="password">Parol *</label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Kamida 6 belgi"
+                required
+                disabled={loading}
+              />
+            </div>
 
-          <div className="form-group">
-            <label htmlFor="confirmPassword">Parolni tasdiqlash *</label>
-            <input
-              type="password"
-              id="confirmPassword"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              placeholder="Parolni qayta kiriting"
-              required
-              disabled={loading}
-            />
+            <div className="form-group">
+              <label htmlFor="confirmPassword">Parolni tasdiqlash *</label>
+              <input
+                type="password"
+                id="confirmPassword"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                placeholder="Parolni qayta kiriting"
+                required
+                disabled={loading}
+              />
+            </div>
           </div>
 
           <button

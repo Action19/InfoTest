@@ -48,7 +48,7 @@ const Login = () => {
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-header">
-          <h1>InfoTest ga kirish</h1>
+          <h1>InfoTest</h1>
           <p>Bilimlaringizni sinab ko'ring!</p>
         </div>
 
@@ -97,7 +97,7 @@ const Login = () => {
         </div>
 
         <div className="demo-accounts">
-          <h3>Demo hisoblar:</h3>
+          <h3>Demo hisoblar</h3>
           <div className="demo-list">
             {demoAccounts.map((account, index) => (
               <div key={index} className="demo-account-card">
