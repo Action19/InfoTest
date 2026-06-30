@@ -247,7 +247,16 @@ router.get('/me', authenticateToken, async (req, res) => {
 // Update profile
 router.put('/profile', authenticateToken, async (req, res) => {
   try {
-    const { full_name, email, bio } = req.body;
+    const { 
+      full_name, 
+      email, 
+      bio, 
+      district, 
+      school_number, 
+      class_name, 
+      teaching_classes 
+    } = req.body;
+    
     const updates = {};
 
     if (full_name) updates.full_name = full_name;
@@ -260,6 +269,12 @@ router.put('/profile', authenticateToken, async (req, res) => {
       updates.email = email;
     }
     if (bio !== undefined) updates.bio = bio;
+    
+    // School information updates
+    if (district !== undefined) updates.district = district;
+    if (school_number !== undefined) updates.school_number = school_number;
+    if (class_name !== undefined) updates.class_name = class_name;
+    if (teaching_classes !== undefined) updates.teaching_classes = teaching_classes;
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
@@ -284,7 +299,8 @@ router.put('/profile', authenticateToken, async (req, res) => {
         district: updatedUser.district,
         school_number: updatedUser.school_number,
         class_name: updatedUser.class_name,
-        teaching_classes: updatedUser.teaching_classes
+        teaching_classes: updatedUser.teaching_classes,
+        created_at: updatedUser.created_at
       }
     });
   } catch (error) {
@@ -367,31 +383,31 @@ router.post('/check-email', async (req, res) => {
 // Change password
 router.put('/change-password', authenticateToken, async (req, res) => {
   try {
-    const { current_password, new_password } = req.body;
+    const { currentPassword, newPassword } = req.body;
 
-    if (!current_password || !new_password) {
-      return res.status(400).json({ error: 'Current and new password are required' });
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Joriy va yangi parol kiritilishi shart' });
     }
 
-    if (new_password.length < 6) {
-      return res.status(400).json({ error: 'New password must be at least 6 characters' });
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Yangi parol kamida 6 belgidan iborat bo\'lishi kerak' });
     }
 
     // Verify current password
     const user = await User.findById(req.user.id);
-    const isValidPassword = await User.verifyPassword(current_password, user.password);
+    const isValidPassword = await User.verifyPassword(currentPassword, user.password);
     
     if (!isValidPassword) {
-      return res.status(401).json({ error: 'Current password is incorrect' });
+      return res.status(401).json({ error: 'Joriy parol noto\'g\'ri' });
     }
 
     // Update password
-    await User.updatePassword(req.user.id, new_password);
+    await User.updatePassword(req.user.id, newPassword);
 
-    res.json({ message: 'Password changed successfully' });
+    res.json({ message: 'Parol muvaffaqiyatli o\'zgartirildi' });
   } catch (error) {
     console.error('Change password error:', error);
-    res.status(500).json({ error: 'Failed to change password' });
+    res.status(500).json({ error: 'Parolni o\'zgartirishda xatolik yuz berdi' });
   }
 });
 

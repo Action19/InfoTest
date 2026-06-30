@@ -8,9 +8,16 @@ import '../assets/css/Pages.css';
 const Profile = () => {
   const { user, updateUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingSchool, setIsEditingSchool] = useState(false);
   const [formData, setFormData] = useState({
     full_name: user.full_name,
     email: user.email
+  });
+  const [schoolData, setSchoolData] = useState({
+    district: user.district || '',
+    school_number: user.school_number || '',
+    class_name: user.class_name || '',
+    teaching_classes: user.teaching_classes ? user.teaching_classes.split(',') : []
   });
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -20,6 +27,26 @@ const Profile = () => {
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [loading, setLoading] = useState(false);
+
+  const districts = [
+    'Davlatobod tumani',
+    'Chortoq tumani',
+    'Chust tumani',
+    'Kosonsoy tumani',
+    'Mingbuloq tumani',
+    'Namangan tumani',
+    'Norin tumani',
+    'Pop tumani',
+    "To'raqo'rg'on tumani",
+    "Uchqo'rg'on tumani",
+    'Uychi tumani',
+    "Yangiqo'rg'on tumani"
+  ];
+
+  const classes = [
+    '9-A', '9-B', '9-V', '9-G', '9-D',
+    '10-A', '10-B', '10-V', '10-G', '10-D'
+  ];
 
   const getLevelColor = (level) => {
     const colors = ['bronze', 'silver', 'gold', 'platinum', 'diamond'];
@@ -92,6 +119,49 @@ const Profile = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSchoolUpdate = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const updateData = {
+        district: schoolData.district,
+        school_number: schoolData.school_number
+      };
+
+      if (user.role === 'student') {
+        updateData.class_name = schoolData.class_name;
+      } else if (user.role === 'teacher') {
+        updateData.teaching_classes = schoolData.teaching_classes.join(',');
+      }
+
+      const response = await api.put('/auth/profile', updateData);
+      updateUser(response.data.user);
+      setIsEditingSchool(false);
+      setMessage({ type: 'success', text: 'Maktab ma\'lumotlari muvaffaqiyatli yangilandi!' });
+    } catch (error) {
+      setMessage({ 
+        type: 'error', 
+        text: error.response?.data?.error || "Ma'lumotlarni yangilashda xatolik yuz berdi" 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTeachingClassChange = (className) => {
+    const currentClasses = schoolData.teaching_classes;
+    const newClasses = currentClasses.includes(className)
+      ? currentClasses.filter(c => c !== className)
+      : [...currentClasses, className];
+    
+    setSchoolData({
+      ...schoolData,
+      teaching_classes: newClasses
+    });
   };
 
   return (
@@ -229,6 +299,167 @@ const Profile = () => {
                   <span className="info-label">Rol:</span>
                   <span className="info-value">{getRoleName(user.role)}</span>
                 </div>
+              </div>
+            )}
+          </div>
+
+          <div className="profile-section">
+            <div className="section-header">
+              <h3>Maktab ma'lumotlari</h3>
+              {!isEditingSchool && (
+                <button 
+                  onClick={() => setIsEditingSchool(true)} 
+                  className="btn btn-outline"
+                >
+                  Tahrirlash
+                </button>
+              )}
+            </div>
+
+            {isEditingSchool ? (
+              <form onSubmit={handleSchoolUpdate} className="profile-form">
+                <div className="form-group">
+                  <label>Tuman *</label>
+                  <select
+                    value={schoolData.district}
+                    onChange={(e) => setSchoolData({ ...schoolData, district: e.target.value })}
+                    required
+                    disabled={loading}
+                  >
+                    <option value="">Tumanni tanlang</option>
+                    {districts.map(district => (
+                      <option key={district} value={district}>{district}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Maktab raqami *</label>
+                  <input
+                    type="text"
+                    value={schoolData.school_number}
+                    onChange={(e) => setSchoolData({ ...schoolData, school_number: e.target.value })}
+                    placeholder="Masalan: 15"
+                    required
+                    disabled={loading}
+                  />
+                </div>
+
+                {user.role === 'student' && (
+                  <div className="form-group">
+                    <label>Sinf *</label>
+                    <select
+                      value={schoolData.class_name}
+                      onChange={(e) => setSchoolData({ ...schoolData, class_name: e.target.value })}
+                      required
+                      disabled={loading}
+                    >
+                      <option value="">Sinfni tanlang</option>
+                      {classes.map(className => (
+                        <option key={className} value={className}>{className}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {user.role === 'teacher' && (
+                  <div className="form-group">
+                    <label>Dars o'tiladigan sinflar * (bir nechtasini tanlash mumkin)</label>
+                    <div style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: 'repeat(5, 1fr)', 
+                      gap: '0.5rem',
+                      marginTop: '0.5rem'
+                    }}>
+                      {classes.map(className => (
+                        <label 
+                          key={className} 
+                          style={{ 
+                            display: 'flex', 
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '0.625rem 0.5rem',
+                            border: '2px solid',
+                            borderColor: schoolData.teaching_classes.includes(className) 
+                              ? 'var(--primary-color)' 
+                              : '#E5E7EB',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            backgroundColor: schoolData.teaching_classes.includes(className) 
+                              ? 'var(--primary-color)' 
+                              : 'transparent',
+                            color: schoolData.teaching_classes.includes(className) 
+                              ? 'white' 
+                              : 'var(--text-primary)',
+                            transition: 'all 0.2s',
+                            fontWeight: '600',
+                            fontSize: '0.875rem'
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={schoolData.teaching_classes.includes(className)}
+                            onChange={() => handleTeachingClassChange(className)}
+                            disabled={loading}
+                            style={{ display: 'none' }}
+                          />
+                          {className}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="form-actions">
+                  <button 
+                    type="submit" 
+                    className="btn btn-primary"
+                    disabled={loading}
+                  >
+                    {loading ? 'Saqlanmoqda...' : 'Saqlash'}
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setIsEditingSchool(false);
+                      setSchoolData({
+                        district: user.district || '',
+                        school_number: user.school_number || '',
+                        class_name: user.class_name || '',
+                        teaching_classes: user.teaching_classes ? user.teaching_classes.split(',') : []
+                      });
+                    }} 
+                    className="btn btn-outline"
+                    disabled={loading}
+                  >
+                    Bekor qilish
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="info-display">
+                <div className="info-row">
+                  <span className="info-label">Tuman:</span>
+                  <span className="info-value">{user.district || 'Kiritilmagan'}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Maktab:</span>
+                  <span className="info-value">№ {user.school_number || 'Kiritilmagan'}</span>
+                </div>
+                {user.role === 'student' && (
+                  <div className="info-row">
+                    <span className="info-label">Sinf:</span>
+                    <span className="info-value">{user.class_name || 'Kiritilmagan'}</span>
+                  </div>
+                )}
+                {user.role === 'teacher' && (
+                  <div className="info-row">
+                    <span className="info-label">Dars o'tiladigan sinflar:</span>
+                    <span className="info-value">
+                      {user.teaching_classes || 'Kiritilmagan'}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>
