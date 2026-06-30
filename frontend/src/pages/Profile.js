@@ -69,7 +69,7 @@ const Profile = () => {
 
     try {
       const response = await api.put('/auth/profile', formData);
-      updateUser(response.data);
+      updateUser(response.data.user);
       setIsEditing(false);
       setMessage({ type: 'success', text: 'Profil muvaffaqiyatli yangilandi!' });
     } catch (error) {
