@@ -275,6 +275,32 @@ router.post('/submissions/:subId/grade', authenticateToken, requireRole(['teache
   }
 });
 
+// Fayl turini topshiriq turiga mosligini tekshirish
+function checkFileType(task_type, fileName) {
+  const ext = path.extname(fileName).toLowerCase();
+  const allowed = {
+    word:       ['.doc', '.docx'],
+    excel:      ['.xls', '.xlsx'],
+    access:     ['.mdb', '.accdb'],
+    python:     ['.py'],
+    scratch:    ['.sb3', '.sb2'],
+    html:       ['.html', '.htm'],
+    javascript: ['.js'],
+    css:        ['.css'],
+    other:      [] // har qanday fayl qabul
+  };
+  const list = allowed[task_type];
+  if (!list || list.length === 0) return { ok: true };
+  if (!list.includes(ext)) {
+    return {
+      ok: false,
+      expected: list.join(' yoki '),
+      got: ext || '(noma\'lum)'
+    };
+  }
+  return { ok: true };
+}
+
 // POST /api/assignments/submissions/:subId/ai-grade — AI baholash
 router.post('/submissions/:subId/ai-grade', authenticateToken, requireRole(['teacher','admin']), async (req, res) => {
   try {
@@ -285,47 +311,137 @@ router.post('/submissions/:subId/ai-grade', authenticateToken, requireRole(['tea
     if (req.user.role === 'teacher' && a.created_by !== req.user.id)
       return res.status(403).json({ error: 'Ruxsat yo\'q' });
 
-    // Fayl tarkibini o'qish (matn fayllari uchun)
-    const filePath = path.join(__dirname, '..', sub.file_path);
-    let fileContent = `Fayl nomi: ${sub.file_name}\nFayl hajmi: ${Math.round((sub.file_size||0)/1024)} KB`;
+    // ── 1. Fayl turini tekshirish ──────────────────────────────
+    const fileCheck = checkFileType(a.task_type, sub.file_name);
+    if (!fileCheck.ok) {
+      const feedback = `❌ Noto'g'ri fayl turi yuklangan!\n\nTopshiriq: ${TASK_TYPES[a.task_type]?.label} (${fileCheck.expected})\nYuklangan fayl: "${sub.file_name}" (${fileCheck.got})\n\nO'quvchi topshiriq talablariga mos fayl yuklamagan. Iltimos, to'g'ri formatdagi faylni qaytadan yuklang.`;
+      
+      await Assignment.gradeSubmission(req.params.subId, {
+        score: 0,
+        feedback,
+        graded_by: 'ai',
+        ai_report: JSON.stringify({ score_percent: 0, reason: 'wrong_file_type', expected: fileCheck.expected, got: fileCheck.got })
+      });
 
-    const textExts = ['.py', '.html', '.htm', '.css', '.js', '.txt'];
-    const ext = path.extname(sub.file_name).toLowerCase();
-    if (textExts.includes(ext) && fs.existsSync(filePath)) {
-      try {
-        const content = fs.readFileSync(filePath, 'utf8');
-        fileContent += `\n\nFayl tarkibi:\n${content.slice(0, 3000)}`;
-      } catch { /* binary file */ }
+      return res.json({
+        message: 'AI baholadi',
+        score: 0,
+        score_percent: 0,
+        feedback,
+        strengths: '',
+        improvements: `To'g'ri fayl turini yuklang: ${fileCheck.expected}`
+      });
     }
 
+    // ── 2. Fayl tarkibini tayyorlash ──────────────────────────
+    const filePath = path.join(__dirname, '..', sub.file_path);
+    const ext = path.extname(sub.file_name).toLowerCase();
+    const textExts = ['.py', '.html', '.htm', '.css', '.js', '.txt'];
+    const imageExts = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'];
     const OpenAI = require('openai');
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    const prompt = buildAIGradePrompt(a.task_type, a.instructions, fileContent);
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.3,
-      max_tokens: 800
-    });
-
     let result;
-    try {
-      const raw = completion.choices[0].message.content.trim();
-      const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
-      result = JSON.parse(jsonStr);
-    } catch {
-      return res.status(500).json({ error: 'AI javobini parse qilishda xatolik' });
+
+    if (imageExts.includes(ext) && fs.existsSync(filePath)) {
+      // ── 3a. Rasm fayl — Vision API orqali baholash ────────────
+      const imageData = fs.readFileSync(filePath);
+      const base64 = imageData.toString('base64');
+      const mimeType = { '.png':'image/png', '.jpg':'image/jpeg', '.jpeg':'image/jpeg', '.gif':'image/gif', '.webp':'image/webp' }[ext] || 'image/png';
+
+      const visionPrompt = `Sen informatika o'qituvchisisisan. O'quvchi quyidagi topshiriqni bajardi.
+
+TOPSHIRIQ TURI: ${TASK_TYPES[a.task_type]?.label || a.task_type}
+TOPSHIRIQ TALABLARI:
+${a.instructions}
+
+O'quvchi yuborgan fayl: "${sub.file_name}" (rasm shaklida)
+
+Rasmda ko'rsatilgan ishni diqqat bilan ko'rib chiqing va topshiriq talablariga mosligini baholang.
+
+Quyidagi JSON formatda javob ber (boshqa hech narsa yozma):
+{
+  "score_percent": 75,
+  "feedback": "Ishni ko'rib chiqdim. Batafsil tahlil...",
+  "strengths": "Ijobiy tomonlar",
+  "improvements": "Yaxshilash kerak bo'lgan tomonlar"
+}`;
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: visionPrompt },
+            { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}`, detail: 'high' } }
+          ]
+        }],
+        temperature: 0.3,
+        max_tokens: 1000
+      });
+
+      try {
+        const raw = completion.choices[0].message.content.trim();
+        const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
+        result = JSON.parse(jsonStr);
+      } catch {
+        return res.status(500).json({ error: 'AI javobini parse qilishda xatolik' });
+      }
+
+    } else if (textExts.includes(ext) && fs.existsSync(filePath)) {
+      // ── 3b. Matn fayl — to'g'ridan o'qib baholash ────────────
+      let fileContent = `Fayl nomi: ${sub.file_name}`;
+      try {
+        const content = fs.readFileSync(filePath, 'utf8');
+        fileContent += `\n\nFayl tarkibi:\n${content.slice(0, 4000)}`;
+      } catch { fileContent += '\n(Fayl o\'qilmadi)'; }
+
+      const prompt = buildAIGradePrompt(a.task_type, a.instructions, fileContent);
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3,
+        max_tokens: 1000
+      });
+
+      try {
+        const raw = completion.choices[0].message.content.trim();
+        const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
+        result = JSON.parse(jsonStr);
+      } catch {
+        return res.status(500).json({ error: 'AI javobini parse qilishda xatolik' });
+      }
+
+    } else {
+      // ── 3c. Binary fayl (Word, Excel, Access, Scratch) ───────
+      // Fayl nomini va hajmini ko'rib, topshiriq talablariga mos ekanini tasdiqlaydi
+      // Tarkibini o'qib bo'lmaydi lekin fayl turi to'g'ri (yuqorida tekshirildi)
+      const fileContent = `Fayl nomi: ${sub.file_name}\nFayl turi: ${TASK_TYPES[a.task_type]?.label}\nFayl hajmi: ${Math.round((sub.file_size||0)/1024)} KB\n\nEslatma: Bu fayl turi (${ext}) bevosita o'qib bo'lmaydi. Fayl topshiriq talablariga mos formatda yuklangan. Tarkibini to'liq baholash uchun faylni yuklab olib qo'lda tekshirish tavsiya etiladi.`;
+
+      const prompt = buildAIGradePrompt(a.task_type, a.instructions, fileContent);
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3,
+        max_tokens: 800
+      });
+
+      try {
+        const raw = completion.choices[0].message.content.trim();
+        const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
+        result = JSON.parse(jsonStr);
+      } catch {
+        return res.status(500).json({ error: 'AI javobini parse qilishda xatolik' });
+      }
     }
 
+    // ── 4. Natijani saqlash ───────────────────────────────────
     const score = Math.round(((result.score_percent || 0) / 100) * (sub.max_score || 100));
-    const aiReport = JSON.stringify(result);
-
     await Assignment.gradeSubmission(req.params.subId, {
       score,
       feedback: result.feedback || '',
       graded_by: 'ai',
-      ai_report: aiReport
+      ai_report: JSON.stringify(result)
     });
 
     res.json({
