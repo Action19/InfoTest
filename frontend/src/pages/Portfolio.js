@@ -117,12 +117,22 @@ const PortfolioCard = ({ item, onView, onDelete, onTogglePublic }) => {
           </a>
         )}
 
+        {/* Teglar */}
         {item.tags?.length > 0 && (
           <div style={{ display:'flex', gap:'0.3rem', flexWrap:'wrap', marginTop:'0.5rem' }}>
             {item.tags.slice(0,4).map((t,i)=>(
               <span key={i} style={{ fontSize:'0.68rem', background:'rgba(99,102,241,0.1)',
                 color:'#6366f1', padding:'2px 8px', borderRadius:'20px' }}>#{t}</span>
             ))}
+          </div>
+        )}
+
+        {/* Like soni (o'z ishida faqat ko'rsatish) */}
+        {item.likes_count > 0 && (
+          <div style={{ marginTop:'0.6rem', paddingTop:'0.5rem',
+                        borderTop:'1px solid var(--border-color)',
+                        fontSize:'0.78rem', color:'#f43f5e', display:'flex', alignItems:'center', gap:'0.3rem' }}>
+            ❤️ <strong>{item.likes_count}</strong> kishi yoqtirdi
           </div>
         )}
       </div>
@@ -190,6 +200,11 @@ const DetailModal = ({ item, onClose, onDelete, onEdit }) => {
                 <span key={i} style={{ fontSize:'0.78rem', background:'rgba(99,102,241,0.1)',
                   color:'#6366f1', padding:'3px 10px', borderRadius:'20px' }}>#{t}</span>
               ))}
+            </div>
+          )}
+          {item.likes_count > 0 && (
+            <div style={{ marginTop:'1rem', fontSize:'0.85rem', color:'#f43f5e', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+              ❤️ <strong>{item.likes_count}</strong> kishi yoqtirdi
             </div>
           )}
         </div>

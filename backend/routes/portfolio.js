@@ -45,26 +45,22 @@ function getFileType(fileName) {
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    
-    const sql = `
-      SELECT * FROM portfolio_items
-      WHERE user_id = ?
-      ORDER BY created_at DESC
-    `;
-    
-    const items = await database.all(sql, [userId]);
-    
-    // Parse tags
+
+    const items = await database.all(`
+      SELECT pi.*,
+        (SELECT COUNT(*) FROM portfolio_likes WHERE item_id = pi.id) AS likes_count,
+        (SELECT COUNT(*) FROM portfolio_likes WHERE item_id = pi.id AND user_id = ?) AS user_liked
+      FROM portfolio_items pi
+      WHERE pi.user_id = ?
+      ORDER BY pi.created_at DESC
+    `, [userId, userId]);
+
     items.forEach(item => {
-      if (item.tags) {
-        try {
-          item.tags = JSON.parse(item.tags);
-        } catch (e) {
-          item.tags = [];
-        }
-      }
+      if (item.tags) { try { item.tags = JSON.parse(item.tags); } catch { item.tags = []; } }
+      item.likes_count = parseInt(item.likes_count || 0);
+      item.user_liked  = item.user_liked > 0;
     });
-    
+
     res.json(items);
   } catch (error) {
     console.error('Get portfolio error:', error);
@@ -72,31 +68,30 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
-// Get user portfolio by ID
+// Get user portfolio by ID (o'qituvchi/admin)
 router.get('/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
-    
-    // Users can only see their own portfolio unless they're teacher/admin
+
     if (req.user.id !== parseInt(userId) && req.user.role === 'student') {
       return res.status(403).json({ error: 'Access denied' });
     }
-    
-    const sql = `
-      SELECT * FROM portfolio_items
-      WHERE user_id = ? AND (is_public = TRUE OR ? = user_id)
-      ORDER BY created_at DESC
-    `;
-    
-    const items = await database.all(sql, [userId, req.user.id]);
-    
-    // Parse tags
+
+    const items = await database.all(`
+      SELECT pi.*,
+        (SELECT COUNT(*) FROM portfolio_likes WHERE item_id = pi.id) AS likes_count,
+        (SELECT COUNT(*) FROM portfolio_likes WHERE item_id = pi.id AND user_id = ?) AS user_liked
+      FROM portfolio_items pi
+      WHERE pi.user_id = ? AND (pi.is_public = TRUE OR ? = pi.user_id)
+      ORDER BY pi.created_at DESC
+    `, [req.user.id, userId, req.user.id]);
+
     items.forEach(item => {
-      if (item.tags) {
-        item.tags = JSON.parse(item.tags);
-      }
+      if (item.tags) { try { item.tags = JSON.parse(item.tags); } catch { item.tags = []; } }
+      item.likes_count = parseInt(item.likes_count || 0);
+      item.user_liked  = item.user_liked > 0;
     });
-    
+
     res.json({ portfolio: items, count: items.length });
   } catch (error) {
     console.error('Get portfolio error:', error);
@@ -285,7 +280,45 @@ router.put('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Delete portfolio item
+// POST /api/portfolio/:id/like — like bosish / olib tashlash (toggle)
+router.post('/:id/like', authenticateToken, async (req, res) => {
+  try {
+    const itemId = parseInt(req.params.id);
+    const userId = req.user.id;
+
+    // Element mavjudmi?
+    const item = await database.get('SELECT id, user_id FROM portfolio_items WHERE id = ?', [itemId]);
+    if (!item) return res.status(404).json({ error: 'Portfolio elementi topilmadi' });
+
+    // O'z ishiga like bosa olmaydi
+    if (item.user_id === userId) {
+      return res.status(400).json({ error: "O'z ishingizga like bosa olmaysiz" });
+    }
+
+    // Avval like bosilganmi?
+    const existing = await database.get(
+      'SELECT id FROM portfolio_likes WHERE item_id = ? AND user_id = ?',
+      [itemId, userId]
+    );
+
+    if (existing) {
+      // Unlike — olib tashlash
+      await database.run('DELETE FROM portfolio_likes WHERE item_id = ? AND user_id = ?', [itemId, userId]);
+      const count = await database.get('SELECT COUNT(*) AS cnt FROM portfolio_likes WHERE item_id = ?', [itemId]);
+      return res.json({ liked: false, likes_count: parseInt(count.cnt) });
+    } else {
+      // Like qo'shish
+      await database.run('INSERT INTO portfolio_likes (item_id, user_id) VALUES (?, ?)', [itemId, userId]);
+      const count = await database.get('SELECT COUNT(*) AS cnt FROM portfolio_likes WHERE item_id = ?', [itemId]);
+      return res.json({ liked: true, likes_count: parseInt(count.cnt) });
+    }
+  } catch (err) {
+    console.error('Like error:', err);
+    res.status(500).json({ error: 'Like qo\'yishda xatolik' });
+  }
+});
+
+// DELETE portfolio item
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;

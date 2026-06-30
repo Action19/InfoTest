@@ -39,8 +39,48 @@ const Lightbox = ({ src, alt, onClose }) => (
   </div>
 );
 
+// ─── Like tugmasi ─────────────────────────────────────────────
+const LikeButton = ({ item, onLike, canLike }) => {
+  const [loading, setLoading] = useState(false);
+  const liked = item.user_liked;
+  const count = item.likes_count || 0;
+
+  const handleClick = async (e) => {
+    e.stopPropagation();
+    if (!canLike || loading) return;
+    setLoading(true);
+    await onLike(item.id);
+    setLoading(false);
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={!canLike || loading}
+      title={!canLike ? "O'z ishingizga like bosa olmaysiz" : liked ? "Like olib tashlash" : "Like bosish"}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+        padding: '0.3rem 0.7rem', borderRadius: '20px', border: 'none',
+        cursor: canLike ? 'pointer' : 'default',
+        fontSize: '0.82rem', fontWeight: 600,
+        background: liked
+          ? 'linear-gradient(135deg,#f43f5e,#e11d48)'
+          : 'var(--bg-secondary)',
+        color: liked ? '#fff' : 'var(--text-secondary)',
+        transition: 'all 0.2s',
+        transform: loading ? 'scale(0.95)' : 'scale(1)',
+        opacity: !canLike ? 0.5 : 1,
+        boxShadow: liked ? '0 2px 8px rgba(244,63,94,0.3)' : 'none'
+      }}
+    >
+      <span style={{ fontSize: '0.9rem' }}>{liked ? '❤️' : '🤍'}</span>
+      {count > 0 && <span>{count}</span>}
+    </button>
+  );
+};
+
 // ─── Portfolio Card (o'qituvchi ko'rinishi) ───────────────────
-const StudentPortfolioCard = ({ item, onView }) => {
+const StudentPortfolioCard = ({ item, onView, onLike, canLike }) => {
   const [lightbox, setLightbox] = useState(false);
   const imageUrl = isImageUrl(item.file_url) ? `${API_BASE}${item.file_url}` : null;
   const hasFile  = item.file_url?.startsWith('/') && !imageUrl;
@@ -136,13 +176,24 @@ const StudentPortfolioCard = ({ item, onView }) => {
             ))}
           </div>
         )}
+
+        {/* Like tugmasi */}
+        <div style={{ marginTop:'0.75rem', paddingTop:'0.6rem', borderTop:'1px solid var(--border-color)',
+                      display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <LikeButton item={item} onLike={onLike} canLike={canLike} />
+          {item.likes_count > 0 && !item.user_liked && (
+            <span style={{ fontSize:'0.72rem', color:'var(--text-secondary)' }}>
+              {item.likes_count} kishi yoqtirdi
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
 // ─── Detail Modal (o'qituvchi) ────────────────────────────────
-const DetailModal = ({ item, onClose }) => {
+const DetailModal = ({ item, onClose, onLike, canLike }) => {
   const [lightbox, setLightbox] = useState(false);
   const imageUrl = isImageUrl(item.file_url) ? `${API_BASE}${item.file_url}` : null;
   const hasFile  = item.file_url?.startsWith('/') && !imageUrl;
@@ -247,6 +298,8 @@ const DetailModal = ({ item, onClose }) => {
         </div>
 
         <div className="modal-actions">
+          <LikeButton item={item} onLike={onLike} canLike={canLike} />
+          <div style={{ flex:1 }} />
           <button className="btn btn-primary" onClick={onClose}>Yopish</button>
         </div>
       </div>
@@ -268,11 +321,6 @@ const StudentPortfolio = () => {
   const [filter,       setFilter]       = useState('all');
   const [viewItem,     setViewItem]     = useState(null);
 
-  useEffect(() => {
-    if (user.role === 'student') { navigate('/portfolio'); return; }
-    fetchAll();
-  }, [userId]);
-
   const fetchAll = async () => {
     try {
       setLoading(true);
@@ -289,6 +337,32 @@ const StudentPortfolio = () => {
       console.error(err);
       alert("Ma'lumotlarni yuklashda xatolik");
     } finally { setLoading(false); }
+  };
+
+  // useEffect
+  useEffect(() => {
+    if (user.role === 'student') { navigate('/portfolio'); return; }
+    fetchAll();
+  // eslint-disable-next-line
+  }, [userId]);
+
+  // Like bosish (optimistic update)
+  const handleLike = async (itemId) => {
+    try {
+      const res = await api.post(`/portfolio/${itemId}/like`);
+      setItems(prev => prev.map(it =>
+        it.id === itemId
+          ? { ...it, user_liked: res.data.liked, likes_count: res.data.likes_count }
+          : it
+      ));
+      setViewItem(prev =>
+        prev?.id === itemId
+          ? { ...prev, user_liked: res.data.liked, likes_count: res.data.likes_count }
+          : prev
+      );
+    } catch (err) {
+      alert(err.response?.data?.error || "Like qo'yishda xatolik");
+    }
   };
 
   if (loading) return <div className="loading-container"><div className="spinner"/><p>Yuklanmoqda...</p></div>;
@@ -398,13 +472,17 @@ const StudentPortfolio = () => {
         ) : (
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:'1.25rem' }}>
             {filtered.map(item => (
-              <StudentPortfolioCard key={item.id} item={item} onView={setViewItem} />
+              <StudentPortfolioCard key={item.id} item={item} onView={setViewItem}
+                onLike={handleLike}
+                canLike={user.role !== 'student' && item.user_id !== user.id} />
             ))}
           </div>
         )}
       </div>
 
-      {viewItem && <DetailModal item={viewItem} onClose={() => setViewItem(null)} />}
+      {viewItem && <DetailModal item={viewItem} onClose={() => setViewItem(null)}
+        onLike={handleLike}
+        canLike={user.role !== 'student' && viewItem.user_id !== user.id} />}
     </div>
   );
 };

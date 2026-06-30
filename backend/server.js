@@ -161,6 +161,18 @@ async function runMigrations(db) {
     await db.run(`ALTER TABLE portfolio_items ADD COLUMN IF NOT EXISTS file_name TEXT`).catch(()=>{});
     await db.run(`ALTER TABLE portfolio_items ADD COLUMN IF NOT EXISTS file_type TEXT`).catch(()=>{});
 
+    // portfolio_likes jadvali
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS portfolio_likes (
+        id           SERIAL PRIMARY KEY,
+        item_id      INTEGER NOT NULL REFERENCES portfolio_items(id) ON DELETE CASCADE,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at   TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(item_id, user_id)
+      )
+    `).catch(()=>{});
+    await db.run('CREATE INDEX IF NOT EXISTS idx_portfolio_likes_item ON portfolio_likes(item_id)').catch(()=>{});
+
     // lesson_progress
     await db.run(`
       CREATE TABLE IF NOT EXISTS lesson_progress (
