@@ -96,83 +96,144 @@ router.get('/leaderboard', async (req, res) => {
   }
 });
 
-// Get overall statistics (admin only)
+// Get overall statistics (admin and teacher)
 router.get('/overall', authenticateToken, async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Admin access required' });
+    // Only admin and teacher can access
+    if (req.user.role === 'student') {
+      return res.status(403).json({ error: 'Faqat o\'qituvchi va administrator ko\'ra oladi' });
     }
     
-    // Total users
-    const userCount = await database.get(
-      'SELECT COUNT(*) as count FROM users'
-    );
+    let userCount, testCount, attemptCount, avgScore, testsBySubject, recentActivity;
     
-    // Users by role
-    const usersByRole = await database.all(`
-      SELECT role, COUNT(*) as count
-      FROM users
-      GROUP BY role
-    `);
-    
-    // Total tests
-    const testCount = await database.get(
-      'SELECT COUNT(*) as count FROM tests'
-    );
-    
-    // Published tests
-    const publishedTests = await database.get(
-      'SELECT COUNT(*) as count FROM tests WHERE is_published = 1'
-    );
-    
-    // Total test attempts
-    const attemptCount = await database.get(
-      'SELECT COUNT(*) as count FROM results'
-    );
-    
-    // Average score
-    const avgScore = await database.get(
-      'SELECT AVG(percentage) as average FROM results'
-    );
-    
-    // Tests by subject
-    const testsBySubject = await database.all(`
-      SELECT subject, COUNT(*) as count
-      FROM tests
-      GROUP BY subject
-      ORDER BY count DESC
-    `);
-    
-    // Recent activity
-    const recentActivity = await database.all(`
-      SELECT 
-        r.created_at,
-        u.username,
-        u.full_name,
-        t.title as test_title,
-        r.percentage
-      FROM results r
-      LEFT JOIN users u ON r.user_id = u.id
-      LEFT JOIN tests t ON r.test_id = t.id
-      ORDER BY r.created_at DESC
-      LIMIT 10
-    `);
+    if (req.user.role === 'admin') {
+      // Admin sees all statistics
+      
+      // Total users
+      userCount = await database.get(
+        'SELECT COUNT(*) as count FROM users'
+      );
+      
+      // Total tests
+      testCount = await database.get(
+        'SELECT COUNT(*) as count FROM tests'
+      );
+      
+      // Total test attempts
+      attemptCount = await database.get(
+        'SELECT COUNT(*) as count FROM results'
+      );
+      
+      // Average score
+      avgScore = await database.get(
+        'SELECT AVG(percentage) as average FROM results'
+      );
+      
+      // Tests by subject
+      testsBySubject = await database.all(`
+        SELECT subject, COUNT(*) as count
+        FROM tests
+        GROUP BY subject
+        ORDER BY count DESC
+      `);
+      
+      // Recent activity
+      recentActivity = await database.all(`
+        SELECT 
+          r.created_at,
+          u.username,
+          u.full_name,
+          t.title as test_title,
+          r.percentage
+        FROM results r
+        LEFT JOIN users u ON r.user_id = u.id
+        LEFT JOIN tests t ON r.test_id = t.id
+        ORDER BY r.created_at DESC
+        LIMIT 10
+      `);
+      
+    } else if (req.user.role === 'teacher') {
+      // Teacher sees only their own statistics
+      const User = require('../models/User');
+      const teacher = await User.findById(req.user.id);
+      
+      // Students from teacher's school and classes
+      const teacherClasses = teacher.teaching_classes ? teacher.teaching_classes.split(',').map(c => c.trim()) : [];
+      const placeholders = teacherClasses.map(() => '?').join(',');
+      
+      // Total students (teacher's classes only)
+      if (teacherClasses.length > 0) {
+        userCount = await database.get(
+          `SELECT COUNT(*) as count FROM users 
+           WHERE role = 'student' 
+           AND district = ? 
+           AND school_number = ? 
+           AND class_name IN (${placeholders})`,
+          [teacher.district, teacher.school_number, ...teacherClasses]
+        );
+      } else {
+        userCount = { count: 0 };
+      }
+      
+      // Total tests (teacher's tests only)
+      testCount = await database.get(
+        'SELECT COUNT(*) as count FROM tests WHERE created_by = ?',
+        [req.user.id]
+      );
+      
+      // Total attempts (teacher's tests only)
+      attemptCount = await database.get(
+        `SELECT COUNT(*) as count FROM results 
+         WHERE test_id IN (SELECT id FROM tests WHERE created_by = ?)`,
+        [req.user.id]
+      );
+      
+      // Average score (teacher's tests only)
+      avgScore = await database.get(
+        `SELECT AVG(percentage) as average FROM results 
+         WHERE test_id IN (SELECT id FROM tests WHERE created_by = ?)`,
+        [req.user.id]
+      );
+      
+      // Tests by subject (teacher's tests only)
+      testsBySubject = await database.all(`
+        SELECT subject, COUNT(*) as count
+        FROM tests
+        WHERE created_by = ?
+        GROUP BY subject
+        ORDER BY count DESC
+      `, [req.user.id]);
+      
+      // Recent activity (teacher's tests only)
+      recentActivity = await database.all(`
+        SELECT 
+          r.created_at,
+          u.username,
+          u.full_name,
+          t.title as test_title,
+          r.percentage
+        FROM results r
+        LEFT JOIN users u ON r.user_id = u.id
+        LEFT JOIN tests t ON r.test_id = t.id
+        WHERE t.created_by = ?
+        ORDER BY r.created_at DESC
+        LIMIT 10
+      `, [req.user.id]);
+    }
     
     res.json({
-      totalUsers: userCount.count,
-      totalTests: testCount.count,
-      totalAttempts: attemptCount.count,
-      averageScore: avgScore.average ? parseFloat(avgScore.average.toFixed(2)) : 0,
+      totalUsers: userCount?.count || 0,
+      totalTests: testCount?.count || 0,
+      totalAttempts: attemptCount?.count || 0,
+      averageScore: avgScore?.average ? parseFloat(avgScore.average.toFixed(2)) : 0,
       users: {
-        total: userCount.count,
-        by_role: usersByRole
+        total: userCount?.count || 0
       },
       tests: {
-        total: testCount.count,
-        published: publishedTests.count
+        total: testCount?.count || 0
       },
-      tests_by_subject: testsBySubject,
-      recent_activity: recentActivity
+      tests_by_subject: testsBySubject || [],
+      recent_activity: recentActivity || []
     });
   } catch (error) {
     console.error('Get overall statistics error:', error);
