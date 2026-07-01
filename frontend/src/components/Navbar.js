@@ -83,6 +83,10 @@ const Navbar = () => {
                 <span className="nav-icon">📒</span>
                 Jurnal
               </Link>
+              <Link to="/ai-analytics" className={`navbar-link ${isActive('/ai-analytics') ? 'active' : ''}`}>
+                <span className="nav-icon">🤖</span>
+                AI Tahlil
+              </Link>
               <Link to="/leaderboard" className={`navbar-link ${isActive('/leaderboard') ? 'active' : ''}`}>
                 <span className="nav-icon">🏆</span>
                 Reyting

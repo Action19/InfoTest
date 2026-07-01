@@ -108,4 +108,11 @@ export const statisticsAPI = {
   getProgress: (userId) => api.get(`/statistics/progress/${userId}`),
 };
 
+// AI Analytics API
+export const aiAnalyticsAPI = {
+  getData: () => api.get('/ai-analytics/data'),
+  analyze: () => api.post('/ai-analytics/analyze'),
+  ask: (data) => api.post('/ai-analytics/ask', data),
+};
+
 export default api;

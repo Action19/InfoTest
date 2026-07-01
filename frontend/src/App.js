@@ -17,6 +17,7 @@ import StudentPortfolio from './pages/StudentPortfolio';
 import Lessons from './pages/Lessons';
 import LessonDetail from './pages/LessonDetail';
 import Journal from './pages/Journal';
+import AIAnalytics from './pages/AIAnalytics';
 import './assets/css/App.css';
 
 function App() {
@@ -124,6 +125,14 @@ function App() {
                 element={
                   <PrivateRoute>
                     <Journal />
+                  </PrivateRoute>
+                } 
+              />
+              <Route 
+                path="/ai-analytics" 
+                element={
+                  <PrivateRoute>
+                    <AIAnalytics />
                   </PrivateRoute>
                 } 
               />

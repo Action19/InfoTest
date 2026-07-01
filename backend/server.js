@@ -16,6 +16,7 @@ const statisticsRoutes = require('./routes/statistics');
 const lessonRoutes = require('./routes/lessons');
 const assignmentRoutes = require('./routes/assignments');
 const lessonProgressRoutes = require('./routes/lessonProgress');
+const aiAnalyticsRoutes = require('./routes/aiAnalytics');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -64,6 +65,7 @@ app.use('/api/statistics', statisticsRoutes);
 app.use('/api/lessons', lessonRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/lesson-progress', lessonProgressRoutes);
+app.use('/api/ai-analytics', aiAnalyticsRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
