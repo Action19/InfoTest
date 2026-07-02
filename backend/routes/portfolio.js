@@ -1,26 +1,15 @@
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
 const multer = require('multer');
 const database = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { uploadMulterFile } = require('../utils/firebaseStorage');
 
 const router = express.Router();
 
-// ─── Portfolio fayl yuklash config ───────────────────────────
-const PORTFOLIO_DIR = path.join(__dirname, '..', 'uploads', 'portfolio');
-if (!fs.existsSync(PORTFOLIO_DIR)) fs.mkdirSync(PORTFOLIO_DIR, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, PORTFOLIO_DIR),
-  filename: (req, file, cb) => {
-    const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    cb(null, `${Date.now()}_u${req.user.id}_${safe}`);
-  }
-});
-
+// ─── Portfolio fayl yuklash config (memory → Firebase) ───────
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   fileFilter: (req, file, cb) => {
     const allowed = /jpg|jpeg|png|gif|webp|pdf|doc|docx|zip|txt|mp4|mov/i;
@@ -144,10 +133,12 @@ router.post('/upload', authenticateToken, upload.single('file'), async (req, res
     if (!req.file) return res.status(400).json({ error: 'Fayl yuklanmadi' });
 
     const fileType = getFileType(req.file.originalname);
-    const filePath = `/uploads/portfolio/${req.file.filename}`;
+
+    // Firebase Storage'ga yuklash
+    const { url } = await uploadMulterFile(req.file, 'portfolio');
 
     res.json({
-      file_url: filePath,
+      file_url: url,
       file_name: req.file.originalname,
       file_size: req.file.size,
       file_type: fileType,

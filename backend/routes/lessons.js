@@ -1,42 +1,23 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const Lesson = require('../models/Lesson');
 const User = require('../models/User');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { uploadMulterFile, deleteFile } = require('../utils/firebaseStorage');
 
 const router = express.Router();
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = path.join(__dirname, '../uploads/materials');
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    // Generate unique filename
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
+// Configure multer (memory storage → Firebase)
 const upload = multer({
-  storage: storage,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 50 * 1024 * 1024 // 50MB max file size
   },
   fileFilter: function (req, file, cb) {
-    // Allowed file types
     const allowedTypes = /pdf|ppt|pptx|doc|docx|xls|xlsx|txt|jpg|jpeg|png/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-
-    if (mimetype && extname) {
+    if (extname) {
       return cb(null, true);
     } else {
       cb(new Error('Faqat PDF, PPT, PPTX, DOC, DOCX, XLS, XLSX, TXT va rasm fayllari qabul qilinadi!'));
@@ -190,12 +171,14 @@ router.delete('/:id', authenticateToken, requireRole(['teacher', 'admin']), asyn
       return res.status(403).json({ error: 'Bu darsni o\'chirish huquqingiz yo\'q' });
     }
 
-    // Delete associated material files
+    // Delete associated material files from Firebase
     const materials = await Lesson.getMaterials(req.params.id);
     for (const material of materials) {
-      const filePath = path.join(__dirname, '../uploads/materials', path.basename(material.file_path));
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+      // Firebase URL'dan storage path ajratib olish (agar kerak bo'lsa)
+      // Yangi fayllar to'liq URL sifatida saqlanadi, shuning uchun deleteFile ga URL beramiz
+      if (material.file_path && material.file_path.includes('storage.googleapis.com')) {
+        const storagePath = material.file_path.split('/').slice(4).join('/');
+        await deleteFile(storagePath);
       }
     }
 
@@ -226,10 +209,13 @@ router.post('/:id/materials', authenticateToken, requireRole(['teacher', 'admin'
       return res.status(400).json({ error: 'Fayl yuborilmadi' });
     }
 
+    // Firebase Storage'ga yuklash
+    const { url, storagePath } = await uploadMulterFile(req.file, 'materials');
+
     const materialId = await Lesson.addMaterial({
       lesson_id: req.params.id,
       file_name: req.file.originalname,
-      file_path: `/uploads/materials/${req.file.filename}`,
+      file_path: url,
       file_type: req.file.mimetype,
       file_size: req.file.size
     });
@@ -266,10 +252,10 @@ router.delete('/:lessonId/materials/:materialId', authenticateToken, requireRole
       return res.status(404).json({ error: 'Material topilmadi' });
     }
 
-    // Delete file from filesystem
-    const filePath = path.join(__dirname, '..', material.file_path);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    // Delete file from Firebase Storage
+    if (material.file_path && material.file_path.includes('storage.googleapis.com')) {
+      const storagePath = material.file_path.split('/').slice(4).join('/');
+      await deleteFile(storagePath);
     }
 
     await Lesson.deleteMaterial(req.params.materialId);

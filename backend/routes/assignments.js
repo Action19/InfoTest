@@ -6,25 +6,15 @@ const OpenAI = require('openai');
 const Assignment = require('../models/Assignment');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { readFileForAI } = require('../utils/fileReader');
+const { uploadMulterFile, uploadFile } = require('../utils/firebaseStorage');
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const router = express.Router();
 
-// ─── File upload config ───────────────────────────────────────
-const UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'submissions');
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (req, file, cb) => {
-    const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    cb(null, `${Date.now()}_u${req.user.id}_${safe}`);
-  }
-});
-
+// ─── File upload config (memory storage → Firebase) ──────────
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = /docx?|xlsx?|accdb|mdb|py|sb3|html?|css|js|txt|zip|rar|pdf|png|jpe?g/i;
@@ -283,11 +273,14 @@ router.post('/:id/submit', authenticateToken, upload.single('file'), async (req,
     const assignment = await Assignment.findById(req.params.id);
     if (!assignment) return res.status(404).json({ error: 'Topshiriq topilmadi' });
 
+    // Firebase Storage'ga yuklash
+    const { url, storagePath } = await uploadMulterFile(req.file, 'submissions');
+
     const subId = await Assignment.submitFile({
       assignment_id: parseInt(req.params.id),
       student_id: req.user.id,
       file_name: req.file.originalname,
-      file_path: `/uploads/submissions/${req.file.filename}`,
+      file_path: url,
       file_size: req.file.size
     });
 
@@ -319,18 +312,21 @@ router.post('/:id/submit-code', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Bu topshiriq turi kod yozishni qo\'llab-quvvatlamaydi' });
     }
 
-    // Kodni faylga yozish
+    // Kodni Firebase Storage'ga yuklash
     const ext = CODE_EXTENSIONS[assignment.task_type] || '.txt';
     const safeName = `code_${Date.now()}_u${req.user.id}${ext}`;
-    const filePath = path.join(UPLOAD_DIR, safeName);
-    fs.writeFileSync(filePath, code, 'utf8');
+    const codeBuffer = Buffer.from(code, 'utf8');
+    const { url } = await uploadFile(codeBuffer, `submissions/${safeName}`, {
+      contentType: 'text/plain',
+      metadata: { originalName: `kod${ext}` }
+    });
 
     // Submission saqla
     const subId = await Assignment.submitFile({
       assignment_id: parseInt(req.params.id),
       student_id: req.user.id,
       file_name: `kod${ext}`,
-      file_path: `/uploads/submissions/${safeName}`,
+      file_path: url,
       file_size: Buffer.byteLength(code, 'utf8')
     });
 
