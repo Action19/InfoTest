@@ -433,7 +433,7 @@ const sendResetEmail = async (email, fullName, resetCode) => {
         html: `
           <div style="max-width:500px;margin:0 auto;font-family:Arial,sans-serif;background:#0f172a;color:#f1f5f9;padding:2rem;border-radius:16px;">
             <h1 style="text-align:center;background:linear-gradient(135deg,#06b6d4,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:1.5rem;">
-              InfoTest
+              InfoBaho
             </h1>
             <p>Salom, <strong>${fullName}</strong>!</p>
             <p>Parolingizni tiklash uchun quyidagi kodni kiriting:</p>
