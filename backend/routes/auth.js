@@ -415,74 +415,27 @@ router.put('/change-password', authenticateToken, async (req, res) => {
 // ─── PAROLNI TIKLASH (Forgot Password) ──────────────────────
 
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
 const database = require('../config/database');
 
-// Email transporter
-const createTransporter = () => {
-  const port = parseInt(process.env.SMTP_PORT || '465');
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: port,
-    secure: port === 465, // true for 465, false for 587
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-    connectionTimeout: 10000, // 10 sekund
-    greetingTimeout: 10000,
-  });
-};
-
-// POST /api/auth/forgot-password — email ga kod yuborish
-router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
+// Email yuborish (Resend API)
+const sendResetEmail = async (email, fullName, resetCode) => {
   try {
-    const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ error: 'Email kiritilishi shart' });
-    }
-
-    // Foydalanuvchini topish
-    const user = await User.findByEmail(email);
-
-    // Xavfsizlik: foydalanuvchi topilmasa ham success qaytaramiz
-    // (email enumeration hujumdan himoya)
-    if (!user) {
-      return res.json({
-        message: 'Agar bu email ro\'yxatdan o\'tgan bo\'lsa, parolni tiklash kodi yuborildi.'
-      });
-    }
-
-    // 6 xonali tasodifiy kod yaratish
-    const resetCode = crypto.randomInt(100000, 999999).toString();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 daqiqa
-
-    // Kodni bazaga saqlash
-    await database.run(`
-      INSERT INTO password_resets (user_id, email, code, expires_at)
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT (email) DO UPDATE SET
-        code = EXCLUDED.code,
-        expires_at = EXCLUDED.expires_at,
-        used = FALSE,
-        created_at = NOW()
-    `, [user.id, email, resetCode, expiresAt.toISOString()]);
-
-    // Email yuborish
-    try {
-      const transporter = createTransporter();
-
-      await transporter.sendMail({
-        from: `"InfoTest Platform" <${process.env.SMTP_USER || 'noreply@infotest.uz'}>`,
-        to: email,
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'InfoTest <onboarding@resend.dev>',
+        to: [email],
         subject: 'InfoTest — Parolni tiklash kodi',
         html: `
           <div style="max-width:500px;margin:0 auto;font-family:Arial,sans-serif;background:#0f172a;color:#f1f5f9;padding:2rem;border-radius:16px;">
             <h1 style="text-align:center;background:linear-gradient(135deg,#06b6d4,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:1.5rem;">
               InfoTest
             </h1>
-            <p>Salom, <strong>${user.full_name}</strong>!</p>
+            <p>Salom, <strong>${fullName}</strong>!</p>
             <p>Parolingizni tiklash uchun quyidagi kodni kiriting:</p>
             <div style="text-align:center;margin:2rem 0;">
               <div style="display:inline-block;background:linear-gradient(135deg,#06b6d4,#8b5cf6);color:white;font-size:2.5rem;font-weight:800;letter-spacing:8px;padding:1rem 2rem;border-radius:12px;">
@@ -499,12 +452,59 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
             </p>
           </div>
         `
-      });
+      })
+    });
 
-      console.log(`✅ Password reset code sent to ${email}`);
-    } catch (emailErr) {
-      console.error('Email sending error:', emailErr.message);
-      // Email yuborilmasa ham error bermaymiz — kodni console'da ko'rish mumkin (development)
+    const data = await response.json();
+    if (response.ok) {
+      console.log(`✅ Email sent to ${email} via Resend`);
+      return true;
+    } else {
+      console.error('Resend error:', data);
+      return false;
+    }
+  } catch (err) {
+    console.error('Email sending error:', err.message);
+    return false;
+  }
+};
+
+// POST /api/auth/forgot-password — email ga kod yuborish
+router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email kiritilishi shart' });
+    }
+
+    const user = await User.findByEmail(email);
+
+    if (!user) {
+      return res.json({
+        message: 'Agar bu email ro\'yxatdan o\'tgan bo\'lsa, parolni tiklash kodi yuborildi.'
+      });
+    }
+
+    // 6 xonali tasodifiy kod
+    const resetCode = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    // Kodni bazaga saqlash
+    await database.run(`
+      INSERT INTO password_resets (user_id, email, code, expires_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT (email) DO UPDATE SET
+        code = EXCLUDED.code,
+        expires_at = EXCLUDED.expires_at,
+        used = FALSE,
+        created_at = NOW()
+    `, [user.id, email, resetCode, expiresAt.toISOString()]);
+
+    // Email yuborish (Resend API)
+    const sent = await sendResetEmail(email, user.full_name, resetCode);
+
+    if (!sent) {
       console.log(`🔑 Reset code for ${email}: ${resetCode}`);
     }
 
