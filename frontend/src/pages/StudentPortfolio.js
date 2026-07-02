@@ -13,8 +13,8 @@ const LEVEL_COLORS = ['bronze','silver','gold','platinum','diamond'];
 const IMG_EXTS     = ['jpg','jpeg','png','gif','webp'];
 
 function isImageUrl(url) {
-  if (!url || !url.startsWith('/')) return false;
-  const ext = url.split('.').pop().toLowerCase();
+  if (!url) return false;
+  const ext = url.split('?')[0].split('.').pop().toLowerCase();
   return IMG_EXTS.includes(ext);
 }
 function fileIcon(type) {
@@ -82,8 +82,8 @@ const LikeButton = ({ item, onLike, canLike }) => {
 // ─── Portfolio Card (o'qituvchi ko'rinishi) ───────────────────
 const StudentPortfolioCard = ({ item, onView, onLike, canLike }) => {
   const [lightbox, setLightbox] = useState(false);
-  const imageUrl = isImageUrl(item.file_url) ? `${API_BASE}${item.file_url}` : null;
-  const hasFile  = item.file_url?.startsWith('/') && !imageUrl;
+  const imageUrl = isImageUrl(item.file_url) ? (item.file_url.startsWith('http') ? item.file_url : `${API_BASE}${item.file_url}`) : null;
+  const hasFile  = item.file_url && !imageUrl;
 
   return (
     <div
@@ -364,8 +364,8 @@ const RatingSection = ({ item, user }) => {
 // ─── Detail Modal (o'qituvchi) ────────────────────────────────
 const DetailModal = ({ item, onClose, onLike, canLike, user }) => {
   const [lightbox, setLightbox] = useState(false);
-  const imageUrl = isImageUrl(item.file_url) ? `${API_BASE}${item.file_url}` : null;
-  const hasFile  = item.file_url?.startsWith('/') && !imageUrl;
+  const imageUrl = isImageUrl(item.file_url) ? (item.file_url.startsWith('http') ? item.file_url : `${API_BASE}${item.file_url}`) : null;
+  const hasFile  = item.file_url && !imageUrl;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
