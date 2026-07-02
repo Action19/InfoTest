@@ -2,9 +2,12 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const OpenAI = require('openai');
 const Assignment = require('../models/Assignment');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { readFileForAI } = require('../utils/fileReader');
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const router = express.Router();
 
@@ -204,9 +207,6 @@ router.post('/ai-generate', authenticateToken, requireRole(['teacher','admin']),
       return res.status(400).json({ error: 'lesson_id, task_type, topic majburiy' });
     }
 
-    const OpenAI = require('openai');
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
     const prompt = buildAIInstructionPrompt(task_type, topic, grade, level);
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -337,9 +337,6 @@ router.post('/:id/submit-code', authenticateToken, async (req, res) => {
     // ── Avtomatik AI baholash ────────────────────────────────
     let aiResult = null;
     try {
-      const OpenAI = require('openai');
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
       const codeContent = `Fayl: kod${ext}\n\nO'quvchi yozgan kod:\n\`\`\`${assignment.task_type}\n${code.slice(0, 5000)}\n\`\`\``;
       const prompt = buildAIGradePrompt(assignment.task_type, assignment.instructions, codeContent);
 
@@ -499,9 +496,6 @@ router.post('/submissions/:subId/ai-grade', authenticateToken, requireRole(['tea
     // ── 2. Faylni o'qish ──────────────────────────────────────
     const filePath = path.join(__dirname, '..', sub.file_path);
     const fileData = await readFileForAI(filePath, sub.file_name);
-
-    const OpenAI = require('openai');
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     let result;
 

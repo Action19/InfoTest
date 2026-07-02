@@ -1,8 +1,10 @@
 const express = require('express');
+const OpenAI = require('openai');
 const Question = require('../models/Question');
 const Test = require('../models/Test');
 const { authenticateToken, isTeacherOrAdmin } = require('../middleware/auth');
 
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const router = express.Router();
 
 // Get all questions for a test
@@ -321,12 +323,6 @@ router.post('/generate-ai', authenticateToken, isTeacherOrAdmin, async (req, res
     }
 
     console.log('Generating questions with OpenAI...');
-    
-    // OpenAI configuration
-    const OpenAI = require('openai');
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
 
     // Prepare prompt
     const questionTypeNames = {

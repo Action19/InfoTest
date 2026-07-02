@@ -1,8 +1,10 @@
 const express = require('express');
+const OpenAI = require('openai');
 const database = require('../config/database');
 const User = require('../models/User');
 const { authenticateToken, isTeacherOrAdmin } = require('../middleware/auth');
 
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const router = express.Router();
 
 // Helper: xavfsiz query
@@ -338,9 +340,6 @@ router.post('/analyze', authenticateToken, isTeacherOrAdmin, async (req, res) =>
     summary.overall = { totalStudents, totalTests, totalWeak };
 
     // ── OpenAI bilan tahlil ──────────────────────────────────
-    const OpenAI = require('openai');
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
     // AI uchun kontekst tayyorlash
     const contextForAI = `
 Sen informatika o'qituvchisining AI yordamchisisisan. Quyidagi ma'lumotlar asosida chuqur tahlil ber.
@@ -467,9 +466,6 @@ router.post('/ask', authenticateToken, isTeacherOrAdmin, async (req, res) => {
     }
 
     const teacher = await User.findById(req.user.id);
-
-    const OpenAI = require('openai');
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const systemPrompt = `Sen informatika o'qituvchisining AI yordamchisisisan.
 O'qituvchi: ${teacher.full_name}, ${teacher.district}, ${teacher.school_number}-maktab.
