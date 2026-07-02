@@ -429,7 +429,7 @@ const sendResetEmail = async (email, fullName, resetCode) => {
       body: JSON.stringify({
         from: 'InfoBaho <noreply@infobaho.uz>',
         to: [email],
-        subject: 'InfoTest — Parolni tiklash kodi',
+        subject: 'InfoBaho — Parolni tiklash kodi',
         html: `
           <div style="max-width:500px;margin:0 auto;font-family:Arial,sans-serif;background:#0f172a;color:#f1f5f9;padding:2rem;border-radius:16px;">
             <h1 style="text-align:center;background:linear-gradient(135deg,#06b6d4,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:1.5rem;">
@@ -448,7 +448,7 @@ const sendResetEmail = async (email, fullName, resetCode) => {
             </p>
             <hr style="border:none;border-top:1px solid #334155;margin:1.5rem 0;">
             <p style="color:#64748b;font-size:0.75rem;text-align:center;">
-              InfoTest Platform — Ta'limda baholash tizimi
+              InfoBaho Platform — Informatika fanidan baholash tizimi
             </p>
           </div>
         `
