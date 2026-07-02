@@ -1,7 +1,7 @@
 {
-  "name": "infotest-backend",
-  "version": "1.0.0",
-  "description": "InfoTest Platform Backend - Express.js + SQLite",
+  "name": "infobaho-backend",
+  "version": "2.0.0",
+  "description": "InfoBaho Platform Backend - Informatika fanidan baholash tizimi",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

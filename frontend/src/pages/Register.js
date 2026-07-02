@@ -254,7 +254,7 @@ const Register = () => {
       <div className="auth-card">
         <div className="auth-header">
           <h1>Ro'yxatdan o'tish</h1>
-          <p>InfoTest platformasiga qo'shiling</p>
+          <p>InfoBaho platformasiga qo'shiling</p>
         </div>
 
         {error && (

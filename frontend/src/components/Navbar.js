@@ -46,7 +46,7 @@ const Navbar = () => {
       <nav className="navbar">
         <div className="navbar-container">
           <Link to="/" className="navbar-logo">
-            <span className="logo-gradient">InfoTest</span>
+            <span className="logo-gradient">InfoBaho</span>
           </Link>
           <div className="navbar-menu">
             <Link to="/login" className="navbar-link">Kirish</Link>
@@ -75,7 +75,7 @@ const Navbar = () => {
       <nav className="navbar">
         <div className="navbar-container">
           <Link to="/dashboard" className="navbar-logo">
-            <span className="logo-gradient">InfoTest</span>
+            <span className="logo-gradient">InfoBaho</span>
           </Link>
 
           {/* Desktop Menu */}

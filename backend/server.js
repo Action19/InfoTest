@@ -32,6 +32,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'https://infotest-platform.netlify.app',
   'https://infotest-action19.netlify.app',
+  'https://infobaho.netlify.app',
   process.env.CORS_ORIGIN
 ].filter(Boolean);
 
@@ -84,7 +85,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
-    message: 'InfoTest API is running',
+    message: 'InfoBaho API is running',
     timestamp: new Date().toISOString()
   });
 });
@@ -92,8 +93,8 @@ app.get('/api/health', (req, res) => {
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
-    message: 'InfoTest Platform API',
-    version: '1.0.0',
+    message: 'InfoBaho Platform API',
+    version: '2.0.0',
     endpoints: {
       health: '/api/health',
       auth: '/api/auth',
@@ -369,7 +370,7 @@ async function startServer() {
     
     // Start listening
     app.listen(PORT, '0.0.0.0', () => {
-      console.log('\n🚀 InfoTest Backend Server Started!');
+      console.log('\n🚀 InfoBaho Backend Server Started!');
       console.log(`📍 Server running on: http://0.0.0.0:${PORT}`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`📊 Database: PostgreSQL (${process.env.DATABASE_URL ? 'connected' : 'no URL set'})`);

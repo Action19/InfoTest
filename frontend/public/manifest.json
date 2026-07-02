@@ -1,6 +1,6 @@
 {
-  "short_name": "InfoTest",
-  "name": "InfoTest — Ta'limda Baholash Tizimi",
+  "short_name": "InfoBaho",
+  "name": "InfoBaho — Informatika fanidan baholash tizimi",
   "description": "Informatika fanidan o'quvchilar bilimini baholash platformasi. Offline test topshirish imkoniyati.",
   "icons": [
     {
