@@ -420,14 +420,17 @@ const database = require('../config/database');
 
 // Email transporter
 const createTransporter = () => {
+  const port = parseInt(process.env.SMTP_PORT || '465');
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: false,
+    port: port,
+    secure: port === 465, // true for 465, false for 587
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
+    connectionTimeout: 10000, // 10 sekund
+    greetingTimeout: 10000,
   });
 };
 
