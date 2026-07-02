@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/Navbar';
+import OfflineIndicator from './components/OfflineIndicator';
 import PrivateRoute from './components/PrivateRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -27,6 +28,7 @@ function App() {
       <Router>
         <div className="App">
           <Navbar />
+          <OfflineIndicator />
           <div className="main-content">
             <Routes>
               <Route path="/login" element={<Login />} />
