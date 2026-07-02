@@ -115,4 +115,23 @@ export const aiAnalyticsAPI = {
   ask: (data) => api.post('/ai-analytics/ask', data),
 };
 
+// Forum API
+export const forumAPI = {
+  getCategories: () => api.get('/forum/categories'),
+  getPosts: (params) => api.get('/forum/posts', { params }),
+  getPost: (id) => api.get(`/forum/posts/${id}`),
+  createPost: (data) => api.post('/forum/posts', data),
+  updatePost: (id, data) => api.put(`/forum/posts/${id}`, data),
+  deletePost: (id) => api.delete(`/forum/posts/${id}`),
+  pinPost: (id) => api.patch(`/forum/posts/${id}/pin`),
+  createComment: (postId, data) => api.post(`/forum/posts/${postId}/comments`, data),
+  deleteComment: (id) => api.delete(`/forum/comments/${id}`),
+  markBestAnswer: (id) => api.patch(`/forum/comments/${id}/best`),
+  vote: (data) => api.post('/forum/vote', data),
+  getMyVotes: (postId) => api.get(`/forum/my-votes?post_id=${postId}`),
+  aiAnswer: (postId) => api.post(`/forum/posts/${postId}/ai-answer`),
+  getTopHelpers: () => api.get('/forum/top-helpers'),
+  getStats: () => api.get('/forum/stats'),
+};
+
 export default api;

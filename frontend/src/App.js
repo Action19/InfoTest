@@ -20,6 +20,9 @@ import Lessons from './pages/Lessons';
 import LessonDetail from './pages/LessonDetail';
 import Journal from './pages/Journal';
 import AIAnalytics from './pages/AIAnalytics';
+import Forum from './pages/Forum';
+import ForumPost from './pages/ForumPost';
+import NewPost from './pages/NewPost';
 import './assets/css/App.css';
 
 function App() {
@@ -137,6 +140,30 @@ function App() {
                 element={
                   <PrivateRoute>
                     <AIAnalytics />
+                  </PrivateRoute>
+                } 
+              />
+              <Route 
+                path="/forum" 
+                element={
+                  <PrivateRoute>
+                    <Forum />
+                  </PrivateRoute>
+                } 
+              />
+              <Route 
+                path="/forum/post/:id" 
+                element={
+                  <PrivateRoute>
+                    <ForumPost />
+                  </PrivateRoute>
+                } 
+              />
+              <Route 
+                path="/forum/new" 
+                element={
+                  <PrivateRoute>
+                    <NewPost />
                   </PrivateRoute>
                 } 
               />

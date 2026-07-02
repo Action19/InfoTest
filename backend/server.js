@@ -17,6 +17,7 @@ const lessonRoutes = require('./routes/lessons');
 const assignmentRoutes = require('./routes/assignments');
 const lessonProgressRoutes = require('./routes/lessonProgress');
 const aiAnalyticsRoutes = require('./routes/aiAnalytics');
+const forumRoutes = require('./routes/forum');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -71,6 +72,7 @@ app.use('/api/lessons', lessonRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/lesson-progress', lessonProgressRoutes);
 app.use('/api/ai-analytics', aiAnalyticsRoutes);
+app.use('/api/forum', forumRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -229,6 +231,90 @@ async function runMigrations(db) {
     `);
     await db.run('CREATE INDEX IF NOT EXISTS idx_portfolio_ratings_item    ON portfolio_ratings(item_id)').catch(()=>{});
     await db.run('CREATE INDEX IF NOT EXISTS idx_portfolio_ratings_student ON portfolio_ratings(student_id)').catch(()=>{});
+
+    // ─── FORUM TABLES ────────────────────────────────────────
+    // Forum kategoriyalar
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS forum_categories (
+        id           SERIAL PRIMARY KEY,
+        name         TEXT NOT NULL,
+        icon         TEXT DEFAULT '📁',
+        description  TEXT DEFAULT '',
+        sort_order   INTEGER DEFAULT 0,
+        created_at   TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    // Forum postlar (mavzular)
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS forum_posts (
+        id            SERIAL PRIMARY KEY,
+        user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        category_id   INTEGER NOT NULL REFERENCES forum_categories(id) ON DELETE CASCADE,
+        title         TEXT NOT NULL,
+        content       TEXT NOT NULL,
+        tags          TEXT DEFAULT '[]',
+        image_url     TEXT,
+        pinned        BOOLEAN DEFAULT FALSE,
+        closed        BOOLEAN DEFAULT FALSE,
+        views         INTEGER DEFAULT 0,
+        created_at    TIMESTAMPTZ DEFAULT NOW(),
+        updated_at    TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await db.run('CREATE INDEX IF NOT EXISTS idx_forum_posts_user     ON forum_posts(user_id)').catch(()=>{});
+    await db.run('CREATE INDEX IF NOT EXISTS idx_forum_posts_category ON forum_posts(category_id)').catch(()=>{});
+
+    // Forum javoblar (kommentlar)
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS forum_comments (
+        id              SERIAL PRIMARY KEY,
+        post_id         INTEGER NOT NULL REFERENCES forum_posts(id) ON DELETE CASCADE,
+        user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content         TEXT NOT NULL,
+        is_best_answer  BOOLEAN DEFAULT FALSE,
+        is_ai_answer    BOOLEAN DEFAULT FALSE,
+        created_at      TIMESTAMPTZ DEFAULT NOW(),
+        updated_at      TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await db.run('CREATE INDEX IF NOT EXISTS idx_forum_comments_post ON forum_comments(post_id)').catch(()=>{});
+
+    // Forum ovozlar (like/dislike)
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS forum_votes (
+        id           SERIAL PRIMARY KEY,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        post_id      INTEGER REFERENCES forum_posts(id) ON DELETE CASCADE,
+        comment_id   INTEGER REFERENCES forum_comments(id) ON DELETE CASCADE,
+        vote_type    TEXT NOT NULL CHECK(vote_type IN ('up', 'down')),
+        created_at   TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(user_id, post_id),
+        UNIQUE(user_id, comment_id)
+      )
+    `);
+    await db.run('CREATE INDEX IF NOT EXISTS idx_forum_votes_post    ON forum_votes(post_id)').catch(()=>{});
+    await db.run('CREATE INDEX IF NOT EXISTS idx_forum_votes_comment ON forum_votes(comment_id)').catch(()=>{});
+
+    // Default kategoriyalar qo'shish (agar bo'sh bo'lsa)
+    const catCount = await db.get('SELECT COUNT(*) AS cnt FROM forum_categories');
+    if (parseInt(catCount?.cnt || 0) === 0) {
+      const defaultCats = [
+        ['💻', 'Dasturlash', 'Python, JavaScript, HTML/CSS savollar', 1],
+        ['📊', 'Ofis dasturlari', 'Word, Excel, Access, PowerPoint', 2],
+        ['🧮', 'Algoritmlar', 'Algoritmlar, mantiq va masalalar', 3],
+        ['❓', 'Umumiy savollar', 'Informatikaga oid barcha savollar', 4],
+        ['📢', 'E\'lonlar', 'O\'qituvchi va admin e\'lonlari', 5],
+        ['💡', 'Takliflar', 'Platforma bo\'yicha fikr va takliflar', 6],
+      ];
+      for (const [icon, name, desc, order] of defaultCats) {
+        await db.run(
+          'INSERT INTO forum_categories (icon, name, description, sort_order) VALUES (?, ?, ?, ?)',
+          [icon, name, desc, order]
+        ).catch(()=>{});
+      }
+      console.log('✓ Forum default categories created');
+    }
 
     // Demo foydalanuvchilarni o'chirish (dilshod_karimov, madina_rashidova)
     try {
