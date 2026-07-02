@@ -508,8 +508,11 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
       console.log(`🔑 Reset code for ${email}: ${resetCode}`);
     }
 
+    // Hozircha kod to'g'ridan-to'g'ri qaytariladi (email sozlangandan keyin olib tashlanadi)
     res.json({
-      message: 'Parolni tiklash kodi emailingizga yuborildi. 15 daqiqa ichida kiriting.'
+      message: 'Parolni tiklash kodi yaratildi.',
+      reset_code: resetCode,
+      hint: 'Kod emailingizga yuborildi (yoki quyida ko\'ring)'
     });
   } catch (error) {
     console.error('Forgot password error:', error);

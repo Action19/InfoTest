@@ -23,6 +23,10 @@ const ForgotPassword = () => {
     try {
       const res = await api.post('/auth/forgot-password', { email });
       setSuccess(res.data.message);
+      // Agar kod qaytarilsa (test rejim) — avtomatik to'ldirish
+      if (res.data.reset_code) {
+        setCode(res.data.reset_code);
+      }
       setStep(2);
     } catch (err) {
       setError(err.response?.data?.error || 'Xatolik yuz berdi');
