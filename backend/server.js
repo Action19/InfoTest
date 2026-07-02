@@ -22,6 +22,9 @@ const forumRoutes = require('./routes/forum');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust proxy (Render.com, Netlify kabi reverse proxy ortida ishlashi uchun)
+app.set('trust proxy', 1);
+
 // Middleware
 const { apiLimiter } = require('./middleware/rateLimiter');
 
