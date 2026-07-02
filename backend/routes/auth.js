@@ -427,7 +427,7 @@ const sendResetEmail = async (email, fullName, resetCode) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'InfoTest <onboarding@resend.dev>',
+        from: 'InfoBaho <noreply@infobaho.uz>',
         to: [email],
         subject: 'InfoTest — Parolni tiklash kodi',
         html: `
@@ -508,11 +508,9 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
       console.log(`🔑 Reset code for ${email}: ${resetCode}`);
     }
 
-    // Hozircha kod to'g'ridan-to'g'ri qaytariladi (email sozlangandan keyin olib tashlanadi)
+    // Hozircha kod response'da ham qaytariladi (keyinchalik olib tashlanadi)
     res.json({
-      message: 'Parolni tiklash kodi yaratildi.',
-      reset_code: resetCode,
-      hint: 'Kod emailingizga yuborildi (yoki quyida ko\'ring)'
+      message: 'Parolni tiklash kodi emailingizga yuborildi. 15 daqiqa ichida kiriting.'
     });
   } catch (error) {
     console.error('Forgot password error:', error);
