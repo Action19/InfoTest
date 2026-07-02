@@ -252,7 +252,7 @@ const Tests = () => {
                   id="title"
                   value={newTest.title}
                   onChange={(e) => setNewTest({...newTest, title: e.target.value})}
-                  placeholder="Masalan: Matematika - Algebra asoslari"
+                  placeholder="Masalan: Python dasturlash asoslari"
                   required
                 />
               </div>
@@ -276,7 +276,7 @@ const Tests = () => {
                     id="subject"
                     value={newTest.subject}
                     onChange={(e) => setNewTest({...newTest, subject: e.target.value})}
-                    placeholder="Matematika"
+                    placeholder="Informatika"
                     required
                   />
                 </div>

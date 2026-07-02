@@ -265,7 +265,7 @@ const Lessons = () => {
                     id="subject"
                     value={newLesson.subject}
                     onChange={(e) => setNewLesson({...newLesson, subject: e.target.value})}
-                    placeholder="Matematika"
+                    placeholder="Informatika"
                     required
                   />
                 </div>
