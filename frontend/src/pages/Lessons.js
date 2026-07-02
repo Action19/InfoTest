@@ -227,7 +227,7 @@ const Lessons = () => {
                   id="title"
                   value={newLesson.title}
                   onChange={(e) => setNewLesson({...newLesson, title: e.target.value})}
-                  placeholder="Masalan: Algebraik ifodalar"
+                  placeholder="Masalan: Python asoslari"
                   required
                 />
               </div>
