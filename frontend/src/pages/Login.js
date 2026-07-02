@@ -94,6 +94,9 @@ const Login = () => {
 
         <div className="auth-footer">
           <p>Hisobingiz yo'qmi? <Link to="/register">Ro'yxatdan o'tish</Link></p>
+          <p style={{ marginTop: '0.5rem' }}>
+            <Link to="/forgot-password" style={{ fontSize: '0.9rem' }}>Parolni unutdingizmi?</Link>
+          </p>
         </div>
 
         <div className="demo-accounts">

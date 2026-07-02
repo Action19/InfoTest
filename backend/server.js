@@ -22,6 +22,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
+const { apiLimiter } = require('./middleware/rateLimiter');
+
 const allowedOrigins = [
   'http://localhost:3000',
   'https://infotest-platform.netlify.app',
@@ -53,6 +55,9 @@ app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
 });
+
+// Global API rate limit
+app.use('/api', apiLimiter);
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -192,6 +197,21 @@ async function runMigrations(db) {
     `);
     await db.run('CREATE INDEX IF NOT EXISTS idx_lesson_progress_student ON lesson_progress(student_id)').catch(()=>{});
     await db.run('CREATE INDEX IF NOT EXISTS idx_lesson_progress_lesson  ON lesson_progress(lesson_id)').catch(()=>{});
+
+    // password_resets — parolni tiklash kodlari
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS password_resets (
+        id           SERIAL PRIMARY KEY,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        email        TEXT NOT NULL UNIQUE,
+        code         TEXT NOT NULL,
+        reset_token  TEXT,
+        used         BOOLEAN DEFAULT FALSE,
+        expires_at   TIMESTAMPTZ NOT NULL,
+        created_at   TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await db.run('CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets(email)').catch(()=>{});
 
     // portfolio_ratings — o'qituvchi tomonidan portfolio baholash
     await db.run(`

@@ -2,6 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
+const { loginLimiter, registerLimiter, forgotPasswordLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
@@ -16,7 +17,7 @@ const generateToken = (userId) => {
 };
 
 // Register new user
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   try {
     const { 
       username, 
@@ -147,7 +148,7 @@ router.post('/register', async (req, res) => {
 });
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     console.log('Login attempt:', { username: req.body.username });
     
@@ -408,6 +409,191 @@ router.put('/change-password', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Change password error:', error);
     res.status(500).json({ error: 'Parolni o\'zgartirishda xatolik yuz berdi' });
+  }
+});
+
+// ─── PAROLNI TIKLASH (Forgot Password) ──────────────────────
+
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+const database = require('../config/database');
+
+// Email transporter
+const createTransporter = () => {
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: false,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+};
+
+// POST /api/auth/forgot-password — email ga kod yuborish
+router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email kiritilishi shart' });
+    }
+
+    // Foydalanuvchini topish
+    const user = await User.findByEmail(email);
+
+    // Xavfsizlik: foydalanuvchi topilmasa ham success qaytaramiz
+    // (email enumeration hujumdan himoya)
+    if (!user) {
+      return res.json({
+        message: 'Agar bu email ro\'yxatdan o\'tgan bo\'lsa, parolni tiklash kodi yuborildi.'
+      });
+    }
+
+    // 6 xonali tasodifiy kod yaratish
+    const resetCode = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 daqiqa
+
+    // Kodni bazaga saqlash
+    await database.run(`
+      INSERT INTO password_resets (user_id, email, code, expires_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT (email) DO UPDATE SET
+        code = EXCLUDED.code,
+        expires_at = EXCLUDED.expires_at,
+        used = FALSE,
+        created_at = NOW()
+    `, [user.id, email, resetCode, expiresAt.toISOString()]);
+
+    // Email yuborish
+    try {
+      const transporter = createTransporter();
+
+      await transporter.sendMail({
+        from: `"InfoTest Platform" <${process.env.SMTP_USER || 'noreply@infotest.uz'}>`,
+        to: email,
+        subject: 'InfoTest — Parolni tiklash kodi',
+        html: `
+          <div style="max-width:500px;margin:0 auto;font-family:Arial,sans-serif;background:#0f172a;color:#f1f5f9;padding:2rem;border-radius:16px;">
+            <h1 style="text-align:center;background:linear-gradient(135deg,#06b6d4,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:1.5rem;">
+              InfoTest
+            </h1>
+            <p>Salom, <strong>${user.full_name}</strong>!</p>
+            <p>Parolingizni tiklash uchun quyidagi kodni kiriting:</p>
+            <div style="text-align:center;margin:2rem 0;">
+              <div style="display:inline-block;background:linear-gradient(135deg,#06b6d4,#8b5cf6);color:white;font-size:2.5rem;font-weight:800;letter-spacing:8px;padding:1rem 2rem;border-radius:12px;">
+                ${resetCode}
+              </div>
+            </div>
+            <p style="color:#94a3b8;font-size:0.9rem;">
+              ⏰ Kod 15 daqiqa ichida amal qiladi.<br>
+              Agar siz bu so'rovni yubormagan bo'lsangiz, ushbu xabarni e'tiborsiz qoldiring.
+            </p>
+            <hr style="border:none;border-top:1px solid #334155;margin:1.5rem 0;">
+            <p style="color:#64748b;font-size:0.75rem;text-align:center;">
+              InfoTest Platform — Ta'limda baholash tizimi
+            </p>
+          </div>
+        `
+      });
+
+      console.log(`✅ Password reset code sent to ${email}`);
+    } catch (emailErr) {
+      console.error('Email sending error:', emailErr.message);
+      // Email yuborilmasa ham error bermaymiz — kodni console'da ko'rish mumkin (development)
+      console.log(`🔑 Reset code for ${email}: ${resetCode}`);
+    }
+
+    res.json({
+      message: 'Parolni tiklash kodi emailingizga yuborildi. 15 daqiqa ichida kiriting.'
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Xatolik yuz berdi. Qaytadan urinib ko\'ring.' });
+  }
+});
+
+// POST /api/auth/verify-reset-code — kodni tekshirish
+router.post('/verify-reset-code', async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Email va kod kiritilishi shart' });
+    }
+
+    const resetRecord = await database.get(
+      'SELECT * FROM password_resets WHERE email = ? AND code = ? AND used = FALSE',
+      [email, code]
+    );
+
+    if (!resetRecord) {
+      return res.status(400).json({ error: 'Noto\'g\'ri kod yoki email' });
+    }
+
+    // Muddati o'tganmi tekshirish
+    if (new Date(resetRecord.expires_at) < new Date()) {
+      return res.status(400).json({ error: 'Kod muddati o\'tgan. Yangi kod so\'rang.' });
+    }
+
+    // Tasdiqlash tokeni yaratish (parolni o'zgartirish uchun)
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    await database.run(
+      'UPDATE password_resets SET reset_token = ? WHERE email = ? AND code = ?',
+      [resetToken, email, code]
+    );
+
+    res.json({
+      message: 'Kod tasdiqlandi',
+      reset_token: resetToken
+    });
+  } catch (error) {
+    console.error('Verify reset code error:', error);
+    res.status(500).json({ error: 'Xatolik yuz berdi' });
+  }
+});
+
+// POST /api/auth/reset-password — yangi parol o'rnatish
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { email, reset_token, new_password } = req.body;
+
+    if (!email || !reset_token || !new_password) {
+      return res.status(400).json({ error: 'Barcha maydonlar to\'ldirilishi shart' });
+    }
+
+    if (new_password.length < 6) {
+      return res.status(400).json({ error: 'Parol kamida 6 belgidan iborat bo\'lishi kerak' });
+    }
+
+    // Token tekshirish
+    const resetRecord = await database.get(
+      'SELECT * FROM password_resets WHERE email = ? AND reset_token = ? AND used = FALSE',
+      [email, reset_token]
+    );
+
+    if (!resetRecord) {
+      return res.status(400).json({ error: 'Noto\'g\'ri yoki muddati o\'tgan token' });
+    }
+
+    if (new Date(resetRecord.expires_at) < new Date()) {
+      return res.status(400).json({ error: 'Token muddati o\'tgan. Qaytadan boshlang.' });
+    }
+
+    // Parolni yangilash
+    await User.updatePassword(resetRecord.user_id, new_password);
+
+    // Tokenni ishlatilgan deb belgilash
+    await database.run(
+      'UPDATE password_resets SET used = TRUE WHERE email = ?',
+      [email]
+    );
+
+    res.json({ message: 'Parol muvaffaqiyatli yangilandi! Endi yangi parol bilan kirishingiz mumkin.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Parolni yangilashda xatolik yuz berdi' });
   }
 });
 

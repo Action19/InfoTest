@@ -3,6 +3,7 @@ const OpenAI = require('openai');
 const database = require('../config/database');
 const User = require('../models/User');
 const { authenticateToken, isTeacherOrAdmin } = require('../middleware/auth');
+const { aiLimiter } = require('../middleware/rateLimiter');
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const router = express.Router();
@@ -219,7 +220,7 @@ router.get('/data', authenticateToken, isTeacherOrAdmin, async (req, res) => {
 
 
 // ─── POST /api/ai-analytics/analyze — OpenAI bilan tahlil ───
-router.post('/analyze', authenticateToken, isTeacherOrAdmin, async (req, res) => {
+router.post('/analyze', authenticateToken, isTeacherOrAdmin, aiLimiter, async (req, res) => {
   try {
     const teacherId = req.user.id;
     const teacher = await User.findById(teacherId);
@@ -458,7 +459,7 @@ MUHIM: Faqat JSON qaytar, boshqa matn yozma. Ma'lumotlar yetarli bo'lmasa, umumi
 
 
 // ─── POST /api/ai-analytics/ask — O'qituvchi savol beradi ───
-router.post('/ask', authenticateToken, isTeacherOrAdmin, async (req, res) => {
+router.post('/ask', authenticateToken, isTeacherOrAdmin, aiLimiter, async (req, res) => {
   try {
     const { question, context_data } = req.body;
     if (!question) {
