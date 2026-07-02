@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -7,6 +7,23 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Sahifa o'zgarganda mobile menuni yopish
+  useEffect(() => {
+    setMobileMenuOpen(false);
+    setShowUserMenu(false);
+  }, [location.pathname]);
+
+  // Body scroll bloklash
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileMenuOpen]);
 
   const handleLogout = () => {
     logout();
@@ -20,11 +37,6 @@ const Navbar = () => {
       admin: 'Administrator'
     };
     return roleNames[role] || role;
-  };
-
-  const getLevelColor = (level) => {
-    const colors = ['bronze', 'silver', 'gold', 'platinum', 'diamond'];
-    return colors[level - 1] || 'bronze';
   };
 
   const isActive = (path) => location.pathname === path;
@@ -45,93 +57,138 @@ const Navbar = () => {
     );
   }
 
+  const navLinks = [
+    { path: '/dashboard', icon: '🏠', label: 'Bosh sahifa', roles: ['student', 'teacher', 'admin'] },
+    { path: '/lessons', icon: '📚', label: 'Darslar', roles: ['student', 'teacher', 'admin'] },
+    { path: '/results', icon: '📊', label: 'Natijalar', roles: ['student'] },
+    { path: '/students', icon: '👥', label: "O'quvchilar", roles: ['teacher', 'admin'] },
+    { path: '/journal', icon: '📒', label: 'Jurnal', roles: ['teacher', 'admin'] },
+    { path: '/ai-analytics', icon: '🤖', label: 'AI Tahlil', roles: ['teacher', 'admin'] },
+    { path: '/leaderboard', icon: '🏆', label: 'Reyting', roles: ['student', 'teacher', 'admin'] },
+  ];
+
+  const filteredLinks = navLinks.filter(link => link.roles.includes(user.role));
+
   return (
-    <nav className="navbar">
-      <div className="navbar-container">
-        <Link to="/dashboard" className="navbar-logo">
-          <span className="logo-gradient">InfoTest</span>
-        </Link>
-        
-        <div className="navbar-menu">
-          <Link to="/dashboard" className={`navbar-link ${isActive('/dashboard') ? 'active' : ''}`}>
-            <span className="nav-icon">🏠</span>
-            Bosh sahifa
+    <>
+      <nav className="navbar">
+        <div className="navbar-container">
+          <Link to="/dashboard" className="navbar-logo">
+            <span className="logo-gradient">InfoTest</span>
           </Link>
-          <Link to="/lessons" className={`navbar-link ${isActive('/lessons') ? 'active' : ''}`}>
-            <span className="nav-icon">📚</span>
-            Darslar
-          </Link>
-          {user.role === 'student' && (
-            <>
-              <Link to="/results" className={`navbar-link ${isActive('/results') ? 'active' : ''}`}>
-                <span className="nav-icon">📊</span>
-                Natijalar
+
+          {/* Desktop Menu */}
+          <div className="navbar-menu navbar-desktop">
+            {filteredLinks.map(link => (
+              <Link key={link.path} to={link.path}
+                className={`navbar-link ${isActive(link.path) ? 'active' : ''}`}>
+                <span className="nav-icon">{link.icon}</span>
+                {link.label}
               </Link>
-              <Link to="/leaderboard" className={`navbar-link ${isActive('/leaderboard') ? 'active' : ''}`}>
-                <span className="nav-icon">🏆</span>
-                Reyting
-              </Link>
-            </>
-          )}
-          {(user.role === 'teacher' || user.role === 'admin') && (
-            <>
-              <Link to="/students" className={`navbar-link ${isActive('/students') ? 'active' : ''}`}>
-                <span className="nav-icon">👥</span>
-                O'quvchilar
-              </Link>
-              <Link to="/journal" className={`navbar-link ${isActive('/journal') ? 'active' : ''}`}>
-                <span className="nav-icon">📒</span>
-                Jurnal
-              </Link>
-              <Link to="/ai-analytics" className={`navbar-link ${isActive('/ai-analytics') ? 'active' : ''}`}>
-                <span className="nav-icon">🤖</span>
-                AI Tahlil
-              </Link>
-              <Link to="/leaderboard" className={`navbar-link ${isActive('/leaderboard') ? 'active' : ''}`}>
-                <span className="nav-icon">🏆</span>
-                Reyting
-              </Link>
-            </>
-          )}
-          
-          <div className="navbar-user">
-            <div className="user-menu-trigger" onClick={() => setShowUserMenu(!showUserMenu)}>
-              <div className="user-avatar-gradient">{user.full_name.charAt(0).toUpperCase()}</div>
-              <div className="user-details">
-                <span className="user-name">{user.full_name}</span>
-                <span className="user-role">{getRoleName(user.role)}</span>
+            ))}
+
+            <div className="navbar-user">
+              <div className="user-menu-trigger" onClick={() => setShowUserMenu(!showUserMenu)}>
+                <div className="user-avatar-gradient">{user.full_name.charAt(0).toUpperCase()}</div>
+                <div className="user-details">
+                  <span className="user-name">{user.full_name}</span>
+                  <span className="user-role">{getRoleName(user.role)}</span>
+                </div>
+                {user.role === 'student' && (
+                  <div className="user-stats-inline">
+                    <span className="points-badge-small">⭐ {user.points}</span>
+                  </div>
+                )}
+                <span className="dropdown-arrow">▼</span>
               </div>
-              {user.role === 'student' && (
-                <div className="user-stats-inline">
-                  <span className="points-badge-small">⭐ {user.points}</span>
+
+              {showUserMenu && (
+                <div className="user-dropdown">
+                  <Link to="/profile" className="dropdown-item" onClick={() => setShowUserMenu(false)}>
+                    <span className="dropdown-icon">👤</span>
+                    Profil
+                  </Link>
+                  {user.role === 'student' && (
+                    <Link to="/portfolio" className="dropdown-item" onClick={() => setShowUserMenu(false)}>
+                      <span className="dropdown-icon">💼</span>
+                      Portfolio
+                    </Link>
+                  )}
+                  <div className="dropdown-divider"></div>
+                  <button onClick={handleLogout} className="dropdown-item logout-item">
+                    <span className="dropdown-icon">🚪</span>
+                    Chiqish
+                  </button>
                 </div>
               )}
-              <span className="dropdown-arrow">▼</span>
             </div>
-            
-            {showUserMenu && (
-              <div className="user-dropdown">
-                <Link to="/profile" className="dropdown-item" onClick={() => setShowUserMenu(false)}>
-                  <span className="dropdown-icon">👤</span>
-                  Profil
-                </Link>
-                {user.role === 'student' && (
-                  <Link to="/portfolio" className="dropdown-item" onClick={() => setShowUserMenu(false)}>
-                    <span className="dropdown-icon">💼</span>
-                    Portfolio
-                  </Link>
-                )}
-                <div className="dropdown-divider"></div>
-                <button onClick={handleLogout} className="dropdown-item logout-item">
-                  <span className="dropdown-icon">🚪</span>
-                  Chiqish
-                </button>
-              </div>
-            )}
           </div>
+
+          {/* Mobile Hamburger Button */}
+          <button
+            className={`hamburger-btn ${mobileMenuOpen ? 'active' : ''}`}
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Menu"
+          >
+            <span className="hamburger-line"></span>
+            <span className="hamburger-line"></span>
+            <span className="hamburger-line"></span>
+          </button>
         </div>
+      </nav>
+
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div className="mobile-overlay" onClick={() => setMobileMenuOpen(false)} />
+      )}
+
+      {/* Mobile Menu Sidebar */}
+      <div className={`mobile-menu ${mobileMenuOpen ? 'open' : ''}`}>
+        {/* User Info */}
+        <div className="mobile-user-section">
+          <div className="mobile-user-avatar">{user.full_name.charAt(0).toUpperCase()}</div>
+          <div className="mobile-user-info">
+            <span className="mobile-user-name">{user.full_name}</span>
+            <span className="mobile-user-role">{getRoleName(user.role)}</span>
+          </div>
+          {user.role === 'student' && (
+            <span className="mobile-points">⭐ {user.points}</span>
+          )}
+        </div>
+
+        {/* Nav Links */}
+        <div className="mobile-nav-links">
+          {filteredLinks.map(link => (
+            <Link key={link.path} to={link.path}
+              className={`mobile-nav-link ${isActive(link.path) ? 'active' : ''}`}
+              onClick={() => setMobileMenuOpen(false)}>
+              <span className="mobile-nav-icon">{link.icon}</span>
+              <span>{link.label}</span>
+            </Link>
+          ))}
+        </div>
+
+        {/* Additional Links */}
+        <div className="mobile-extra-links">
+          <Link to="/profile" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
+            <span className="mobile-nav-icon">👤</span>
+            <span>Profil</span>
+          </Link>
+          {user.role === 'student' && (
+            <Link to="/portfolio" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
+              <span className="mobile-nav-icon">💼</span>
+              <span>Portfolio</span>
+            </Link>
+          )}
+        </div>
+
+        {/* Logout */}
+        <button className="mobile-logout-btn" onClick={handleLogout}>
+          <span>🚪</span>
+          <span>Chiqish</span>
+        </button>
       </div>
-    </nav>
+    </>
   );
 };
 
