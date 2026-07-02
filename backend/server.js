@@ -193,6 +193,23 @@ async function runMigrations(db) {
     await db.run('CREATE INDEX IF NOT EXISTS idx_lesson_progress_student ON lesson_progress(student_id)').catch(()=>{});
     await db.run('CREATE INDEX IF NOT EXISTS idx_lesson_progress_lesson  ON lesson_progress(lesson_id)').catch(()=>{});
 
+    // portfolio_ratings — o'qituvchi tomonidan portfolio baholash
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS portfolio_ratings (
+        id           SERIAL PRIMARY KEY,
+        item_id      INTEGER NOT NULL REFERENCES portfolio_items(id) ON DELETE CASCADE,
+        student_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        teacher_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        score        INTEGER NOT NULL CHECK(score >= 1 AND score <= 10),
+        comment      TEXT DEFAULT '',
+        created_at   TIMESTAMPTZ DEFAULT NOW(),
+        updated_at   TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(item_id, teacher_id)
+      )
+    `);
+    await db.run('CREATE INDEX IF NOT EXISTS idx_portfolio_ratings_item    ON portfolio_ratings(item_id)').catch(()=>{});
+    await db.run('CREATE INDEX IF NOT EXISTS idx_portfolio_ratings_student ON portfolio_ratings(student_id)').catch(()=>{});
+
     // Demo foydalanuvchilarni o'chirish (dilshod_karimov, madina_rashidova)
     try {
       const demoUsers = await db.all(

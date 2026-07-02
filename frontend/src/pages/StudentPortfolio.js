@@ -181,19 +181,188 @@ const StudentPortfolioCard = ({ item, onView, onLike, canLike }) => {
         <div style={{ marginTop:'0.75rem', paddingTop:'0.6rem', borderTop:'1px solid var(--border-color)',
                       display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <LikeButton item={item} onLike={onLike} canLike={canLike} />
-          {item.likes_count > 0 && !item.user_liked && (
-            <span style={{ fontSize:'0.72rem', color:'var(--text-secondary)' }}>
-              {item.likes_count} kishi yoqtirdi
-            </span>
-          )}
+          <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+            {item.avg_rating > 0 && (
+              <span style={{
+                fontSize:'0.75rem', fontWeight:600, color:'#7c3aed',
+                background:'#f5f3ff', padding:'0.2rem 0.5rem', borderRadius:'12px'
+              }}>⭐ {item.avg_rating}/10</span>
+            )}
+            {item.likes_count > 0 && !item.user_liked && (
+              <span style={{ fontSize:'0.72rem', color:'var(--text-secondary)' }}>
+                {item.likes_count} ❤️
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
+// ─── Rating Component (o'qituvchi ball beradi) ───────────────
+const RatingSection = ({ item, user }) => {
+  const [score, setScore] = useState(0);
+  const [comment, setComment] = useState('');
+  const [ratings, setRatings] = useState([]);
+  const [avgScore, setAvgScore] = useState(0);
+  const [totalRatings, setTotalRatings] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    fetchRatings();
+  }, [item.id]);
+
+  const fetchRatings = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get(`/portfolio/${item.id}/ratings`);
+      setRatings(res.data.ratings || []);
+      setAvgScore(res.data.avg_score || 0);
+      setTotalRatings(res.data.total_ratings || 0);
+      // Agar avval baho bergan bo'lsa — uni ko'rsat
+      const myRating = res.data.ratings?.find(r => r.teacher_id === user.id);
+      if (myRating) {
+        setScore(myRating.score);
+        setComment(myRating.comment || '');
+      }
+    } catch (err) { console.error('Fetch ratings error:', err); }
+    finally { setLoading(false); }
+  };
+
+  const handleSubmit = async () => {
+    if (score < 1 || score > 10) {
+      alert('Ball 1 dan 10 gacha bo\'lishi kerak');
+      return;
+    }
+    try {
+      setSubmitting(true);
+      const res = await api.post(`/portfolio/${item.id}/rate`, { score, comment });
+      setAvgScore(res.data.item_avg_score);
+      setTotalRatings(res.data.total_ratings);
+      setSuccess(`✅ ${res.data.rating.points_added > 0 ? '+' : ''}${res.data.rating.points_added} ball qo'shildi! (Jami: ${res.data.student_points} ball)`);
+      fetchRatings();
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Baholashda xatolik');
+    } finally { setSubmitting(false); }
+  };
+
+  const canRate = user.role === 'teacher' || user.role === 'admin';
+
+  return (
+    <div style={{
+      marginTop: '1.25rem', padding: '1.25rem', borderRadius: '12px',
+      background: 'linear-gradient(135deg, #faf5ff, #eef2ff)',
+      border: '1px solid #e9d5ff'
+    }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.75rem' }}>
+        <h4 style={{ margin:0, fontSize:'0.95rem', color:'#581c87' }}>
+          ⭐ Baholash {totalRatings > 0 && `(${totalRatings} ta baho)`}
+        </h4>
+        {avgScore > 0 && (
+          <div style={{
+            background:'linear-gradient(135deg,#f59e0b,#d97706)', color:'#fff',
+            padding:'0.3rem 0.75rem', borderRadius:'20px', fontSize:'0.85rem', fontWeight:700
+          }}>
+            ⭐ {avgScore}/10
+          </div>
+        )}
+      </div>
+
+      {/* O'qituvchi baholash formasi */}
+      {canRate && (
+        <div style={{ marginBottom:'1rem' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.5rem' }}>
+            <span style={{ fontSize:'0.85rem', color:'#6b21a8' }}>Ball:</span>
+            <div style={{ display:'flex', gap:'0.25rem' }}>
+              {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                <button key={n} onClick={() => setScore(n)}
+                  style={{
+                    width:'30px', height:'30px', borderRadius:'50%',
+                    border: score === n ? '2px solid #7c3aed' : '1px solid #d8b4fe',
+                    background: score >= n
+                      ? `linear-gradient(135deg, ${n<=3?'#ef4444':n<=6?'#f59e0b':n<=8?'#10b981':'#6366f1'}, ${n<=3?'#dc2626':n<=6?'#d97706':n<=8?'#059669':'#4338ca'})`
+                      : '#fff',
+                    color: score >= n ? '#fff' : '#6b21a8',
+                    fontSize:'0.7rem', fontWeight:700, cursor:'pointer',
+                    transition:'all 0.15s', transform: score === n ? 'scale(1.15)' : 'scale(1)'
+                  }}>
+                  {n}
+                </button>
+              ))}
+            </div>
+            <span style={{ fontSize:'0.8rem', color:'#9333ea', fontWeight:600, marginLeft:'0.5rem' }}>
+              {score > 0 ? `${score}/10` : ''}
+            </span>
+          </div>
+          <div style={{ display:'flex', gap:'0.5rem', alignItems:'flex-end' }}>
+            <input
+              type="text"
+              value={comment}
+              onChange={e => setComment(e.target.value)}
+              placeholder="Izoh (ixtiyoriy)..."
+              style={{
+                flex:1, padding:'0.5rem 0.75rem', border:'1px solid #d8b4fe',
+                borderRadius:'8px', fontSize:'0.85rem', outline:'none'
+              }}
+            />
+            <button
+              onClick={handleSubmit}
+              disabled={submitting || score < 1}
+              style={{
+                padding:'0.5rem 1.25rem', borderRadius:'8px', border:'none',
+                background: score > 0 ? 'linear-gradient(135deg,#7c3aed,#6366f1)' : '#e5e7eb',
+                color:'#fff', fontWeight:600, fontSize:'0.85rem',
+                cursor: score > 0 ? 'pointer' : 'not-allowed',
+                opacity: submitting ? 0.6 : 1
+              }}>
+              {submitting ? '...' : ratings.find(r=>r.teacher_id===user.id) ? '✏️ Yangilash' : '⭐ Baholash'}
+            </button>
+          </div>
+          {success && (
+            <div style={{
+              marginTop:'0.5rem', padding:'0.5rem 0.75rem', borderRadius:'8px',
+              background:'#d1fae5', color:'#065f46', fontSize:'0.82rem', fontWeight:600
+            }}>{success}</div>
+          )}
+        </div>
+      )}
+
+      {/* Barcha baholar */}
+      {!loading && ratings.length > 0 && (
+        <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+          {ratings.map((r, i) => (
+            <div key={i} style={{
+              display:'flex', alignItems:'center', gap:'0.75rem',
+              padding:'0.5rem 0.75rem', background:'#fff', borderRadius:'8px',
+              border:'1px solid #f3e8ff'
+            }}>
+              <div style={{
+                width:'28px', height:'28px', borderRadius:'50%',
+                background:'linear-gradient(135deg,#7c3aed,#6366f1)', color:'#fff',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                fontSize:'0.75rem', fontWeight:700
+              }}>{r.score}</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:'0.8rem', fontWeight:600, color:'#1e293b' }}>{r.teacher_name}</div>
+                {r.comment && <div style={{ fontSize:'0.75rem', color:'#64748b' }}>{r.comment}</div>}
+              </div>
+              <div style={{ fontSize:'0.7rem', color:'#94a3b8' }}>
+                {new Date(r.updated_at || r.created_at).toLocaleDateString('uz-UZ')}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Detail Modal (o'qituvchi) ────────────────────────────────
-const DetailModal = ({ item, onClose, onLike, canLike }) => {
+const DetailModal = ({ item, onClose, onLike, canLike, user }) => {
   const [lightbox, setLightbox] = useState(false);
   const imageUrl = isImageUrl(item.file_url) ? `${API_BASE}${item.file_url}` : null;
   const hasFile  = item.file_url?.startsWith('/') && !imageUrl;
@@ -295,6 +464,9 @@ const DetailModal = ({ item, onClose, onLike, canLike }) => {
               ))}
             </div>
           )}
+
+          {/* Baholash bo'limi */}
+          <RatingSection item={item} user={user} />
         </div>
 
         <div className="modal-actions">
@@ -482,7 +654,8 @@ const StudentPortfolio = () => {
 
       {viewItem && <DetailModal item={viewItem} onClose={() => setViewItem(null)}
         onLike={handleLike}
-        canLike={user.role !== 'student' && viewItem.user_id !== user.id} />}
+        canLike={user.role !== 'student' && viewItem.user_id !== user.id}
+        user={user} />}
     </div>
   );
 };

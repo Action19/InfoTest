@@ -49,7 +49,9 @@ router.get('/', authenticateToken, async (req, res) => {
     const items = await database.all(`
       SELECT pi.*,
         (SELECT COUNT(*) FROM portfolio_likes WHERE item_id = pi.id) AS likes_count,
-        (SELECT COUNT(*) FROM portfolio_likes WHERE item_id = pi.id AND user_id = ?) AS user_liked
+        (SELECT COUNT(*) FROM portfolio_likes WHERE item_id = pi.id AND user_id = ?) AS user_liked,
+        (SELECT COALESCE(AVG(score), 0) FROM portfolio_ratings WHERE item_id = pi.id) AS avg_rating,
+        (SELECT COUNT(*) FROM portfolio_ratings WHERE item_id = pi.id) AS ratings_count
       FROM portfolio_items pi
       WHERE pi.user_id = ?
       ORDER BY pi.created_at DESC
@@ -59,6 +61,8 @@ router.get('/', authenticateToken, async (req, res) => {
       if (item.tags) { try { item.tags = JSON.parse(item.tags); } catch { item.tags = []; } }
       item.likes_count = parseInt(item.likes_count || 0);
       item.user_liked  = item.user_liked > 0;
+      item.avg_rating  = parseFloat(parseFloat(item.avg_rating || 0).toFixed(1));
+      item.ratings_count = parseInt(item.ratings_count || 0);
     });
 
     res.json(items);
@@ -80,7 +84,9 @@ router.get('/:userId', authenticateToken, async (req, res) => {
     const items = await database.all(`
       SELECT pi.*,
         (SELECT COUNT(*) FROM portfolio_likes WHERE item_id = pi.id) AS likes_count,
-        (SELECT COUNT(*) FROM portfolio_likes WHERE item_id = pi.id AND user_id = ?) AS user_liked
+        (SELECT COUNT(*) FROM portfolio_likes WHERE item_id = pi.id AND user_id = ?) AS user_liked,
+        (SELECT COALESCE(AVG(score), 0) FROM portfolio_ratings WHERE item_id = pi.id) AS avg_rating,
+        (SELECT COUNT(*) FROM portfolio_ratings WHERE item_id = pi.id) AS ratings_count
       FROM portfolio_items pi
       WHERE pi.user_id = ? AND (pi.is_public = TRUE OR ? = pi.user_id)
       ORDER BY pi.created_at DESC
@@ -90,6 +96,8 @@ router.get('/:userId', authenticateToken, async (req, res) => {
       if (item.tags) { try { item.tags = JSON.parse(item.tags); } catch { item.tags = []; } }
       item.likes_count = parseInt(item.likes_count || 0);
       item.user_liked  = item.user_liked > 0;
+      item.avg_rating  = parseFloat(parseFloat(item.avg_rating || 0).toFixed(1));
+      item.ratings_count = parseInt(item.ratings_count || 0);
     });
 
     res.json({ portfolio: items, count: items.length });
@@ -315,6 +323,137 @@ router.post('/:id/like', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('Like error:', err);
     res.status(500).json({ error: 'Like qo\'yishda xatolik' });
+  }
+});
+
+// POST /api/portfolio/:id/rate — o'qituvchi ball beradi (umumiy ballarga qo'shiladi)
+router.post('/:id/rate', authenticateToken, async (req, res) => {
+  try {
+    // Faqat teacher va admin
+    if (req.user.role !== 'teacher' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: "Faqat o'qituvchi va admin ball bera oladi" });
+    }
+
+    const itemId = parseInt(req.params.id);
+    const { score, comment } = req.body;
+
+    // Validation
+    if (score === undefined || score === null) {
+      return res.status(400).json({ error: 'Ball kiritilishi shart' });
+    }
+    if (score < 1 || score > 10) {
+      return res.status(400).json({ error: 'Ball 1 dan 10 gacha bo\'lishi kerak' });
+    }
+
+    // Portfolio element mavjudmi?
+    const item = await database.get('SELECT id, user_id, title, item_type FROM portfolio_items WHERE id = ?', [itemId]);
+    if (!item) return res.status(404).json({ error: 'Portfolio elementi topilmadi' });
+
+    // O'z portfoliosiga ball bera olmaydi
+    if (item.user_id === req.user.id) {
+      return res.status(400).json({ error: "O'z portfoliongizga ball bera olmaysiz" });
+    }
+
+    // Avval ball berilganmi tekshirish
+    const existing = await database.get(
+      'SELECT id, score FROM portfolio_ratings WHERE item_id = ? AND teacher_id = ?',
+      [itemId, req.user.id]
+    );
+
+    let oldScore = 0;
+
+    if (existing) {
+      // Yangilash — oldingi ballni olib tashlash, yangisini qo'shish
+      oldScore = existing.score;
+      await database.run(
+        `UPDATE portfolio_ratings SET score = ?, comment = ?, updated_at = NOW() WHERE id = ?`,
+        [score, comment || '', existing.id]
+      );
+    } else {
+      // Yangi baho qo'shish
+      await database.run(
+        `INSERT INTO portfolio_ratings (item_id, student_id, teacher_id, score, comment) VALUES (?, ?, ?, ?, ?)`,
+        [itemId, item.user_id, req.user.id, score, comment || '']
+      );
+    }
+
+    // O'quvchi ballariga qo'shish (yangi ball - eski ball = farq)
+    const pointsDiff = score - oldScore;
+    if (pointsDiff !== 0) {
+      await database.run(
+        'UPDATE users SET points = points + ? WHERE id = ?',
+        [pointsDiff, item.user_id]
+      );
+    }
+
+    // O'quvchi levelini yangilash
+    await database.run(`
+      UPDATE users SET level = CASE 
+        WHEN points >= 1000 THEN 5
+        WHEN points >= 500 THEN 4
+        WHEN points >= 200 THEN 3
+        WHEN points >= 50 THEN 2
+        ELSE 1
+      END WHERE id = ?
+    `, [item.user_id]);
+
+    // Yangilangan user ma'lumoti
+    const updatedUser = await database.get(
+      'SELECT id, points, level FROM users WHERE id = ?', [item.user_id]
+    );
+
+    // O'rtacha baho
+    const avgRating = await database.get(
+      'SELECT AVG(score) AS avg_score, COUNT(*) AS total_ratings FROM portfolio_ratings WHERE item_id = ?',
+      [itemId]
+    );
+
+    res.json({
+      message: 'Ball muvaffaqiyatli berildi',
+      rating: {
+        score,
+        comment: comment || '',
+        teacher_id: req.user.id,
+        is_update: !!existing,
+        points_added: pointsDiff
+      },
+      item_avg_score: parseFloat(parseFloat(avgRating.avg_score || 0).toFixed(1)),
+      total_ratings: parseInt(avgRating.total_ratings || 0),
+      student_points: updatedUser.points,
+      student_level: updatedUser.level
+    });
+  } catch (err) {
+    console.error('Portfolio rate error:', err);
+    res.status(500).json({ error: 'Ball berishda xatolik: ' + err.message });
+  }
+});
+
+// GET /api/portfolio/:id/ratings — element baholari ro'yxati
+router.get('/:id/ratings', authenticateToken, async (req, res) => {
+  try {
+    const itemId = parseInt(req.params.id);
+
+    const ratings = await database.all(`
+      SELECT pr.*, u.full_name AS teacher_name
+      FROM portfolio_ratings pr
+      JOIN users u ON pr.teacher_id = u.id
+      WHERE pr.item_id = ?
+      ORDER BY pr.updated_at DESC
+    `, [itemId]);
+
+    const avg = await database.get(
+      'SELECT AVG(score) AS avg_score, COUNT(*) AS total FROM portfolio_ratings WHERE item_id = ?',
+      [itemId]
+    );
+
+    res.json({
+      ratings,
+      avg_score: parseFloat(parseFloat(avg.avg_score || 0).toFixed(1)),
+      total_ratings: parseInt(avg.total || 0)
+    });
+  } catch (err) {
+    console.error('Get ratings error:', err);
+    res.status(500).json({ error: 'Baholarni olishda xatolik' });
   }
 });
 

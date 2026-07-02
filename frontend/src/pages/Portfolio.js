@@ -127,14 +127,29 @@ const PortfolioCard = ({ item, onView, onDelete, onTogglePublic }) => {
           </div>
         )}
 
-        {/* Like soni (o'z ishida faqat ko'rsatish) */}
-        {item.likes_count > 0 && (
-          <div style={{ marginTop:'0.6rem', paddingTop:'0.5rem',
-                        borderTop:'1px solid var(--border-color)',
-                        fontSize:'0.78rem', color:'#f43f5e', display:'flex', alignItems:'center', gap:'0.3rem' }}>
-            ❤️ <strong>{item.likes_count}</strong> kishi yoqtirdi
+        {/* Like soni va baho (o'z ishida faqat ko'rsatish) */}
+        <div style={{ marginTop:'0.6rem', paddingTop:'0.5rem',
+                      borderTop:'1px solid var(--border-color)',
+                      display:'flex', alignItems:'center', justifyContent:'space-between',
+                      fontSize:'0.78rem' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+            {item.likes_count > 0 && (
+              <span style={{ color:'#f43f5e', display:'flex', alignItems:'center', gap:'0.2rem' }}>
+                ❤️ <strong>{item.likes_count}</strong>
+              </span>
+            )}
           </div>
-        )}
+          {item.avg_rating > 0 && (
+            <span style={{
+              background:'linear-gradient(135deg,#faf5ff,#eef2ff)',
+              border:'1px solid #e9d5ff', padding:'0.2rem 0.6rem',
+              borderRadius:'12px', fontSize:'0.75rem', fontWeight:700, color:'#7c3aed'
+            }}>
+              ⭐ {item.avg_rating}/10
+              {item.ratings_count > 0 && <span style={{ fontWeight:400, color:'#a78bfa' }}> ({item.ratings_count})</span>}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -205,6 +220,28 @@ const DetailModal = ({ item, onClose, onDelete, onEdit }) => {
           {item.likes_count > 0 && (
             <div style={{ marginTop:'1rem', fontSize:'0.85rem', color:'#f43f5e', display:'flex', alignItems:'center', gap:'0.4rem' }}>
               ❤️ <strong>{item.likes_count}</strong> kishi yoqtirdi
+            </div>
+          )}
+
+          {/* O'qituvchi baholari */}
+          {item.avg_rating > 0 && (
+            <div style={{
+              marginTop:'1rem', padding:'1rem', borderRadius:'10px',
+              background:'linear-gradient(135deg,#faf5ff,#eef2ff)',
+              border:'1px solid #e9d5ff'
+            }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.5rem' }}>
+                <h4 style={{ margin:0, fontSize:'0.9rem', color:'#581c87' }}>⭐ O'qituvchi bahosi</h4>
+                <span style={{
+                  background:'linear-gradient(135deg,#f59e0b,#d97706)', color:'#fff',
+                  padding:'0.25rem 0.65rem', borderRadius:'20px', fontSize:'0.85rem', fontWeight:700
+                }}>{item.avg_rating}/10</span>
+              </div>
+              {item.ratings_count > 0 && (
+                <p style={{ margin:0, fontSize:'0.8rem', color:'#7c3aed' }}>
+                  {item.ratings_count} ta o'qituvchi baholagan
+                </p>
+              )}
             </div>
           )}
         </div>
