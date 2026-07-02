@@ -45,6 +45,8 @@ const LessonDetail = () => {
   const [aiAssignLoading, setAiAssignLoading] = useState(false);
   const [showEditAssignModal, setShowEditAssignModal] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState(null);
+  const [showEditLessonModal, setShowEditLessonModal] = useState(false);
+  const [editLesson, setEditLesson] = useState({ title: '', description: '', subject: '', content: '' });
   const [newAssignment, setNewAssignment] = useState({
     title: '', description: '', task_type: 'python',
     instructions: '', max_score: 100, deadline: ''
@@ -610,7 +612,7 @@ const LessonDetail = () => {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.75rem' }}>
           {isOwner && (
-            <Link to={`/lessons/${id}/edit`} className="btn btn-outline">✏️ Tahrirlash</Link>
+            <button onClick={() => setShowEditLessonModal(true)} className="btn btn-outline">✏️ Tahrirlash</button>
           )}
           {/* ── O'quvchi uchun o'zlashtirish ko'rsatkichi ── */}
           {user?.role === 'student' && lessonProgress && lessonProgress.total_possible > 0 && (
@@ -1824,6 +1826,63 @@ const LessonDetail = () => {
                 <button type="button" className="btn btn-outline" onClick={() => setShowEditAssignModal(false)}>
                   Bekor qilish
                 </button>
+                <button type="submit" className="btn btn-primary">💾 Saqlash</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Lesson Modal */}
+      {showEditLessonModal && (
+        <div className="modal-overlay" onClick={() => setShowEditLessonModal(false)}>
+          <div className="modal-content modal-large" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>✏️ Darsni tahrirlash</h2>
+              <button className="close-btn" onClick={() => setShowEditLessonModal(false)}>✕</button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                await api.put(`/lessons/${id}`, {
+                  title: editLesson.title || lesson.title,
+                  description: editLesson.description,
+                  subject: editLesson.subject || lesson.subject,
+                  content: editLesson.content
+                });
+                setShowEditLessonModal(false);
+                fetchLesson();
+                alert('✅ Dars yangilandi!');
+              } catch (err) {
+                alert('Xatolik: ' + (err.response?.data?.error || err.message));
+              }
+            }} className="modal-form">
+              <div className="form-group">
+                <label>Dars nomi *</label>
+                <input type="text" required
+                  defaultValue={lesson.title}
+                  onChange={e => setEditLesson({...editLesson, title: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label>Fan</label>
+                <input type="text"
+                  defaultValue={lesson.subject}
+                  onChange={e => setEditLesson({...editLesson, subject: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label>Tavsif</label>
+                <textarea rows="3"
+                  defaultValue={lesson.description}
+                  onChange={e => setEditLesson({...editLesson, description: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label>Dars tarkibi</label>
+                <textarea rows="8"
+                  defaultValue={lesson.content}
+                  onChange={e => setEditLesson({...editLesson, content: e.target.value})} />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setShowEditLessonModal(false)}>Bekor qilish</button>
                 <button type="submit" className="btn btn-primary">💾 Saqlash</button>
               </div>
             </form>
