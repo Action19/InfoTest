@@ -316,17 +316,26 @@ router.post('/:id/submit-code', authenticateToken, async (req, res) => {
     const ext = CODE_EXTENSIONS[assignment.task_type] || '.txt';
     const safeName = `code_${Date.now()}_u${req.user.id}${ext}`;
     const codeBuffer = Buffer.from(code, 'utf8');
-    const { url } = await uploadFile(codeBuffer, `submissions/${safeName}`, {
-      contentType: 'text/plain',
-      metadata: { originalName: `kod${ext}` }
-    });
+    
+    let fileUrl = '';
+    try {
+      const { url } = await uploadFile(codeBuffer, `submissions/${safeName}`, {
+        contentType: 'text/plain',
+        metadata: { originalName: `kod${ext}` }
+      });
+      fileUrl = url;
+    } catch (uploadErr) {
+      console.error('Firebase upload error (non-fatal):', uploadErr.message);
+      // Firebase ishlamasa — fayl URL sifatida placeholder saqlaymiz
+      fileUrl = `code://${safeName}`;
+    }
 
     // Submission saqla
     const subId = await Assignment.submitFile({
       assignment_id: parseInt(req.params.id),
       student_id: req.user.id,
       file_name: `kod${ext}`,
-      file_path: url,
+      file_path: fileUrl,
       file_size: Buffer.byteLength(code, 'utf8')
     });
 
