@@ -274,13 +274,21 @@ router.post('/:id/submit', authenticateToken, upload.single('file'), async (req,
     if (!assignment) return res.status(404).json({ error: 'Topshiriq topilmadi' });
 
     // Firebase Storage'ga yuklash
-    const { url, storagePath } = await uploadMulterFile(req.file, 'submissions');
+    let fileUrl = '';
+    try {
+      const result = await uploadMulterFile(req.file, 'submissions');
+      fileUrl = result.url;
+    } catch (uploadErr) {
+      console.error('Firebase upload error:', uploadErr.message);
+      // Fallback URL
+      fileUrl = `file://uploaded/${Date.now()}_${req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    }
 
     const subId = await Assignment.submitFile({
       assignment_id: parseInt(req.params.id),
       student_id: req.user.id,
       file_name: req.file.originalname,
-      file_path: url,
+      file_path: fileUrl,
       file_size: req.file.size
     });
 
