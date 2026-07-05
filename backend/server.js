@@ -174,6 +174,9 @@ async function runMigrations(db) {
     await db.run('CREATE INDEX IF NOT EXISTS idx_submissions_assign  ON assignment_submissions(assignment_id)').catch(()=>{});
     await db.run('CREATE INDEX IF NOT EXISTS idx_submissions_student ON assignment_submissions(student_id)').catch(()=>{});
 
+    // code_content ustuni qo'shish (kod submissions uchun)
+    await db.run('ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS code_content TEXT').catch(()=>{});
+
     // portfolio_items: file_name, file_type ustunlari qo'shish
     await db.run(`ALTER TABLE portfolio_items ADD COLUMN IF NOT EXISTS file_name TEXT`).catch(()=>{});
     await db.run(`ALTER TABLE portfolio_items ADD COLUMN IF NOT EXISTS file_type TEXT`).catch(()=>{});

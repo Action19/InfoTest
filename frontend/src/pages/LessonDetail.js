@@ -1354,13 +1354,31 @@ const LessonDetail = () => {
                                   </div>
                                 </div>
 
-                                {/* File download */}
+                                {/* File download / Code view */}
                                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-                                  <a href={sub.file_path && sub.file_path.startsWith('http') ? sub.file_path : sub.file_path ? `${(process.env.REACT_APP_API_URL||'').replace('/api','')}${sub.file_path}` : '#'}
-                                    target="_blank" rel="noopener noreferrer"
-                                    className="btn btn-sm btn-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                                    ⬇️ {sub.file_name}
-                                  </a>
+                                  {sub.code_content ? (
+                                    <details style={{ width: '100%' }}>
+                                      <summary className="btn btn-sm btn-outline" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                                        👁️ Kodni ko'rish ({sub.file_name})
+                                      </summary>
+                                      <pre style={{
+                                        marginTop: '0.5rem', padding: '1rem', background: '#1e1e2e',
+                                        color: '#cdd6f4', borderRadius: '8px', fontSize: '0.82rem',
+                                        fontFamily: 'monospace', overflow: 'auto', maxHeight: '300px',
+                                        border: '1px solid var(--border-color)', whiteSpace: 'pre-wrap'
+                                      }}>{sub.code_content}</pre>
+                                    </details>
+                                  ) : sub.file_path && sub.file_path.startsWith('http') ? (
+                                    <a href={sub.file_path}
+                                      target="_blank" rel="noopener noreferrer"
+                                      className="btn btn-sm btn-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                                      ⬇️ {sub.file_name}
+                                    </a>
+                                  ) : (
+                                    <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                                      📎 {sub.file_name}
+                                    </span>
+                                  )}
                                   {sub.graded_by === 'ai' && <span style={{ fontSize: '0.75rem', color: '#9333ea' }}>🤖 AI baholagan</span>}
                                   {sub.graded_by === 'teacher' && <span style={{ fontSize: '0.75rem', color: '#2563eb' }}>👨‍🏫 O'qituvchi baholagan</span>}
                                 </div>

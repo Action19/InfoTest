@@ -4,6 +4,7 @@ const fs = require('fs');
 const multer = require('multer');
 const OpenAI = require('openai');
 const Assignment = require('../models/Assignment');
+const database = require('../config/database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { readFileForAI } = require('../utils/fileReader');
 const { uploadMulterFile, uploadFile } = require('../utils/firebaseStorage');
@@ -320,7 +321,7 @@ router.post('/:id/submit-code', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Bu topshiriq turi kod yozishni qo\'llab-quvvatlamaydi' });
     }
 
-    // Kodni saqlash — kod uchun Firebase kerak emas, to'g'ridan-to'g'ri URL sifatida saqlaymiz
+    // Kodni saqlash
     const ext = CODE_EXTENSIONS[assignment.task_type] || '.txt';
     const safeName = `code_${Date.now()}_u${req.user.id}${ext}`;
     const fileUrl = `code://inline/${safeName}`;
@@ -333,6 +334,12 @@ router.post('/:id/submit-code', authenticateToken, async (req, res) => {
       file_path: fileUrl,
       file_size: Buffer.byteLength(code, 'utf8')
     });
+
+    // Kod matnini alohida saqlash (o'qituvchi ko'rishi uchun)
+    await database.run(
+      'UPDATE assignment_submissions SET code_content = ? WHERE id = ?',
+      [code, subId]
+    );
 
     // ── Avtomatik AI baholash ────────────────────────────────
     let aiResult = null;
