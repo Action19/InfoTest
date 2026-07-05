@@ -312,23 +312,10 @@ router.post('/:id/submit-code', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Bu topshiriq turi kod yozishni qo\'llab-quvvatlamaydi' });
     }
 
-    // Kodni Firebase Storage'ga yuklash
+    // Kodni saqlash — kod uchun Firebase kerak emas, to'g'ridan-to'g'ri URL sifatida saqlaymiz
     const ext = CODE_EXTENSIONS[assignment.task_type] || '.txt';
     const safeName = `code_${Date.now()}_u${req.user.id}${ext}`;
-    const codeBuffer = Buffer.from(code, 'utf8');
-    
-    let fileUrl = '';
-    try {
-      const { url } = await uploadFile(codeBuffer, `submissions/${safeName}`, {
-        contentType: 'text/plain',
-        metadata: { originalName: `kod${ext}` }
-      });
-      fileUrl = url;
-    } catch (uploadErr) {
-      console.error('Firebase upload error (non-fatal):', uploadErr.message);
-      // Firebase ishlamasa — fayl URL sifatida placeholder saqlaymiz
-      fileUrl = `code://${safeName}`;
-    }
+    const fileUrl = `code://inline/${safeName}`;
 
     // Submission saqla
     const subId = await Assignment.submitFile({
