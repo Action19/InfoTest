@@ -34,20 +34,12 @@ async function uploadFile(fileData, destination, options = {}) {
       try {
         // Faylni public qilish
         await file.makePublic();
-        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
-        resolve(publicUrl);
-      } catch (err) {
-        // makePublic ishlamasa, signed URL olish
-        try {
-          const [url] = await file.getSignedUrl({
-            action: 'read',
-            expires: '03-01-2030',
-          });
-          resolve(url);
-        } catch (signErr) {
-          reject(signErr);
-        }
+      } catch (makePublicErr) {
+        console.log('makePublic warning (non-fatal):', makePublicErr.message);
       }
+      // Public URL — har doim shu formatda
+      const publicUrl = `https://storage.googleapis.com/${bucket.name}/${destination}`;
+      resolve(publicUrl);
     });
 
     // Buffer yoki string (local path)
@@ -84,7 +76,7 @@ async function uploadMulterFile(multerFile, folder = 'uploads') {
     },
   });
 
-  return { url, storagePath: destination, fileName };  return { url, storagePath: destination, fileName };
+  return { url, storagePath: destination, fileName };
 }
 
 /**
