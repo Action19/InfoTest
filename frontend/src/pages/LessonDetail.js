@@ -735,7 +735,7 @@ const LessonDetail = () => {
                   </div>
                 </div>
                 <div className="material-actions">
-                  <a href={`${process.env.REACT_APP_API_URL?.replace('/api', '')}${material.file_path}`}
+                  <a href={material.file_path.startsWith('http') ? material.file_path : `${process.env.REACT_APP_API_URL?.replace('/api', '')}${material.file_path}`}
                     target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline">
                     ⬇️ Yuklab olish
                   </a>
@@ -1356,7 +1356,7 @@ const LessonDetail = () => {
 
                                 {/* File download */}
                                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-                                  <a href={`${(process.env.REACT_APP_API_URL||'').replace('/api','')}${sub.file_path}`}
+                                  <a href={sub.file_path.startsWith('http') ? sub.file_path : `${(process.env.REACT_APP_API_URL||'').replace('/api','')}${sub.file_path}`}
                                     target="_blank" rel="noopener noreferrer"
                                     className="btn btn-sm btn-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
                                     ⬇️ {sub.file_name}
