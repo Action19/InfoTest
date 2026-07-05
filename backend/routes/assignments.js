@@ -494,8 +494,7 @@ router.post('/submissions/:subId/ai-grade', authenticateToken, requireRole(['tea
     }
 
     // ── 2. Faylni o'qish ──────────────────────────────────────
-    const filePath = path.join(__dirname, '..', sub.file_path);
-    const fileData = await readFileForAI(filePath, sub.file_name);
+    const fileData = await readFileForAI(sub.file_path, sub.file_name);
 
     let result;
 
