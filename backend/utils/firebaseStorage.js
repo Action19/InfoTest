@@ -84,7 +84,7 @@ async function uploadMulterFile(multerFile, folder = 'uploads') {
     },
   });
 
-  return { url, storagePath: destination, fileName };
+  return { url, storagePath: destination, fileName };  return { url, storagePath: destination, fileName };
 }
 
 /**
