@@ -2,24 +2,66 @@
  * fileReader.js
  * Binary va matn fayllarning tarkibini AI uchun o'qiladigan matnga aylantiradi.
  * Excel → jadval matni, Word → paragraflar, Matn → to'g'ridan, Rasm → base64
+ * Firebase URL'dan ham, lokal path'dan ham o'qiy oladi.
  */
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+
+/**
+ * Faylni yuklab olish (Firebase URL yoki lokal path)
+ * @returns {string} lokal temp fayl path
+ */
+async function resolveFilePath(filePath, fileName) {
+  // Agar http URL bo'lsa — yuklab olish
+  if (filePath && filePath.startsWith('http')) {
+    try {
+      const response = await fetch(filePath);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const buffer = Buffer.from(await response.arrayBuffer());
+      const tempPath = path.join(os.tmpdir(), `ai_grade_${Date.now()}_${fileName}`);
+      fs.writeFileSync(tempPath, buffer);
+      return { localPath: tempPath, isTemp: true };
+    } catch (err) {
+      console.error('File download error:', err.message);
+      return { localPath: null, isTemp: false, error: err.message };
+    }
+  }
+  
+  // Lokal path
+  if (filePath && fs.existsSync(filePath)) {
+    return { localPath: filePath, isTemp: false };
+  }
+
+  return { localPath: null, isTemp: false, error: 'Fayl topilmadi' };
+}
 
 /**
  * Faylni o'qib, AI uchun content qaytaradi.
  * @returns { type: 'text'|'image'|'binary_unreadable', content, mimeType? }
  */
 async function readFileForAI(filePath, fileName) {
+  // Firebase URL yoki lokal path'ni resolve qilish
+  const { localPath, isTemp, error } = await resolveFilePath(filePath, fileName);
+  
+  if (!localPath) {
+    return { 
+      type: 'text', 
+      content: `O'quvchi topshirgan fayl: "${fileName}"\nFayl ochilmadi: ${error || 'noma\'lum xato'}\n\nIzoh: Fayl yuklangan, lekin tarkibini o'qib bo'lmadi.` 
+    };
+  }
+
   const ext = path.extname(fileName).toLowerCase();
 
   // ── Matn fayllari ──────────────────────────────────────────
   const textExts = ['.py', '.js', '.css', '.html', '.htm', '.txt', '.csv', '.json', '.xml', '.sb3'];
   if (textExts.includes(ext)) {
     try {
-      const content = fs.readFileSync(filePath, 'utf8');
+      const content = fs.readFileSync(localPath, 'utf8');
+      if (isTemp) fs.unlinkSync(localPath);
       return { type: 'text', content: content.slice(0, 6000) };
     } catch (e) {
+      if (isTemp && fs.existsSync(localPath)) fs.unlinkSync(localPath);
       return { type: 'text', content: `(Faylni o'qib bo'lmadi: ${e.message})` };
     }
   }
@@ -28,12 +70,14 @@ async function readFileForAI(filePath, fileName) {
   const imageExts = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'];
   if (imageExts.includes(ext)) {
     try {
-      const data = fs.readFileSync(filePath);
+      const data = fs.readFileSync(localPath);
+      if (isTemp) fs.unlinkSync(localPath);
       const base64 = data.toString('base64');
       const mime = { '.png':'image/png', '.jpg':'image/jpeg', '.jpeg':'image/jpeg',
                      '.gif':'image/gif', '.webp':'image/webp', '.bmp':'image/bmp' }[ext] || 'image/png';
       return { type: 'image', content: base64, mimeType: mime };
     } catch (e) {
+      if (isTemp && fs.existsSync(localPath)) fs.unlinkSync(localPath);
       return { type: 'text', content: `(Rasm o'qilmadi: ${e.message})` };
     }
   }
@@ -42,7 +86,7 @@ async function readFileForAI(filePath, fileName) {
   if (ext === '.xlsx' || ext === '.xls') {
     try {
       const XLSX = require('xlsx');
-      const workbook = XLSX.readFile(filePath);
+      const workbook = XLSX.readFile(localPath);
       let output = `📊 Excel fayl: "${fileName}"\n`;
       output += `Varaqlar soni: ${workbook.SheetNames.length}\n\n`;
 
@@ -76,7 +120,7 @@ async function readFileForAI(filePath, fileName) {
         }
 
         // Aslida diagrammalar xlsx ichidagi drawing XML da — tekshirish
-        const chartCheck = checkExcelCharts(filePath, workbook);
+        const chartCheck = checkExcelCharts(localPath, workbook);
         if (chartCheck.hasCharts) {
           output += `\n✅ Diagrammalar topildi: ${chartCheck.chartCount} ta`;
         } else {
@@ -91,8 +135,10 @@ async function readFileForAI(filePath, fileName) {
         output += '\n\n';
         if (output.length > 5000) break;
       }
+      if (isTemp && fs.existsSync(localPath)) fs.unlinkSync(localPath);
       return { type: 'text', content: output.slice(0, 6000) };
     } catch (e) {
+      if (isTemp && fs.existsSync(localPath)) fs.unlinkSync(localPath);
       return { type: 'text', content: `(Excel o'qilmadi: ${e.message})` };
     }
   }
@@ -101,29 +147,33 @@ async function readFileForAI(filePath, fileName) {
   if (ext === '.docx') {
     try {
       const mammoth = require('mammoth');
-      const result = await mammoth.extractRawText({ path: filePath });
+      const result = await mammoth.extractRawText({ path: localPath });
+      if (isTemp) fs.unlinkSync(localPath);
       const text = result.value || '';
       let output = `📝 Word fayl: "${fileName}"\n\n`;
       output += `Matn tarkibi:\n${text.slice(0, 5000)}`;
       if (text.length === 0) output += '(Hujjat bo\'sh yoki matn topilmadi)';
       return { type: 'text', content: output };
     } catch (e) {
+      if (isTemp && fs.existsSync(localPath)) fs.unlinkSync(localPath);
       return { type: 'text', content: `(Word o'qilmadi: ${e.message})` };
     }
   }
 
   // ── .doc (eski Word) ───────────────────────────────────────
   if (ext === '.doc') {
+    if (isTemp && fs.existsSync(localPath)) fs.unlinkSync(localPath);
     return {
       type: 'text',
-      content: `📝 Word fayl (eski format .doc): "${fileName}"\nFayl hajmi: ${Math.round((fs.statSync(filePath).size || 0)/1024)} KB\n\nEslatma: .doc format to'liq o'qilmadi, lekin fayl yuklangan. Qo'lda tekshirish tavsiya etiladi.`
+      content: `📝 Word fayl (eski format .doc): "${fileName}"\n\nEslatma: .doc format to'liq o'qilmadi, lekin fayl yuklangan.`
     };
   }
 
   // ── Access, Scratch va boshqalar ───────────────────────────
+  if (isTemp && fs.existsSync(localPath)) fs.unlinkSync(localPath);
   return {
     type: 'binary_unreadable',
-    content: `Fayl: "${fileName}" (${ext})\nHajm: ${Math.round((fs.existsSync(filePath) ? fs.statSync(filePath).size : 0)/1024)} KB\n\nBu fayl turi avtomatik o'qilmaydi. Fayl to'g'ri formatda yuklangan, lekin tarkibini to'liq baholash uchun qo'lda tekshirish tavsiya etiladi.`
+    content: `Fayl: "${fileName}" (${ext})\n\nBu fayl turi avtomatik o'qilmaydi. Fayl yuklangan, lekin tarkibini baholash uchun qo'lda tekshirish tavsiya etiladi.`
   };
 }
 
