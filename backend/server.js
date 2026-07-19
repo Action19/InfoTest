@@ -19,6 +19,7 @@ const lessonProgressRoutes = require('./routes/lessonProgress');
 const aiAnalyticsRoutes = require('./routes/aiAnalytics');
 const forumRoutes = require('./routes/forum');
 const experimentRoutes = require('./routes/experiment');
+const surveyRoutes = require('./routes/survey');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -83,6 +84,7 @@ app.use('/api/lesson-progress', lessonProgressRoutes);
 app.use('/api/ai-analytics', aiAnalyticsRoutes);
 app.use('/api/forum', forumRoutes);
 app.use('/api/experiment', experimentRoutes);
+app.use('/api/survey', surveyRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -328,6 +330,18 @@ async function runMigrations(db) {
       }
       console.log('✓ Forum default categories created');
     }
+
+    // survey_responses — so'rovnoma javoblari
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS survey_responses (
+        id           SERIAL PRIMARY KEY,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+        answers      JSONB NOT NULL,
+        open_answer  TEXT DEFAULT '',
+        created_at   TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await db.run('CREATE INDEX IF NOT EXISTS idx_survey_user ON survey_responses(user_id)').catch(()=>{});
 
     // Demo foydalanuvchilarni o'chirish (dilshod_karimov, madina_rashidova)
     try {
