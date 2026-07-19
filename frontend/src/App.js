@@ -116,6 +116,10 @@ function App() {
                   path="/forum/new" 
                   element={<PrivateRoute><NewPost /></PrivateRoute>} 
                 />
+                <Route 
+                  path="/experiment" 
+                  element={<PrivateRoute><ExperimentStats /></PrivateRoute>} 
+                />
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </Suspense>

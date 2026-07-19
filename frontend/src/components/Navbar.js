@@ -65,6 +65,7 @@ const Navbar = () => {
     { path: '/journal', icon: '📒', label: 'Jurnal', roles: ['teacher', 'admin'] },
     { path: '/ai-analytics', icon: '🤖', label: 'AI Tahlil', roles: ['teacher', 'admin'] },
     { path: '/forum', icon: '💬', label: 'Forum', roles: ['student', 'teacher', 'admin'] },
+    { path: '/experiment', icon: '📊', label: 'Tajriba', roles: ['admin'] },
     { path: '/leaderboard', icon: '🏆', label: 'Reyting', roles: ['student', 'teacher', 'admin'] },
   ];
 
