@@ -27,10 +27,10 @@ const loginLimiter = rateLimit({
 });
 
 // ─── Register uchun limit ────────────────────────────────────
-// 1 soatda 3 ta akkaunt (spam himoya)
+// 1 soatda 50 ta akkaunt (admin batch yaratish uchun)
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 soat
-  max: 3,
+  max: 50,
   message: {
     error: 'Juda ko\'p ro\'yxatdan o\'tish urinishi. 1 soatdan keyin qaytadan urinib ko\'ring.',
     retry_after: 60
