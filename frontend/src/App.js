@@ -26,6 +26,7 @@ const AIAnalytics = lazy(() => import('./pages/AIAnalytics'));
 const Forum = lazy(() => import('./pages/Forum'));
 const ForumPost = lazy(() => import('./pages/ForumPost'));
 const NewPost = lazy(() => import('./pages/NewPost'));
+const ExperimentStats = lazy(() => import('./pages/ExperimentStats'));
 
 // Loading fallback
 const PageLoader = () => (
