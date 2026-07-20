@@ -939,10 +939,33 @@ const LessonDetail = () => {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                         <h4 style={{ margin: 0 }}>Savollar ({testQuestions.length})</h4>
                         {isOwner && (
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                             <button onClick={() => setShowAddQuestionModal(true)} className="btn btn-sm btn-primary">
                               ➕ Savol qo'shish
                             </button>
+                            <label className="btn btn-sm btn-outline" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                              📊 Excel'dan
+                              <input type="file" accept=".xlsx,.xls" style={{ display: 'none' }}
+                                onChange={async (e) => {
+                                  const file = e.target.files[0];
+                                  if (!file) return;
+                                  const formData = new FormData();
+                                  formData.append('file', file);
+                                  formData.append('test_id', selectedTest.id);
+                                  try {
+                                    const res = await api.post('/questions/upload-excel-file', formData, {
+                                      headers: { 'Content-Type': 'multipart/form-data' }
+                                    });
+                                    alert(`✅ ${res.data.imported} ta savol import qilindi!${res.data.errors ? '\n\n⚠️ Xatoliklar:\n' + res.data.errors.join('\n') : ''}`);
+                                    await fetchTestDetails(selectedTest.id);
+                                    await fetchLesson();
+                                  } catch (err) {
+                                    alert('❌ Excel import xatolik: ' + (err.response?.data?.error || err.message) + (err.response?.data?.hint ? '\n\n💡 ' + err.response?.data?.hint : ''));
+                                  }
+                                  e.target.value = '';
+                                }}
+                              />
+                            </label>
                             <button onClick={() => setShowAIModal(true)} className="btn btn-sm btn-success">
                               🤖 AI bilan
                             </button>

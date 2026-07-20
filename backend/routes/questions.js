@@ -300,6 +300,138 @@ module.exports = router;
 
 
 
+// Upload questions from Excel file
+router.post('/upload-excel', authenticateToken, isTeacherOrAdmin, async (req, res) => {
+  try {
+    const multer = require('multer');
+    const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+    // Bu endpoint'da multer middleware ishlatilmaydi — alohida route sifatida
+    // Quyida /upload-excel-file endpoint'da ishlatiladi
+    res.status(400).json({ error: 'Use /upload-excel-file endpoint with multipart/form-data' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Excel fayldan savollar import qilish
+const multerExcel = require('multer')({ storage: require('multer').memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+router.post('/upload-excel-file', authenticateToken, isTeacherOrAdmin, multerExcel.single('file'), async (req, res) => {
+  try {
+    const { test_id } = req.body;
+    if (!test_id) return res.status(400).json({ error: 'test_id kerak' });
+    if (!req.file) return res.status(400).json({ error: 'Excel fayl yuklanmadi' });
+
+    // Test mavjudligini tekshirish
+    const test = await Test.findById(test_id);
+    if (!test) return res.status(404).json({ error: 'Test topilmadi' });
+    if (req.user.role === 'teacher' && test.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Ruxsat yo\'q' });
+    }
+
+    // Excel o'qish
+    const XLSX = require('xlsx');
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    if (!rows.length) {
+      return res.status(400).json({ error: 'Excel fayl bo\'sh yoki format noto\'g\'ri' });
+    }
+
+    // Savollarni parse qilish
+    const questions = [];
+    const errors = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNum = i + 2; // Excel 1-qator sarlavha
+
+      // Ustun nomlari (flexible)
+      const questionText = row['Savol'] || row['savol'] || row['Question'] || row['question'] || row['Savol matni'] || '';
+      const optionA = row['A'] || row['a'] || row['Variant A'] || row['variant_a'] || '';
+      const optionB = row['B'] || row['b'] || row['Variant B'] || row['variant_b'] || '';
+      const optionC = row['C'] || row['c'] || row['Variant C'] || row['variant_c'] || '';
+      const optionD = row['D'] || row['d'] || row['Variant D'] || row['variant_d'] || '';
+      const correctAnswer = row['Javob'] || row['javob'] || row['Answer'] || row['answer'] || row['To\'g\'ri javob'] || '';
+      const points = parseInt(row['Ball'] || row['ball'] || row['Points'] || row['points'] || '1') || 1;
+      const explanation = row['Izoh'] || row['izoh'] || row['Explanation'] || '';
+      const questionType = row['Turi'] || row['turi'] || row['Type'] || 'single_choice';
+
+      if (!questionText.trim()) {
+        errors.push(`${rowNum}-qator: Savol matni bo'sh`);
+        continue;
+      }
+
+      // Javob turini aniqlash
+      let type = 'single_choice';
+      if (questionType.toLowerCase().includes('true') || questionType.toLowerCase().includes('mantiq')) {
+        type = 'true_false';
+      } else if (questionType.toLowerCase().includes('short') || questionType.toLowerCase().includes('qisqa')) {
+        type = 'short_answer';
+      } else if (questionType.toLowerCase().includes('multi') || questionType.toLowerCase().includes('ko\'p')) {
+        type = 'multiple_choice';
+      }
+
+      // Variantlar
+      const options = [optionA, optionB, optionC, optionD].filter(o => o.toString().trim());
+
+      // To'g'ri javob
+      let correct = correctAnswer.toString().trim();
+      // Agar A, B, C, D formatida berilgan bo'lsa — variant matnga o'zgartirish
+      if (['A', 'B', 'C', 'D'].includes(correct.toUpperCase()) && options.length > 0) {
+        const idx = correct.toUpperCase().charCodeAt(0) - 65;
+        correct = options[idx] || correct;
+      }
+
+      if (!correct) {
+        errors.push(`${rowNum}-qator: To'g'ri javob ko'rsatilmagan`);
+        continue;
+      }
+
+      questions.push({
+        question_text: questionText.trim(),
+        question_type: type,
+        options: type === 'true_false' || type === 'short_answer' ? null : JSON.stringify(options),
+        correct_answer: correct,
+        points,
+        explanation: explanation || null,
+        order_number: i + 1
+      });
+    }
+
+    if (questions.length === 0) {
+      return res.status(400).json({
+        error: 'Hech qanday savol import qilinmadi',
+        errors,
+        hint: 'Excel ustunlari: Savol, A, B, C, D, Javob, Ball, Izoh'
+      });
+    }
+
+    // Savollarni bazaga saqlash
+    const createdIds = [];
+    for (const q of questions) {
+      const questionId = await Question.create({ test_id: parseInt(test_id), ...q });
+      createdIds.push(questionId);
+    }
+
+    // Test question count yangilash
+    await Test.updateQuestionCount(parseInt(test_id));
+
+    res.json({
+      message: `${questions.length} ta savol muvaffaqiyatli import qilindi!`,
+      imported: questions.length,
+      errors: errors.length > 0 ? errors : undefined,
+      question_ids: createdIds
+    });
+  } catch (err) {
+    console.error('Excel import error:', err);
+    res.status(500).json({ error: 'Excel import xatolik: ' + err.message });
+  }
+});
+
 // Generate questions using AI (OpenAI GPT)
 router.post('/generate-ai', authenticateToken, isTeacherOrAdmin, async (req, res) => {
   try {
