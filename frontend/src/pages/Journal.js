@@ -275,7 +275,7 @@ const Journal = () => {
                       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.88rem' }}>
                         <thead>
                           <tr style={{ background:'var(--bg-secondary)' }}>
-                            {['#', "O'quvchi", 'Ball', 'Foiz', 'Baho', 'Sana'].map(h => (
+                            {['#', "O'quvchi", 'Ball', 'Foiz', 'Baho', "O'rtacha", 'Sana'].map(h => (
                               <th key={h} style={{
                                 padding:'0.65rem 0.9rem', textAlign:'left', fontWeight:700,
                                 color:'var(--text-secondary)', borderBottom:'2px solid var(--border-color)',
@@ -351,6 +351,27 @@ const Journal = () => {
                                     Baholanmagan
                                   </span>
                                 )}
+                              </td>
+
+                              {/* O'rtacha baho (barcha darslar bo'yicha) */}
+                              <td style={{ padding:'0.7rem 0.9rem' }}>
+                                {(() => {
+                                  // Shu o'quvchining barcha darslardagi baholarini topish
+                                  const allGrades = classLessons
+                                    .flatMap(l => l.students)
+                                    .filter(st => st.student_id === s.student_id && st.grade > 0)
+                                    .map(st => st.grade);
+                                  if (allGrades.length === 0) return <span style={{ color:'var(--text-secondary)', fontSize:'0.82rem' }}>—</span>;
+                                  const avg = (allGrades.reduce((a,v) => a+v, 0) / allGrades.length).toFixed(1);
+                                  return (
+                                    <span style={{
+                                      fontWeight: 700, fontSize: '0.9rem',
+                                      color: avg >= 4.5 ? '#f59e0b' : avg >= 3.5 ? '#6366f1' : avg >= 2.5 ? '#92400e' : '#dc2626'
+                                    }}>
+                                      {avg} <span style={{ fontSize:'0.68rem', color:'var(--text-light)', fontWeight:400 }}>({allGrades.length} dars)</span>
+                                    </span>
+                                  );
+                                })()}
                               </td>
 
                               <td style={{ padding:'0.7rem 0.9rem', color:'var(--text-secondary)', fontSize:'0.78rem', whiteSpace:'nowrap' }}>
