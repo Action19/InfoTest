@@ -213,30 +213,59 @@ const DiagnosticTest = () => {
           {/* O'qituvchi: natijalar */}
           {results && results.total > 0 && (
             <div style={{ background: 'var(--glass-bg)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '1.5rem', marginBottom: '1.5rem' }}>
-              <h3 style={{ margin: '0 0 1rem', color: 'var(--primary-light)' }}>📊 Natijalar ({results.total} ta o'quvchi)</h3>
-              <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>O'rtacha: <strong>{results.average}%</strong></p>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
-                    <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-secondary)' }}>#</th>
-                    <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-secondary)' }}>Ism</th>
-                    <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-secondary)' }}>Sinf</th>
-                    <th style={{ padding: '0.5rem', textAlign: 'right', color: 'var(--text-secondary)' }}>Ball</th>
-                    <th style={{ padding: '0.5rem', textAlign: 'right', color: 'var(--text-secondary)' }}>%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {results.results.map((r, i) => (
-                    <tr key={r.id} style={{ borderBottom: '1px solid rgba(148,163,184,0.06)' }}>
-                      <td style={{ padding: '0.4rem 0.5rem', color: 'var(--text-light)' }}>{i+1}</td>
-                      <td style={{ padding: '0.4rem 0.5rem', color: 'var(--text-primary)' }}>{r.full_name}</td>
-                      <td style={{ padding: '0.4rem 0.5rem', color: 'var(--text-secondary)' }}>{r.class_name}</td>
-                      <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{r.correct_answers}/{r.total_questions}</td>
-                      <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right', fontWeight: 700, color: r.percentage >= 60 ? '#34d399' : '#fb7185' }}>{Math.round(r.percentage)}%</td>
-                    </tr>
+              <h3 style={{ margin: '0 0 1rem', color: 'var(--primary-light)' }}>📊 Natijalar ({results.total} ta o'quvchi, o'rtacha: {results.average}%)</h3>
+
+              {/* Sinf kesimida statistika */}
+              {results.class_stats && results.class_stats.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                  {results.class_stats.map((cls) => (
+                    <div key={cls.class_name} style={{
+                      background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
+                      borderRadius: '12px', padding: '1.25rem'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                        <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>🏫 {cls.class_name}</h4>
+                        <span style={{ background: 'rgba(6,182,212,0.1)', color: 'var(--primary-light)', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700 }}>
+                          {cls.count} ta o'quvchi
+                        </span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.82rem' }}>
+                        <div style={{ padding: '0.5rem', background: 'var(--bg-secondary)', borderRadius: '6px' }}>
+                          <span style={{ color: 'var(--text-light)' }}>O'rtacha:</span>
+                          <strong style={{ color: cls.average >= 60 ? '#34d399' : '#fb7185', marginLeft: '0.3rem' }}>{cls.average}%</strong>
+                        </div>
+                        <div style={{ padding: '0.5rem', background: 'var(--bg-secondary)', borderRadius: '6px' }}>
+                          <span style={{ color: 'var(--text-light)' }}>60%+ o'tdi:</span>
+                          <strong style={{ color: 'var(--primary-light)', marginLeft: '0.3rem' }}>{cls.passed_60}/{cls.count} ({cls.passed_percent}%)</strong>
+                        </div>
+                        <div style={{ padding: '0.5rem', background: 'var(--bg-secondary)', borderRadius: '6px' }}>
+                          <span style={{ color: 'var(--text-light)' }}>Max:</span>
+                          <strong style={{ color: '#34d399', marginLeft: '0.3rem' }}>{cls.max}%</strong>
+                        </div>
+                        <div style={{ padding: '0.5rem', background: 'var(--bg-secondary)', borderRadius: '6px' }}>
+                          <span style={{ color: 'var(--text-light)' }}>Min:</span>
+                          <strong style={{ color: '#fb7185', marginLeft: '0.3rem' }}>{cls.min}%</strong>
+                        </div>
+                      </div>
+
+                      {/* Sinf o'quvchilari */}
+                      <details style={{ marginTop: '0.75rem' }}>
+                        <summary style={{ cursor: 'pointer', fontSize: '0.8rem', color: 'var(--primary-light)', fontWeight: 600 }}>
+                          👥 O'quvchilar ro'yxati
+                        </summary>
+                        <div style={{ marginTop: '0.5rem' }}>
+                          {cls.students.map((s, i) => (
+                            <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.35rem 0.5rem', borderBottom: '1px solid rgba(148,163,184,0.06)', fontSize: '0.8rem' }}>
+                              <span style={{ color: 'var(--text-primary)' }}>{i+1}. {s.full_name}</span>
+                              <span style={{ fontWeight: 700, color: s.percentage >= 60 ? '#34d399' : '#fb7185' }}>{Math.round(s.percentage)}% ({s.correct_answers}/{s.total_questions})</span>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              )}
             </div>
           )}
 

@@ -334,15 +334,37 @@ router.get('/tests/:id/results', authenticateToken, isTeacherOrAdmin, async (req
       FROM diagnostic_results dr
       JOIN users u ON dr.user_id = u.id
       WHERE dr.test_id = ?
-      ORDER BY dr.percentage DESC
+      ORDER BY u.class_name ASC, dr.percentage DESC
     `, [req.params.id]);
 
     const scores = results.map(r => r.percentage);
     const avg = scores.length > 0 ? scores.reduce((s,v) => s+v, 0) / scores.length : 0;
 
+    // Sinf bo'yicha guruhlash
+    const byClass = {};
+    for (const r of results) {
+      const cls = r.class_name || 'Nomalum';
+      if (!byClass[cls]) byClass[cls] = { students: [], scores: [] };
+      byClass[cls].students.push(r);
+      byClass[cls].scores.push(r.percentage);
+    }
+
+    // Har sinf uchun statistika
+    const classStats = Object.entries(byClass).map(([cls, data]) => ({
+      class_name: cls,
+      count: data.students.length,
+      average: Math.round((data.scores.reduce((s,v) => s+v, 0) / data.scores.length) * 10) / 10,
+      max: Math.round(Math.max(...data.scores) * 10) / 10,
+      min: Math.round(Math.min(...data.scores) * 10) / 10,
+      passed_60: data.scores.filter(s => s >= 60).length,
+      passed_percent: Math.round((data.scores.filter(s => s >= 60).length / data.scores.length) * 100),
+      students: data.students
+    }));
+
     res.json({
       total: results.length,
       average: Math.round(avg * 10) / 10,
+      class_stats: classStats,
       results
     });
   } catch (err) {
