@@ -95,7 +95,7 @@ class Lesson {
       params.push(`%${filters.search}%`, `%${filters.search}%`);
     }
 
-    query += ' ORDER BY l.created_at DESC';
+    query += ' ORDER BY l.created_at ASC';
 
     const lessons = await database.all(query, params);
     return lessons;
@@ -114,7 +114,7 @@ class Lesson {
       WHERE l.grade = ?
         AND u.district = ?
         AND u.school_number = ?
-      ORDER BY l.created_at DESC
+      ORDER BY l.created_at ASC
     `, [grade, teacherDistrict, teacherSchool]);
 
     return lessons;
