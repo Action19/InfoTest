@@ -47,6 +47,7 @@ const LessonDetail = () => {
   const [editingAssignment, setEditingAssignment] = useState(null);
   const [showEditLessonModal, setShowEditLessonModal] = useState(false);
   const [editLesson, setEditLesson] = useState({ title: '', description: '', subject: '', content: '' });
+  const [pdfViewer, setPdfViewer] = useState(null);
   const [newAssignment, setNewAssignment] = useState({
     title: '', description: '', task_type: 'python',
     instructions: '', max_score: 100, deadline: ''
@@ -723,30 +724,61 @@ const LessonDetail = () => {
         </div>
         {lesson.materials && lesson.materials.length > 0 ? (
           <div className="materials-list" style={{ marginTop: '1.5rem' }}>
-            {lesson.materials.map((material) => (
-              <div key={material.id} className="material-item">
-                <div className="material-info">
-                  <span className="material-icon">{getFileIcon(material.file_name)}</span>
-                  <div>
-                    <h4>{material.file_name}</h4>
-                    <p className="material-meta">
-                      {formatFileSize(material.file_size)} • {new Date(material.uploaded_at).toLocaleDateString('uz-UZ')}
-                    </p>
+            {lesson.materials.map((material) => {
+              const fileUrl = material.file_path && material.file_path.startsWith('http') ? material.file_path : material.file_path ? `${process.env.REACT_APP_API_URL?.replace('/api', '')}${material.file_path}` : '#';
+              const isPdf = material.file_name?.toLowerCase().endsWith('.pdf');
+              
+              return (
+              <div key={material.id}>
+                <div className="material-item">
+                  <div className="material-info">
+                    <span className="material-icon">{getFileIcon(material.file_name)}</span>
+                    <div>
+                      <h4>{material.file_name}</h4>
+                      <p className="material-meta">
+                        {formatFileSize(material.file_size)} • {new Date(material.uploaded_at).toLocaleDateString('uz-UZ')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="material-actions">
+                    {isPdf && (
+                      <button
+                        onClick={() => setPdfViewer(pdfViewer === material.id ? null : material.id)}
+                        className="btn btn-sm btn-primary"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                      >
+                        {pdfViewer === material.id ? '✕ Yopish' : '👁️ Ko\'rish'}
+                      </button>
+                    )}
+                    <a href={fileUrl}
+                      target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline">
+                      ⬇️ Yuklab olish
+                    </a>
+                    {isOwner && (
+                      <button onClick={() => handleDeleteMaterial(material.id)} className="btn btn-sm btn-danger">
+                        🗑️
+                      </button>
+                    )}
                   </div>
                 </div>
-                <div className="material-actions">
-                  <a href={material.file_path && material.file_path.startsWith('http') ? material.file_path : material.file_path ? `${process.env.REACT_APP_API_URL?.replace('/api', '')}${material.file_path}` : '#'}
-                    target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline">
-                    ⬇️ Yuklab olish
-                  </a>
-                  {isOwner && (
-                    <button onClick={() => handleDeleteMaterial(material.id)} className="btn btn-sm btn-danger">
-                      🗑️
-                    </button>
-                  )}
-                </div>
+                {/* PDF Viewer — inline */}
+                {isPdf && pdfViewer === material.id && (
+                  <div style={{
+                    marginTop: '0.75rem', marginBottom: '0.75rem',
+                    borderRadius: '12px', overflow: 'hidden',
+                    border: '1px solid var(--border-color)',
+                    background: '#1e293b'
+                  }}>
+                    <iframe
+                      src={`${fileUrl}#toolbar=1&navpanes=1`}
+                      title={material.file_name}
+                      style={{ width: '100%', height: '600px', border: 'none' }}
+                    />
+                  </div>
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>Hozircha materiallar yuklanmagan</p>
