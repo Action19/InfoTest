@@ -243,15 +243,58 @@ const DiagnosticTest = () => {
           {/* Savollar ro'yxati (o'qituvchi) */}
           {(user.role === 'teacher' || user.role === 'admin') && questions.length > 0 && (
             <div style={{ background: 'var(--glass-bg)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '1.5rem', marginBottom: '1.5rem' }}>
-              <h3 style={{ margin: '0 0 1rem' }}>❓ Savollar ({questions.length})</h3>
-              {questions.map((q, i) => (
-                <div key={q.id} style={{ padding: '0.75rem', background: 'var(--bg-primary)', borderRadius: '8px', marginBottom: '0.5rem', border: '1px solid var(--border-color)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.9rem' }}><strong>{i+1}.</strong> {q.question_text}</span>
-                    <span style={{ fontSize: '0.75rem', color: '#34d399' }}>✓ {q.correct_answer}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h3 style={{ margin: 0 }}>❓ Savollar ({questions.length})</h3>
+                <button
+                  className={`btn btn-sm ${selectedTest.is_active ? 'btn-warning' : 'btn-success'}`}
+                  onClick={async () => {
+                    try {
+                      await api.put(`/diagnostic/tests/${selectedTest.id}`, { is_active: !selectedTest.is_active });
+                      alert(selectedTest.is_active ? '🔒 Test yashirildi' : '📢 Test nashr qilindi!');
+                      fetchTests();
+                      selectTest({ ...selectedTest, is_active: !selectedTest.is_active });
+                    } catch (err) { alert(err.response?.data?.error || 'Xatolik'); }
+                  }}
+                >
+                  {selectedTest.is_active ? '🔒 Yashirish' : '📢 Nashr qilish'}
+                </button>
+              </div>
+              {questions.map((q, i) => {
+                const opts = Array.isArray(q.options) ? q.options : (() => { try { return JSON.parse(q.options || '[]'); } catch { return []; } })();
+                return (
+                  <div key={q.id} style={{ padding: '1rem', background: 'var(--bg-primary)', borderRadius: '10px', marginBottom: '0.6rem', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>
+                        <span style={{ color: 'var(--primary-light)' }}>{i+1}.</span> {q.question_text}
+                      </span>
+                      <button onClick={async () => {
+                        if (!window.confirm("O'chirish?")) return;
+                        await api.delete(`/diagnostic/questions/${q.id}`);
+                        selectTest(selectedTest);
+                      }} style={{ background: 'none', border: 'none', color: '#fb7185', cursor: 'pointer', fontSize: '0.85rem' }}>🗑️</button>
+                    </div>
+                    {opts.length > 0 && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.3rem', marginBottom: '0.4rem' }}>
+                        {opts.map((opt, oi) => {
+                          const letter = String.fromCharCode(65 + oi);
+                          const isCorrect = q.correct_answer === opt || q.correct_answer === letter;
+                          return (
+                            <div key={oi} style={{
+                              padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.82rem',
+                              background: isCorrect ? 'rgba(16,185,129,0.1)' : 'transparent',
+                              border: isCorrect ? '1px solid rgba(16,185,129,0.3)' : '1px solid var(--border-color)',
+                              color: isCorrect ? '#34d399' : 'var(--text-secondary)'
+                            }}>
+                              <strong>{letter}.</strong> {opt} {isCorrect && '✓'}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>{q.points} ball</span>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
