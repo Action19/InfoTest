@@ -67,6 +67,7 @@ const Navbar = () => {
     { path: '/forum', icon: '💬', label: 'Forum', roles: ['student', 'teacher', 'admin'] },
     { path: '/experiment', icon: '📊', label: 'Tajriba', roles: ['admin'] },
     { path: '/survey', icon: '📋', label: "So'rovnoma", roles: ['student', 'teacher', 'admin'] },
+    { path: '/diagnostic', icon: '🔬', label: 'Diagnostika', roles: ['student', 'teacher', 'admin'] },
     { path: '/leaderboard', icon: '🏆', label: 'Reyting', roles: ['student', 'teacher', 'admin'] },
   ];
 

@@ -28,6 +28,7 @@ const ForumPost = lazy(() => import('./pages/ForumPost'));
 const NewPost = lazy(() => import('./pages/NewPost'));
 const ExperimentStats = lazy(() => import('./pages/ExperimentStats'));
 const Survey = lazy(() => import('./pages/Survey'));
+const DiagnosticTest = lazy(() => import('./pages/DiagnosticTest'));
 
 // Loading fallback
 const PageLoader = () => (
@@ -125,6 +126,10 @@ function App() {
                 <Route 
                   path="/survey" 
                   element={<PrivateRoute><Survey /></PrivateRoute>} 
+                />
+                <Route 
+                  path="/diagnostic" 
+                  element={<PrivateRoute><DiagnosticTest /></PrivateRoute>} 
                 />
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
               </Routes>

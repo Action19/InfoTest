@@ -20,6 +20,7 @@ const aiAnalyticsRoutes = require('./routes/aiAnalytics');
 const forumRoutes = require('./routes/forum');
 const experimentRoutes = require('./routes/experiment');
 const surveyRoutes = require('./routes/survey');
+const diagnosticRoutes = require('./routes/diagnostic');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -85,6 +86,7 @@ app.use('/api/ai-analytics', aiAnalyticsRoutes);
 app.use('/api/forum', forumRoutes);
 app.use('/api/experiment', experimentRoutes);
 app.use('/api/survey', surveyRoutes);
+app.use('/api/diagnostic', diagnosticRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -330,6 +332,56 @@ async function runMigrations(db) {
       }
       console.log('✓ Forum default categories created');
     }
+
+    // diagnostic_tests — tajriba boshidagi diagnostik testlar
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS diagnostic_tests (
+        id           SERIAL PRIMARY KEY,
+        title        TEXT NOT NULL,
+        description  TEXT DEFAULT '',
+        duration     INTEGER DEFAULT 45,
+        grade        INTEGER DEFAULT 9,
+        is_active    BOOLEAN DEFAULT TRUE,
+        created_by   INTEGER NOT NULL REFERENCES users(id),
+        created_at   TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    // diagnostic_questions — diagnostik test savollari
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS diagnostic_questions (
+        id              SERIAL PRIMARY KEY,
+        test_id         INTEGER NOT NULL REFERENCES diagnostic_tests(id) ON DELETE CASCADE,
+        question_text   TEXT NOT NULL,
+        question_type   TEXT DEFAULT 'single_choice',
+        options         TEXT,
+        correct_answer  TEXT NOT NULL,
+        points          INTEGER DEFAULT 1,
+        explanation     TEXT,
+        order_number    INTEGER,
+        created_at      TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await db.run('CREATE INDEX IF NOT EXISTS idx_diag_q_test ON diagnostic_questions(test_id)').catch(()=>{});
+
+    // diagnostic_results — diagnostik test natijalari
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS diagnostic_results (
+        id               SERIAL PRIMARY KEY,
+        test_id          INTEGER NOT NULL REFERENCES diagnostic_tests(id) ON DELETE CASCADE,
+        user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        score            INTEGER DEFAULT 0,
+        percentage       REAL DEFAULT 0,
+        correct_answers  INTEGER DEFAULT 0,
+        total_questions  INTEGER DEFAULT 0,
+        time_taken       INTEGER DEFAULT 0,
+        answers          TEXT,
+        created_at       TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(test_id, user_id)
+      )
+    `);
+    await db.run('CREATE INDEX IF NOT EXISTS idx_diag_r_user ON diagnostic_results(user_id)').catch(()=>{});
+    await db.run('CREATE INDEX IF NOT EXISTS idx_diag_r_test ON diagnostic_results(test_id)').catch(()=>{});
 
     // survey_responses — so'rovnoma javoblari
     await db.run(`
