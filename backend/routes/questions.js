@@ -335,30 +335,86 @@ router.post('/upload-excel-file', authenticateToken, isTeacherOrAdmin, multerExc
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
-    const rows = XLSX.utils.sheet_to_json(sheet);
+    
+    // Raw data olish (header qatorini avtomatik topish)
+    const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    
+    // Sarlavha qatorini topish (Savol yoki savol so'zi bor qator)
+    let headerRowIndex = -1;
+    let headers = [];
+    for (let i = 0; i < Math.min(rawRows.length, 5); i++) {
+      const row = rawRows[i];
+      if (row && row.some(cell => {
+        const c = String(cell || '').toLowerCase().trim();
+        return c === 'savol' || c === 'question' || c === 'savol matni';
+      })) {
+        headerRowIndex = i;
+        headers = row.map(h => String(h || '').trim());
+        break;
+      }
+    }
 
-    if (!rows.length) {
-      return res.status(400).json({ error: 'Excel fayl bo\'sh yoki format noto\'g\'ri' });
+    if (headerRowIndex === -1) {
+      return res.status(400).json({
+        error: 'Excel formatida "Savol" ustuni topilmadi',
+        hint: 'Excel ustunlari: Savol, A, B, C, D, Javob (yoki To\'g\'ri javob), Ball, Izoh'
+      });
+    }
+
+    // Ustun indekslarini aniqlash (flexible)
+    const findCol = (...names) => {
+      for (const name of names) {
+        const idx = headers.findIndex(h => h.toLowerCase() === name.toLowerCase());
+        if (idx !== -1) return idx;
+      }
+      // Partial match
+      for (const name of names) {
+        const idx = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
+        if (idx !== -1) return idx;
+      }
+      return -1;
+    };
+
+    const colSavol = findCol('Savol', 'Question', 'Savol matni');
+    const colA = findCol('A', 'Variant A');
+    const colB = findCol('B', 'Variant B');
+    const colC = findCol('C', 'Variant C');
+    const colD = findCol('D', 'Variant D');
+    const colJavob = findCol("To'g'ri javob", 'Javob', 'Answer', 'Togri javob');
+    const colBall = findCol('Ball', 'Points');
+    const colIzoh = findCol('Izoh', 'Explanation');
+    const colTuri = findCol('Turi', 'Type');
+
+    if (colSavol === -1) {
+      return res.status(400).json({ error: '"Savol" ustuni topilmadi. Ustun nomlari: ' + headers.join(', ') });
+    }
+
+    // Ma'lumot qatorlarini parse qilish
+    const dataRows = rawRows.slice(headerRowIndex + 1);
+    
+    if (!dataRows.length) {
+      return res.status(400).json({ error: 'Excel fayl bo\'sh — savollar topilmadi' });
     }
 
     // Savollarni parse qilish
     const questions = [];
     const errors = [];
 
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      const rowNum = i + 2; // Excel 1-qator sarlavha
+    for (let i = 0; i < dataRows.length; i++) {
+      const row = dataRows[i];
+      if (!row || row.every(cell => !cell)) continue; // Bo'sh qatorni o'tkazish
+      
+      const rowNum = headerRowIndex + i + 2; // Excel qator raqami
 
-      // Ustun nomlari (flexible)
-      const questionText = row['Savol'] || row['savol'] || row['Question'] || row['question'] || row['Savol matni'] || '';
-      const optionA = row['A'] || row['a'] || row['Variant A'] || row['variant_a'] || '';
-      const optionB = row['B'] || row['b'] || row['Variant B'] || row['variant_b'] || '';
-      const optionC = row['C'] || row['c'] || row['Variant C'] || row['variant_c'] || '';
-      const optionD = row['D'] || row['d'] || row['Variant D'] || row['variant_d'] || '';
-      const correctAnswer = row['Javob'] || row['javob'] || row['Answer'] || row['answer'] || row['To\'g\'ri javob'] || '';
-      const points = parseInt(row['Ball'] || row['ball'] || row['Points'] || row['points'] || '1') || 1;
-      const explanation = row['Izoh'] || row['izoh'] || row['Explanation'] || '';
-      const questionType = row['Turi'] || row['turi'] || row['Type'] || 'single_choice';
+      const questionText = String(row[colSavol] || '').trim();
+      const optionA = String(row[colA] || '').trim();
+      const optionB = String(row[colB] || '').trim();
+      const optionC = colC !== -1 ? String(row[colC] || '').trim() : '';
+      const optionD = colD !== -1 ? String(row[colD] || '').trim() : '';
+      const correctAnswer = colJavob !== -1 ? String(row[colJavob] || '').trim() : '';
+      const points = colBall !== -1 ? (parseInt(row[colBall]) || 1) : 1;
+      const explanation = colIzoh !== -1 ? String(row[colIzoh] || '').trim() : '';
+      const questionType = colTuri !== -1 ? String(row[colTuri] || '').trim() : 'single_choice';
 
       if (!questionText.trim()) {
         errors.push(`${rowNum}-qator: Savol matni bo'sh`);
