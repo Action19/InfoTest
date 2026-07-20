@@ -151,10 +151,10 @@ const Lessons = () => {
         </div>
       ) : (
         <div className="tests-grid">
-          {filteredLessons.map((lesson) => (
+          {filteredLessons.map((lesson, index) => (
             <div key={lesson.id} className="test-card lesson-card">
               <div className="test-card-header">
-                <h3>{lesson.title}</h3>
+                <h3><span style={{ color: 'var(--primary-light)', marginRight: '0.5rem', fontWeight: 800 }}>{index + 1}.</span>{lesson.title}</h3>
                 <span className="badge badge-success">
                   {lesson.grade}-sinf
                 </span>
