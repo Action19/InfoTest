@@ -364,12 +364,12 @@ router.post('/upload-excel-file', authenticateToken, isTeacherOrAdmin, multerExc
     // Ustun indekslarini aniqlash (flexible)
     const findCol = (...names) => {
       for (const name of names) {
-        const idx = headers.findIndex(h => h.toLowerCase() === name.toLowerCase());
+        const idx = headers.findIndex(h => h && h.toLowerCase() === name.toLowerCase());
         if (idx !== -1) return idx;
       }
       // Partial match
       for (const name of names) {
-        const idx = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
+        const idx = headers.findIndex(h => h && h.toLowerCase().includes(name.toLowerCase()));
         if (idx !== -1) return idx;
       }
       return -1;
