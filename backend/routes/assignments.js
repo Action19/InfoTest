@@ -28,7 +28,9 @@ const upload = multer({
 const TASK_TYPES = {
   word:       { label: 'Word',             ext: '.docx/.doc',    icon: '📝' },
   excel:      { label: 'Excel',            ext: '.xlsx/.xls',    icon: '📊' },
+  powerpoint: { label: 'PowerPoint',       ext: '.pptx/.ppt',   icon: '📽️' },
   access:     { label: 'Access',           ext: '.accdb/.mdb',   icon: '🗄️' },
+  paint:      { label: 'Paint',            ext: '.png/.jpg',     icon: '🖌️' },
   python:     { label: 'Python',           ext: '.py',           icon: '🐍' },
   scratch:    { label: 'Scratch',          ext: '.sb3',          icon: '🐱' },
   html:       { label: 'HTML',             ext: '.html/.htm',    icon: '🌐' },
@@ -234,6 +236,8 @@ router.post('/upload-excel', authenticateToken, requireRole(['teacher','admin'])
     // Task type mapping
     const typeMap = {
       'word': 'word', 'excel': 'excel', 'access': 'access',
+      'powerpoint': 'powerpoint', 'ppt': 'powerpoint', 'power point': 'powerpoint',
+      'paint': 'paint',
       'python': 'python', 'scratch': 'scratch', 'html': 'html',
       'javascript': 'javascript', 'js': 'javascript',
       'css': 'css', 'boshqa': 'other', 'other': 'other'
