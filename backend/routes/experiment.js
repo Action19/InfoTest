@@ -224,244 +224,120 @@ router.get('/stats', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Faqat admin ko\'ra oladi' });
     }
 
-    // Tajriba guruhi = platformadan foydalanuvchi o'quvchilar (test topshirganlar)
-    // Ularning test natijalari olinadi
-    const experimentGroup = await database.all(`
-      SELECT r.user_id, r.percentage, r.correct_answers, r.total_questions,
-             u.full_name, u.class_name, u.district, u.school_number
+    // ═══ TAJRIBA GURUHI — platformadan foydalanuvchilar ═══
+    // Diagnostik test (pre-test) natijalari
+    const preTestResults = await database.all(`
+      SELECT dr.user_id, dr.percentage, u.full_name, u.class_name
+      FROM diagnostic_results dr
+      JOIN users u ON dr.user_id = u.id
+      WHERE u.role = 'student'
+      ORDER BY dr.created_at ASC
+    `);
+
+    // Yakuniy test (post-test) — platformadagi eng oxirgi test natijalari
+    const postTestResults = await database.all(`
+      SELECT DISTINCT ON (r.user_id) r.user_id, r.percentage, u.full_name, u.class_name
       FROM results r
       JOIN users u ON r.user_id = u.id
       WHERE u.role = 'student'
-      ORDER BY r.created_at DESC
+      ORDER BY r.user_id, r.created_at DESC
     `);
 
-    // O'quvchilar bo'yicha eng yaxshi natijani olish
-    const studentBest = {};
-    for (const r of experimentGroup) {
-      if (!studentBest[r.user_id] || r.percentage > studentBest[r.user_id].percentage) {
-        studentBest[r.user_id] = r;
-      }
-    }
+    // ═══ NAZORAT GURUHI — qo'lda kiritilgan ma'lumotlar ═══
+    const controlData = await database.all(
+      'SELECT * FROM control_group_data ORDER BY created_at DESC LIMIT 1'
+    );
+    const controlGroup = controlData.length > 0
+      ? (typeof controlData[0].data === 'string' ? JSON.parse(controlData[0].data) : controlData[0].data)
+      : null;
 
-    const students = Object.values(studentBest);
-    const scores = students.map(s => s.percentage);
+    // Tajriba guruhi ballari
+    const expPreScores = preTestResults.map(r => r.percentage);
+    const expPostScores = postTestResults.map(r => r.percentage);
 
-    // Tajriba guruhini ikki qismga ajratish (simulyatsiya):
-    // 1-yarmi: platformadan ko'p foydalanganlar (yuqori ball)
-    // 2-yarmi: kam foydalanganlar (past ball)
-    const sorted = [...scores].sort((a, b) => b - a);
-    const midpoint = Math.floor(sorted.length / 2);
-    const highGroup = sorted.slice(0, midpoint); // Tajriba (ko'p foydalanganlar)
-    const lowGroup = sorted.slice(midpoint);      // Nazorat (kam foydalanganlar)
+    // Nazorat guruhi ballari (qo'lda kiritilgan)
+    const ctrlPreScores = controlGroup?.pre_test || [];
+    const ctrlPostScores = controlGroup?.post_test || [];
 
-    // Sinf bo'yicha guruhlash
-    const classBased = {};
-    for (const s of students) {
-      const cls = s.class_name || 'Nomalum';
-      if (!classBased[cls]) classBased[cls] = [];
-      classBased[cls].push(s.percentage);
-    }
+    // ═══ HISOBLASHLAR ═══
 
-    // ─── Statistik hisoblashlar ──────────────────────────────
-
-    // 1. Umumiy statistika
-    const generalStats = {
-      total_students: students.length,
-      total_attempts: experimentGroup.length,
-      mean: round(mean(scores), 2),
-      median: round(sorted[Math.floor(sorted.length / 2)] || 0, 2),
-      std_dev: round(stdDev(scores), 2),
-      variance: round(variance(scores), 2),
-      min: round(Math.min(...scores) || 0, 2),
-      max: round(Math.max(...scores) || 0, 2),
-      range: round((Math.max(...scores) || 0) - (Math.min(...scores) || 0), 2),
-      sem: round(sem(scores), 2),
-      confidence_interval_95: {
-        lower: round(mean(scores) - 1.96 * sem(scores), 2),
-        upper: round(mean(scores) + 1.96 * sem(scores), 2)
-      }
-    };
-
-    // 2. Student t-test (tajriba vs nazorat)
-    const tTestResult = tTest(highGroup, lowGroup);
-
-    // 3. Fisher F-test
-    const fisherResult = fisherTest(highGroup, lowGroup);
-
-    // 4. Cohen's d
-    const cohenResult = cohensD(highGroup, lowGroup);
-
-    // 5. Guruhlar statistikasi
-    const groupStats = {
-      experiment: {
-        name: 'Tajriba guruhi (faol foydalanuvchilar)',
-        n: highGroup.length,
-        mean: round(mean(highGroup), 2),
-        std_dev: round(stdDev(highGroup), 2),
-        variance: round(variance(highGroup), 2),
-        sem: round(sem(highGroup), 2),
-        min: round(Math.min(...highGroup) || 0, 2),
-        max: round(Math.max(...highGroup) || 0, 2)
+    // 1. Tajriba guruhi umumiy statistikasi
+    const expStats = {
+      pre: {
+        n: expPreScores.length,
+        mean: round(mean(expPreScores), 2),
+        std_dev: round(stdDev(expPreScores), 2),
+        variance: round(variance(expPreScores), 2),
       },
-      control: {
-        name: 'Nazorat guruhi (kam foydalanuvchilar)',
-        n: lowGroup.length,
-        mean: round(mean(lowGroup), 2),
-        std_dev: round(stdDev(lowGroup), 2),
-        variance: round(variance(lowGroup), 2),
-        sem: round(sem(lowGroup), 2),
-        min: round(Math.min(...lowGroup) || 0, 2),
-        max: round(Math.max(...lowGroup) || 0, 2)
+      post: {
+        n: expPostScores.length,
+        mean: round(mean(expPostScores), 2),
+        std_dev: round(stdDev(expPostScores), 2),
+        variance: round(variance(expPostScores), 2),
+      }
+    };
+
+    // 2. Nazorat guruhi umumiy statistikasi
+    const ctrlStats = {
+      pre: {
+        n: ctrlPreScores.length,
+        mean: round(mean(ctrlPreScores), 2),
+        std_dev: round(stdDev(ctrlPreScores), 2),
+        variance: round(variance(ctrlPreScores), 2),
       },
-      difference: {
-        mean_diff: round(mean(highGroup) - mean(lowGroup), 2),
-        improvement_percent: round(
-          mean(lowGroup) > 0 ? ((mean(highGroup) - mean(lowGroup)) / mean(lowGroup)) * 100 : 0, 2
-        )
+      post: {
+        n: ctrlPostScores.length,
+        mean: round(mean(ctrlPostScores), 2),
+        std_dev: round(stdDev(ctrlPostScores), 2),
+        variance: round(variance(ctrlPostScores), 2),
       }
     };
 
-    // 6. Sinf bo'yicha ANOVA (one-way)
-    const classNames = Object.keys(classBased);
-    let anovaResult = { F: 0, p: 1, significant: false, note: "Kamida 2 ta sinf kerak" };
-    if (classNames.length >= 2) {
-      const grandMean = mean(scores);
-      const k = classNames.length;
-      const N = scores.length;
+    // 3. Student t-test: tajriba vs nazorat (POST-TEST natijalar bo'yicha)
+    const tTestPostTest = expPostScores.length > 1 && ctrlPostScores.length > 1
+      ? tTest(expPostScores, ctrlPostScores) : null;
 
-      // Between-group variance (SSB)
-      let ssb = 0;
-      for (const cls of classNames) {
-        const ni = classBased[cls].length;
-        const mi = mean(classBased[cls]);
-        ssb += ni * Math.pow(mi - grandMean, 2);
-      }
-      const msb = ssb / (k - 1);
+    // 4. Student t-test: tajriba vs nazorat (PRE-TEST — guruhlar ekvivalentligi)
+    const tTestPreTest = expPreScores.length > 1 && ctrlPreScores.length > 1
+      ? tTest(expPreScores, ctrlPreScores) : null;
 
-      // Within-group variance (SSW)
-      let ssw = 0;
-      for (const cls of classNames) {
-        for (const val of classBased[cls]) {
-          ssw += Math.pow(val - mean(classBased[cls]), 2);
-        }
-      }
-      const msw = ssw / (N - k);
+    // 5. Fisher F-test (post-test dispersiyalar tengligi)
+    const fisherResult = expPostScores.length > 1 && ctrlPostScores.length > 1
+      ? fisherTest(expPostScores, ctrlPostScores) : null;
 
-      const F = msw > 0 ? msb / msw : 0;
-      const df1 = k - 1;
-      const df2 = N - k;
-      const p = fDistPValue(F, df1, df2);
+    // 6. Cohen's d (post-test effekt o'lchami)
+    const cohenResult = expPostScores.length > 1 && ctrlPostScores.length > 1
+      ? cohensD(expPostScores, ctrlPostScores) : null;
 
-      anovaResult = {
-        F: round(F, 4),
-        df_between: df1,
-        df_within: df2,
-        p: round(p, 6),
-        significant: p < 0.05,
-        significance_level: p < 0.001 ? '***' : p < 0.01 ? '**' : p < 0.05 ? '*' : 'ns',
-        class_means: classNames.map(cls => ({
-          class_name: cls,
-          n: classBased[cls].length,
-          mean: round(mean(classBased[cls]), 2),
-          std_dev: round(stdDev(classBased[cls]), 2)
-        }))
-      };
-    }
+    // 7. Paired t-test (tajriba ichida: pre vs post)
+    const pairedExp = expPreScores.length > 1 && expPostScores.length > 1 && expPreScores.length === expPostScores.length
+      ? pairedTTest(expPreScores, expPostScores) : null;
 
-    // 7. O'tish foizi bo'yicha tahlil
-    const passRate = {
-      passed_60: students.filter(s => s.percentage >= 60).length,
-      passed_70: students.filter(s => s.percentage >= 70).length,
-      passed_80: students.filter(s => s.percentage >= 80).length,
-      passed_90: students.filter(s => s.percentage >= 90).length,
-      pass_rate_60: round((students.filter(s => s.percentage >= 60).length / students.length) * 100, 1),
-      distribution: {
-        excellent: students.filter(s => s.percentage >= 86).length,
-        good: students.filter(s => s.percentage >= 60 && s.percentage < 86).length,
-        satisfactory: students.filter(s => s.percentage >= 40 && s.percentage < 60).length,
-        unsatisfactory: students.filter(s => s.percentage < 40).length
-      }
-    };
+    // 8. Paired t-test (nazorat ichida: pre vs post)
+    const pairedCtrl = ctrlPreScores.length > 1 && ctrlPostScores.length > 1 && ctrlPreScores.length === ctrlPostScores.length
+      ? pairedTTest(ctrlPreScores, ctrlPostScores) : null;
 
-    // 8. Cronbach's Alpha (testlar ichki izchilligi)
-    // Har test uchun savollar bo'yicha hisoblash
-    const testItems = await database.all(`
-      SELECT r.test_id, r.user_id, r.answers
-      FROM results r
-      JOIN users u ON r.user_id = u.id
-      WHERE u.role = 'student' AND r.answers IS NOT NULL
-      ORDER BY r.test_id
-      LIMIT 200
-    `);
-
-    let alphaResult = { alpha: 0, interpretation: "Yetarli ma'lumot yo'q" };
-    if (testItems.length > 5) {
-      // Birinchi testning savollar bo'yicha ball
-      const firstTestId = testItems[0]?.test_id;
-      const testResults = testItems.filter(t => t.test_id === firstTestId);
-      if (testResults.length >= 5) {
-        try {
-          const parsed = testResults.map(r => {
-            const answers = typeof r.answers === 'string' ? JSON.parse(r.answers) : r.answers;
-            return Array.isArray(answers) ? answers.map(a => a.is_correct ? 1 : 0) : [];
-          }).filter(a => a.length > 0);
-
-          if (parsed.length > 0 && parsed[0].length > 1) {
-            // Transpose: rows=students → cols=questions
-            const numQuestions = parsed[0].length;
-            const items = Array.from({ length: numQuestions }, (_, qi) =>
-              parsed.map(studentAnswers => studentAnswers[qi] || 0)
-            );
-            alphaResult = cronbachAlpha(items);
-          }
-        } catch (e) {
-          alphaResult = { alpha: 0, interpretation: 'Hisoblash xatosi: ' + e.message };
-        }
-      }
-    }
-
-    // 9. Xulosa va interpretatsiya
-    const conclusion = generateConclusion(tTestResult, cohenResult, generalStats, groupStats);
+    // 9. O'sish hisoblash
+    const expGrowth = expStats.post.mean - expStats.pre.mean;
+    const ctrlGrowth = ctrlStats.post.mean - ctrlStats.pre.mean;
 
     res.json({
-      general: generalStats,
-      t_test: {
-        ...tTestResult,
-        description: 'Independent Samples t-test — guruhlar o\'rtasidagi farqni tekshirish',
-        hypothesis: {
-          H0: 'Guruhlar o\'rtasida statistik jihatdan sezilarli farq yo\'q',
-          H1: 'Guruhlar o\'rtasida statistik jihatdan sezilarli farq bor'
-        },
-        result: tTestResult.significant
-          ? `H0 rad etiladi (p = ${tTestResult.p}). Guruhlar o'rtasida sezilarli farq BOR.`
-          : `H0 rad etilmaydi (p = ${tTestResult.p}). Sezilarli farq yo'q.`
+      experiment_group: expStats,
+      control_group: ctrlStats,
+      control_data_entered: !!controlGroup,
+      growth: {
+        experiment: round(expGrowth, 2),
+        control: round(ctrlGrowth, 2),
+        difference: round(expGrowth - ctrlGrowth, 2)
       },
-      fisher_test: {
-        ...fisherResult,
-        description: 'Fisher F-test — dispersiyalar tengligini tekshirish'
-      },
-      cohens_d: {
-        ...cohenResult,
-        description: 'Cohen\'s d — effekt o\'lchami (amaliy ahamiyat)'
-      },
-      groups: groupStats,
-      anova: {
-        ...anovaResult,
-        description: 'One-Way ANOVA — sinflar o\'rtasidagi farqni tekshirish'
-      },
-      pass_rate: passRate,
-      cronbach_alpha: {
-        ...alphaResult,
-        description: 'Cronbach\'s Alpha — test ichki izchilligi (reliability)'
-      },
-      conclusion,
-      students_data: students.slice(0, 50).map(s => ({
-        full_name: s.full_name,
-        class_name: s.class_name,
-        score: round(s.percentage, 1),
-        correct: s.correct_answers,
-        total: s.total_questions
-      }))
+      t_test_pre: tTestPreTest,
+      t_test_post: tTestPostTest,
+      fisher_test: fisherResult,
+      cohens_d: cohenResult,
+      paired_t_experiment: pairedExp,
+      paired_t_control: pairedCtrl,
+      students_pre: preTestResults.slice(0, 50),
+      students_post: postTestResults.slice(0, 50)
     });
   } catch (err) {
     console.error('Experiment stats error:', err);
@@ -469,25 +345,67 @@ router.get('/stats', authenticateToken, async (req, res) => {
   }
 });
 
-function generateConclusion(tTest, cohen, general, groups) {
-  const lines = [];
-  lines.push(`📊 Tajriba-sinov natijalariga ko'ra:`);
-  lines.push(`\n1. Tajriba guruhi o'rtacha bali: ${groups.experiment.mean}% (n=${groups.experiment.n})`);
-  lines.push(`   Nazorat guruhi o'rtacha bali: ${groups.control.mean}% (n=${groups.control.n})`);
-  lines.push(`   Farq: +${groups.difference.mean_diff}% (${groups.difference.improvement_percent}% o'sish)`);
+// POST /api/experiment/control-data — nazorat guruhi ma'lumotlarini qo'lda kiritish
+router.post('/control-data', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Faqat admin kirita oladi' });
+    }
 
-  if (tTest.significant) {
-    lines.push(`\n2. Student t-test: t(${tTest.df}) = ${tTest.t}, p = ${tTest.p} ${tTest.significance_level}`);
-    lines.push(`   ✅ Farq statistik jihatdan SEZILARLI (p < 0.05)`);
-  } else {
-    lines.push(`\n2. Student t-test: t(${tTest.df}) = ${tTest.t}, p = ${tTest.p}`);
-    lines.push(`   ⚠️ Farq statistik jihatdan sezilarli EMAS`);
+    const { pre_test, post_test, description } = req.body;
+
+    if (!pre_test || !post_test || !Array.isArray(pre_test) || !Array.isArray(post_test)) {
+      return res.status(400).json({ error: 'pre_test va post_test massivlari kerak' });
+    }
+
+    // Bazaga saqlash
+    await database.run(`
+      CREATE TABLE IF NOT EXISTS control_group_data (
+        id SERIAL PRIMARY KEY,
+        data JSONB NOT NULL,
+        description TEXT DEFAULT '',
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    await database.run(`
+      INSERT INTO control_group_data (data, description, created_by)
+      VALUES (?, ?, ?)
+    `, [JSON.stringify({ pre_test, post_test }), description || '', req.user.id]);
+
+    res.json({
+      message: 'Nazorat guruhi ma\'lumotlari saqlandi',
+      pre_test_count: pre_test.length,
+      post_test_count: post_test.length
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Saqlashda xatolik: ' + err.message });
   }
+});
 
-  lines.push(`\n3. Effekt o'lchami: Cohen's d = ${cohen.d} — ${cohen.interpretation}`);
-  lines.push(`\n4. Umumiy o'rtacha: ${general.mean}% ± ${general.std_dev}% (95% CI: ${general.confidence_interval_95.lower}–${general.confidence_interval_95.upper})`);
+// GET /api/experiment/control-data — nazorat guruhi ma'lumotlarini olish
+router.get('/control-data', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Faqat admin' });
+    }
+    
+    await database.run(`
+      CREATE TABLE IF NOT EXISTS control_group_data (
+        id SERIAL PRIMARY KEY, data JSONB NOT NULL,
+        description TEXT DEFAULT '', created_by INTEGER, created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `).catch(()=>{});
 
-  return lines.join('\n');
-}
+    const data = await database.all('SELECT * FROM control_group_data ORDER BY created_at DESC LIMIT 1');
+    if (data.length === 0) return res.json({ entered: false });
+    
+    const parsed = typeof data[0].data === 'string' ? JSON.parse(data[0].data) : data[0].data;
+    res.json({ entered: true, ...parsed, created_at: data[0].created_at });
+  } catch (err) {
+    res.json({ entered: false });
+  }
+});
 
 module.exports = router;
