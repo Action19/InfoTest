@@ -265,7 +265,9 @@ const LessonDetail = () => {
   const TASK_TYPES = {
     word:       { label: 'Word',       icon: '📝', ext: '.docx/.doc' },
     excel:      { label: 'Excel',      icon: '📊', ext: '.xlsx/.xls' },
+    powerpoint: { label: 'PowerPoint', icon: '📽️', ext: '.pptx/.ppt' },
     access:     { label: 'Access',     icon: '🗄️', ext: '.accdb/.mdb' },
+    paint:      { label: 'Paint',      icon: '🖌️', ext: '.png/.jpg' },
     python:     { label: 'Python',     icon: '🐍', ext: '.py' },
     scratch:    { label: 'Scratch',    icon: '🐱', ext: '.sb3' },
     html:       { label: 'HTML',       icon: '🌐', ext: '.html' },
