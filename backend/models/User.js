@@ -58,7 +58,7 @@ class User {
 
   // Find user by ID
   static async findById(id) {
-    const sql = 'SELECT id, username, email, full_name, role, avatar, points, level, bio, district, school_number, class_name, teaching_classes, created_at FROM users WHERE id = ?';
+    const sql = 'SELECT id, username, email, full_name, role, avatar, points, level, bio, district, school_number, class_name, teaching_classes, is_blocked, created_at FROM users WHERE id = ?';
     return await database.get(sql, [id]);
   }
 
