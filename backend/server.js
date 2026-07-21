@@ -394,6 +394,9 @@ async function runMigrations(db) {
       )
     `);
 
+    // is_blocked ustuni qo'shish
+    await db.run('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT FALSE').catch(()=>{});
+
     // survey_responses — so'rovnoma javoblari
     await db.run(`
       CREATE TABLE IF NOT EXISTS survey_responses (

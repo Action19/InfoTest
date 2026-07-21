@@ -180,6 +180,11 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    // Bloklangan tekshirish
+    if (user.is_blocked) {
+      return res.status(403).json({ error: 'Sizning hisobingiz bloklangan. Administrator bilan bog\'laning.' });
+    }
+
     console.log('Generating token...');
     // Generate token
     const token = generateToken(user.id);

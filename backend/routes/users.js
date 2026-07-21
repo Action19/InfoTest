@@ -1,5 +1,6 @@
 const express = require('express');
 const User = require('../models/User');
+const database = require('../config/database');
 const { authenticateToken, isAdmin, isTeacherOrAdmin } = require('../middleware/auth');
 
 const router = express.Router();
@@ -89,6 +90,50 @@ router.get('/leaderboard/top', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Get leaderboard error:', error);
     res.status(500).json({ error: 'Failed to get leaderboard' });
+  }
+});
+
+// Block/Unblock user (admin only)
+router.patch('/:id/block', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (req.user.id === parseInt(id)) {
+      return res.status(400).json({ error: 'O\'zingizni bloklashingiz mumkin emas' });
+    }
+
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ error: 'Foydalanuvchi topilmadi' });
+
+    const currentStatus = user.is_blocked || false;
+    await database.run('UPDATE users SET is_blocked = ? WHERE id = ?', [!currentStatus, id]);
+
+    res.json({
+      message: !currentStatus ? 'Foydalanuvchi BLOKLANDI' : 'Blok olib tashlandi',
+      is_blocked: !currentStatus
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Xatolik: ' + err.message });
+  }
+});
+
+// Reset user password (admin only)
+router.patch('/:id/reset-password', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { new_password } = req.body;
+
+    if (!new_password || new_password.length < 4) {
+      return res.status(400).json({ error: 'Parol kamida 4 belgidan iborat bo\'lishi kerak' });
+    }
+
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ error: 'Foydalanuvchi topilmadi' });
+
+    await User.updatePassword(id, new_password);
+
+    res.json({ message: `${user.full_name} paroli yangilandi` });
+  } catch (err) {
+    res.status(500).json({ error: 'Xatolik: ' + err.message });
   }
 });
 
