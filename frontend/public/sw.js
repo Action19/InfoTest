@@ -3,8 +3,8 @@
  * PWA Offline rejim — test topshirish, caching, background sync
  */
 
-const CACHE_NAME = 'infotest-v2';
-const API_CACHE = 'infotest-api-v2';
+const CACHE_NAME = 'infotest-v3';
+const API_CACHE = 'infotest-api-v3';
 const OFFLINE_QUEUE = 'infotest-offline-queue';
 
 // Keshlanadigan statik fayllar

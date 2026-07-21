@@ -50,6 +50,14 @@
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: calc(100vw - 300px);
+  scrollbar-width: none;
+}
+
+.navbar-menu::-webkit-scrollbar {
+  display: none;
 }
 
 .navbar-link {
