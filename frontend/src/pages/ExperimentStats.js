@@ -13,7 +13,20 @@ const ExperimentStats = () => {
   const [postInput, setPostInput] = useState('');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { fetchControlData(); }, []);
+  // Filtrlar
+  const [filters, setFilters] = useState(null);
+  const [selectedDistrict, setSelectedDistrict] = useState('');
+  const [selectedSchool, setSelectedSchool] = useState('');
+  const [selectedClass, setSelectedClass] = useState('');
+
+  useEffect(() => { fetchControlData(); fetchFilters(); }, []);
+
+  const fetchFilters = async () => {
+    try {
+      const res = await api.get('/experiment/filters');
+      setFilters(res.data);
+    } catch {}
+  };
 
   const fetchControlData = async () => {
     try {
@@ -26,7 +39,11 @@ const ExperimentStats = () => {
     try {
       setLoading(true);
       setError('');
-      const res = await api.get('/experiment/stats');
+      const params = {};
+      if (selectedDistrict) params.district = selectedDistrict;
+      if (selectedSchool) params.school_number = selectedSchool;
+      if (selectedClass) params.class_name = selectedClass;
+      const res = await api.get('/experiment/stats', { params });
       setData(res.data);
     } catch (err) {
       setError(err.response?.data?.error || 'Xatolik yuz berdi');
@@ -95,6 +112,60 @@ const ExperimentStats = () => {
             📝 Nazorat guruhi ma'lumotlarini kiritish
           </button>
         </div>
+
+        {/* Filtrlar: Maktab va sinf tanlash */}
+        {filters && (
+          <div style={{
+            display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '1.25rem',
+            flexWrap: 'wrap', alignItems: 'center'
+          }}>
+            <select
+              value={selectedDistrict}
+              onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedSchool(''); setSelectedClass(''); }}
+              style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.85rem' }}
+            >
+              <option value="">Barcha tumanlar</option>
+              {filters.districts?.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+
+            <select
+              value={selectedSchool}
+              onChange={(e) => { setSelectedSchool(e.target.value); setSelectedClass(''); }}
+              style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.85rem' }}
+            >
+              <option value="">Barcha maktablar</option>
+              {filters.schools
+                ?.filter(s => !selectedDistrict || s.district === selectedDistrict)
+                .map(s => <option key={s.school_number} value={s.school_number}>{s.school_number}-maktab</option>)
+              }
+            </select>
+
+            <select
+              value={selectedClass}
+              onChange={(e) => setSelectedClass(e.target.value)}
+              style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.85rem' }}
+            >
+              <option value="">Barcha sinflar</option>
+              {filters.classes
+                ?.filter(c => (!selectedDistrict || c.district === selectedDistrict) && (!selectedSchool || c.school_number === selectedSchool))
+                .map(c => <option key={c.class_name} value={c.class_name}>{c.class_name}</option>)
+              }
+            </select>
+
+            {(selectedDistrict || selectedSchool || selectedClass) && (
+              <button onClick={() => { setSelectedDistrict(''); setSelectedSchool(''); setSelectedClass(''); }}
+                style={{ background: 'none', border: 'none', color: 'var(--primary-light)', cursor: 'pointer', fontSize: '0.82rem' }}>
+                ✕ Tozalash
+              </button>
+            )}
+          </div>
+        )}
+
+        {(selectedDistrict || selectedSchool || selectedClass) && (
+          <p style={{ fontSize: '0.82rem', color: 'var(--primary-light)', marginTop: '0.5rem' }}>
+            🎯 Filtr: {selectedDistrict || 'Barcha'} → {selectedSchool ? selectedSchool + '-maktab' : 'Barcha'} → {selectedClass || 'Barcha'}
+          </p>
+        )}
 
         {controlData?.entered && (
           <p style={{ fontSize: '0.8rem', color: '#34d399', marginTop: '0.75rem' }}>

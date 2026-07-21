@@ -224,24 +224,33 @@ router.get('/stats', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Faqat admin ko\'ra oladi' });
     }
 
+    const { district, school_number, class_name } = req.query;
+
+    // Filter shartlari
+    let filterWhere = "WHERE u.role = 'student'";
+    const filterParams = [];
+    if (district) { filterWhere += ' AND u.district = ?'; filterParams.push(district); }
+    if (school_number) { filterWhere += ' AND u.school_number = ?'; filterParams.push(school_number); }
+    if (class_name) { filterWhere += ' AND u.class_name = ?'; filterParams.push(class_name); }
+
     // ═══ TAJRIBA GURUHI — platformadan foydalanuvchilar ═══
     // Diagnostik test (pre-test) natijalari
     const preTestResults = await database.all(`
       SELECT dr.user_id, dr.percentage, u.full_name, u.class_name
       FROM diagnostic_results dr
       JOIN users u ON dr.user_id = u.id
-      WHERE u.role = 'student'
+      ${filterWhere}
       ORDER BY dr.created_at ASC
-    `);
+    `, filterParams);
 
     // Yakuniy test (post-test) — platformadagi eng oxirgi test natijalari
     const postTestResults = await database.all(`
       SELECT DISTINCT ON (r.user_id) r.user_id, r.percentage, u.full_name, u.class_name
       FROM results r
       JOIN users u ON r.user_id = u.id
-      WHERE u.role = 'student'
+      ${filterWhere}
       ORDER BY r.user_id, r.created_at DESC
-    `);
+    `, filterParams);
 
     // ═══ NAZORAT GURUHI — qo'lda kiritilgan ma'lumotlar ═══
     const controlData = await database.all(
@@ -378,6 +387,31 @@ router.get('/stats', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('Experiment stats error:', err);
     res.status(500).json({ error: 'Statistik hisoblashda xatolik: ' + err.message });
+  }
+});
+
+// GET /api/experiment/filters — mavjud maktab va sinflar ro'yxati
+router.get('/filters', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Faqat admin' });
+
+    const districts = await database.all(
+      "SELECT DISTINCT district FROM users WHERE role='student' AND district IS NOT NULL AND district != '' ORDER BY district"
+    );
+    const schools = await database.all(
+      "SELECT DISTINCT district, school_number FROM users WHERE role='student' AND school_number IS NOT NULL AND school_number != '' ORDER BY district, school_number"
+    );
+    const classes = await database.all(
+      "SELECT DISTINCT district, school_number, class_name FROM users WHERE role='student' AND class_name IS NOT NULL AND class_name != '' ORDER BY class_name"
+    );
+
+    res.json({
+      districts: districts.map(d => d.district),
+      schools: schools.map(s => ({ district: s.district, school_number: s.school_number })),
+      classes: classes.map(c => ({ district: c.district, school_number: c.school_number, class_name: c.class_name }))
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
