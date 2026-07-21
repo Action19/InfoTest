@@ -66,6 +66,7 @@ const Navbar = () => {
     { path: '/ai-analytics', icon: '🤖', label: 'AI Tahlil', roles: ['teacher', 'admin'] },
     { path: '/forum', icon: '💬', label: 'Forum', roles: ['student', 'teacher', 'admin'] },
     { path: '/experiment', icon: '📊', label: 'Tajriba', roles: ['admin'] },
+    { path: '/admin-users', icon: '👥', label: 'Foydalanuvchilar', roles: ['admin'] },
     { path: '/survey', icon: '📋', label: "So'rovnoma", roles: ['student', 'teacher', 'admin'] },
     { path: '/diagnostic', icon: '🔬', label: 'Diagnostika', roles: ['student', 'teacher', 'admin'] },
     { path: '/leaderboard', icon: '🏆', label: 'Reyting', roles: ['student', 'teacher', 'admin'] },

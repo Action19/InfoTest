@@ -27,6 +27,7 @@ const Forum = lazy(() => import('./pages/Forum'));
 const ForumPost = lazy(() => import('./pages/ForumPost'));
 const NewPost = lazy(() => import('./pages/NewPost'));
 const ExperimentStats = lazy(() => import('./pages/ExperimentStats'));
+const AdminUsers = lazy(() => import('./pages/AdminUsers'));
 const Survey = lazy(() => import('./pages/Survey'));
 const DiagnosticTest = lazy(() => import('./pages/DiagnosticTest'));
 
@@ -122,6 +123,10 @@ function App() {
                 <Route 
                   path="/experiment" 
                   element={<PrivateRoute><ExperimentStats /></PrivateRoute>} 
+                />
+                <Route 
+                  path="/admin-users" 
+                  element={<PrivateRoute><AdminUsers /></PrivateRoute>} 
                 />
                 <Route 
                   path="/survey" 
