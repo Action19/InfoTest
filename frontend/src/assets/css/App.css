@@ -1008,7 +1008,7 @@
 }
 
 /* ─── Show/Hide based on screen ─── */
-@media (max-width: 900px) {
+@media (max-width: 1300px) {
   .navbar-desktop {
     display: none !important;
   }
@@ -1026,7 +1026,7 @@
   }
 }
 
-@media (min-width: 901px) {
+@media (min-width: 1301px) {
   .hamburger-btn {
     display: none;
   }

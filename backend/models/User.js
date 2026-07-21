@@ -81,7 +81,7 @@ class User {
 
   // Get all users (admin only)
   static async getAll(role = null) {
-    let sql = 'SELECT id, username, email, full_name, role, avatar, points, level, district, school_number, class_name, teaching_classes, created_at FROM users';
+    let sql = 'SELECT id, username, email, full_name, role, avatar, points, level, district, school_number, class_name, teaching_classes, is_blocked, created_at FROM users';
     const params = [];
     
     if (role) {
