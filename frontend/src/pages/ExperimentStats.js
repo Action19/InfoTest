@@ -247,6 +247,64 @@ const ExperimentStats = () => {
               </Section>
             )}
           </div>
+
+          {/* BAHO (2-5) bo'yicha */}
+          {data.grades && (
+            <Section title="🎓 BAHO (2-5) bo'yicha natijalar" info="Foizlar bahoga aylantirildi: 86%+=5(a'lo), 60-85%=4(yaxshi), 40-59%=3(qoniqarli), <40%=2(qoniqarsiz). Dissertatsiyada baho shkalasida ham ko'rsatiladi.">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                <div style={{ background: 'var(--bg-primary)', borderRadius: '10px', padding: '1rem', border: '1px solid var(--border-color)' }}>
+                  <h4 style={{ margin: '0 0 0.5rem', color: '#34d399', fontSize: '0.9rem' }}>🟢 Tajriba guruhi</h4>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}><tbody>
+                    <StatRow label="Pre-test o'rtacha baho" value={data.grades.experiment?.pre?.mean || '—'} highlight />
+                    <StatRow label="Post-test o'rtacha baho" value={data.grades.experiment?.post?.mean || '—'} highlight />
+                    <StatRow label="O'sish" value={`+${data.grades.experiment?.growth || 0}`} highlight />
+                  </tbody></table>
+                </div>
+                <div style={{ background: 'var(--bg-primary)', borderRadius: '10px', padding: '1rem', border: '1px solid var(--border-color)' }}>
+                  <h4 style={{ margin: '0 0 0.5rem', color: '#fb7185', fontSize: '0.9rem' }}>🔴 Nazorat guruhi</h4>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}><tbody>
+                    <StatRow label="Pre-test o'rtacha baho" value={data.grades.control?.pre?.mean || '—'} highlight />
+                    <StatRow label="Post-test o'rtacha baho" value={data.grades.control?.post?.mean || '—'} highlight />
+                    <StatRow label="O'sish" value={`+${data.grades.control?.growth || 0}`} />
+                  </tbody></table>
+                </div>
+              </div>
+
+              {/* Baho taqsimoti */}
+              {data.grades.distribution && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                  <div style={{ background: 'var(--bg-primary)', borderRadius: '8px', padding: '0.75rem', border: '1px solid var(--border-color)' }}>
+                    <h5 style={{ margin: '0 0 0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>TG Post-test taqsimoti:</h5>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <span style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', padding: '0.25rem 0.6rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700 }}>🥇 5: {data.grades.distribution.experiment_post?.['5'] || 0} ta</span>
+                      <span style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8', padding: '0.25rem 0.6rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700 }}>🥈 4: {data.grades.distribution.experiment_post?.['4'] || 0} ta</span>
+                      <span style={{ background: 'rgba(146,64,14,0.15)', color: '#92400e', padding: '0.25rem 0.6rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700 }}>🥉 3: {data.grades.distribution.experiment_post?.['3'] || 0} ta</span>
+                      <span style={{ background: 'rgba(220,38,38,0.15)', color: '#dc2626', padding: '0.25rem 0.6rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700 }}>😢 2: {data.grades.distribution.experiment_post?.['2'] || 0} ta</span>
+                    </div>
+                  </div>
+                  <div style={{ background: 'var(--bg-primary)', borderRadius: '8px', padding: '0.75rem', border: '1px solid var(--border-color)' }}>
+                    <h5 style={{ margin: '0 0 0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>NG Post-test taqsimoti:</h5>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <span style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', padding: '0.25rem 0.6rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700 }}>🥇 5: {data.grades.distribution.control_post?.['5'] || 0} ta</span>
+                      <span style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8', padding: '0.25rem 0.6rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700 }}>🥈 4: {data.grades.distribution.control_post?.['4'] || 0} ta</span>
+                      <span style={{ background: 'rgba(146,64,14,0.15)', color: '#92400e', padding: '0.25rem 0.6rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700 }}>🥉 3: {data.grades.distribution.control_post?.['3'] || 0} ta</span>
+                      <span style={{ background: 'rgba(220,38,38,0.15)', color: '#dc2626', padding: '0.25rem 0.6rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700 }}>😢 2: {data.grades.distribution.control_post?.['2'] || 0} ta</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Baho bo'yicha t-test */}
+              {data.grades.t_test_post && (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}><tbody>
+                  <StatRow label="t-test (baho bo'yicha)" value={data.grades.t_test_post.t} highlight />
+                  <StatRow label="p-qiymat" value={data.grades.t_test_post.p} highlight />
+                  <StatRow label="Cohen's d (baho)" value={data.grades.cohens_d?.d || '—'} highlight />
+                  <StatRow label="Natija" value={data.grades.t_test_post.significant ? '✅ Farq sezilarli' : '⚠️ Sezilarli emas'} highlight />
+                </tbody></table>
+              )}
+            </Section>
+          )}
         </div>
       )}
     </div>

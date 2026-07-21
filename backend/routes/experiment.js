@@ -251,13 +251,27 @@ router.get('/stats', authenticateToken, async (req, res) => {
       ? (typeof controlData[0].data === 'string' ? JSON.parse(controlData[0].data) : controlData[0].data)
       : null;
 
-    // Tajriba guruhi ballari
+    // Tajriba guruhi ballari (FOIZ)
     const expPreScores = preTestResults.map(r => r.percentage);
     const expPostScores = postTestResults.map(r => r.percentage);
 
-    // Nazorat guruhi ballari (qo'lda kiritilgan)
+    // Nazorat guruhi ballari - FOIZ (qo'lda kiritilgan)
     const ctrlPreScores = controlGroup?.pre_test || [];
     const ctrlPostScores = controlGroup?.post_test || [];
+
+    // FOIZ → BAHO konversiya funksiyasi
+    const percentToGrade = (percent) => {
+      if (percent >= 86) return 5;
+      if (percent >= 60) return 4;
+      if (percent >= 40) return 3;
+      return 2;
+    };
+
+    // BAHO formatidagi massivlar
+    const expPreGrades = expPreScores.map(percentToGrade);
+    const expPostGrades = expPostScores.map(percentToGrade);
+    const ctrlPreGrades = ctrlPreScores.map(percentToGrade);
+    const ctrlPostGrades = ctrlPostScores.map(percentToGrade);
 
     // ═══ HISOBLASHLAR ═══
 
@@ -322,6 +336,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
     const ctrlGrowth = ctrlStats.post.mean - ctrlStats.pre.mean;
 
     res.json({
+      // FOIZ bo'yicha
       experiment_group: expStats,
       control_group: ctrlStats,
       control_data_entered: !!controlGroup,
@@ -336,6 +351,27 @@ router.get('/stats', authenticateToken, async (req, res) => {
       cohens_d: cohenResult,
       paired_t_experiment: pairedExp,
       paired_t_control: pairedCtrl,
+
+      // BAHO (2-5) bo'yicha
+      grades: {
+        experiment: {
+          pre: { n: expPreGrades.length, mean: round(mean(expPreGrades), 2), std_dev: round(stdDev(expPreGrades), 2) },
+          post: { n: expPostGrades.length, mean: round(mean(expPostGrades), 2), std_dev: round(stdDev(expPostGrades), 2) },
+          growth: round(mean(expPostGrades) - mean(expPreGrades), 2)
+        },
+        control: {
+          pre: { n: ctrlPreGrades.length, mean: round(mean(ctrlPreGrades), 2), std_dev: round(stdDev(ctrlPreGrades), 2) },
+          post: { n: ctrlPostGrades.length, mean: round(mean(ctrlPostGrades), 2), std_dev: round(stdDev(ctrlPostGrades), 2) },
+          growth: round(mean(ctrlPostGrades) - mean(ctrlPreGrades), 2)
+        },
+        t_test_post: expPostGrades.length > 1 && ctrlPostGrades.length > 1 ? tTest(expPostGrades, ctrlPostGrades) : null,
+        cohens_d: expPostGrades.length > 1 && ctrlPostGrades.length > 1 ? cohensD(expPostGrades, ctrlPostGrades) : null,
+        distribution: {
+          experiment_post: { '5': expPostGrades.filter(g=>g===5).length, '4': expPostGrades.filter(g=>g===4).length, '3': expPostGrades.filter(g=>g===3).length, '2': expPostGrades.filter(g=>g===2).length },
+          control_post: { '5': ctrlPostGrades.filter(g=>g===5).length, '4': ctrlPostGrades.filter(g=>g===4).length, '3': ctrlPostGrades.filter(g=>g===3).length, '2': ctrlPostGrades.filter(g=>g===2).length }
+        }
+      },
+
       students_pre: preTestResults.slice(0, 50),
       students_post: postTestResults.slice(0, 50)
     });
