@@ -319,6 +319,121 @@ const ExperimentStats = () => {
             )}
           </div>
 
+          {/* ═══ DISSERTATSIYA JADVALI ═══ */}
+          <Section title="📄 Dissertatsiya jadvali (tayyor format)" info="Quyidagi jadval to'g'ridan-to'g'ri dissertatsiyaga joylash uchun tayyor. Ctrl+C bilan nusxa qilib, Word'ga joylang.">
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', border: '2px solid var(--border-color)' }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-primary)', borderBottom: '2px solid var(--border-color)' }}>
+                    <th style={{ padding: '0.7rem', textAlign: 'left', borderRight: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>Ko'rsatkich</th>
+                    <th style={{ padding: '0.7rem', textAlign: 'center', borderRight: '1px solid var(--border-color)', color: '#34d399' }}>TG (n={data.experiment_group?.post?.n || data.experiment_group?.pre?.n || '—'})</th>
+                    <th style={{ padding: '0.7rem', textAlign: 'center', borderRight: '1px solid var(--border-color)', color: '#fb7185' }}>NG (n={data.control_group?.post?.n || data.control_group?.pre?.n || '—'})</th>
+                    <th style={{ padding: '0.7rem', textAlign: 'center', borderRight: '1px solid var(--border-color)', color: 'var(--primary-light)' }}>t</th>
+                    <th style={{ padding: '0.7rem', textAlign: 'center', borderRight: '1px solid var(--border-color)', color: 'var(--primary-light)' }}>p</th>
+                    <th style={{ padding: '0.7rem', textAlign: 'center', color: 'var(--primary-light)' }}>Cohen's d</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+                    <td style={{ padding: '0.6rem 0.7rem', fontWeight: 600, borderRight: '1px solid var(--border-color)' }}>Pre-test (M ± SD)</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>{data.experiment_group?.pre?.mean || 0} ± {data.experiment_group?.pre?.std_dev || 0}</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>{data.control_group?.pre?.mean || 0} ± {data.control_group?.pre?.std_dev || 0}</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>{data.t_test_pre?.t || '—'}</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>{data.t_test_pre?.p || '—'}</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center' }}>—</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(6,182,212,0.03)' }}>
+                    <td style={{ padding: '0.6rem 0.7rem', fontWeight: 600, borderRight: '1px solid var(--border-color)' }}>Post-test (M ± SD)</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)', fontWeight: 700, color: '#34d399' }}>{data.experiment_group?.post?.mean || 0} ± {data.experiment_group?.post?.std_dev || 0}</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>{data.control_group?.post?.mean || 0} ± {data.control_group?.post?.std_dev || 0}</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)', fontWeight: 700 }}>{data.t_test_post?.t || '—'}</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)', fontWeight: 700, color: data.t_test_post?.significant ? '#34d399' : '#fb7185' }}>{data.t_test_post?.p || '—'}</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', fontWeight: 700 }}>{data.cohens_d?.d || '—'}</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+                    <td style={{ padding: '0.6rem 0.7rem', fontWeight: 600, borderRight: '1px solid var(--border-color)' }}>O'sish (Δ)</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)', fontWeight: 700, color: '#34d399' }}>+{data.growth?.experiment || 0}</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>+{data.growth?.control || 0}</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>—</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>—</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center' }}>—</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+                    <td style={{ padding: '0.6rem 0.7rem', fontWeight: 600, borderRight: '1px solid var(--border-color)' }}>Fisher F-test</td>
+                    <td colSpan={2} style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>F = {data.fisher_test?.F || '—'}</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>—</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>{data.fisher_test?.p || '—'}</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center' }}>—</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+                    <td style={{ padding: '0.6rem 0.7rem', fontWeight: 600, borderRight: '1px solid var(--border-color)' }}>Paired t (TG ichida)</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>t = {data.paired_t_experiment?.t || '—'}</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>—</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>{data.paired_t_experiment?.t || '—'}</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)', fontWeight: 700 }}>{data.paired_t_experiment?.p || '—'}</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center' }}>—</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '0.6rem 0.7rem', fontWeight: 600, borderRight: '1px solid var(--border-color)' }}>Effekt o'lchami</td>
+                    <td colSpan={2} style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>{data.cohens_d?.interpretation || '—'}</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>—</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>—</td>
+                    <td style={{ padding: '0.6rem', textAlign: 'center', fontWeight: 700, color: 'var(--primary-light)' }}>{data.cohens_d?.abs_d || '—'}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Baho taqsimoti jadvali */}
+            {data.grades?.distribution && (
+              <div style={{ marginTop: '1.5rem', overflowX: 'auto' }}>
+                <h4 style={{ color: 'var(--text-primary)', marginBottom: '0.75rem' }}>Baho taqsimoti (Post-test):</h4>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', border: '2px solid var(--border-color)' }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg-primary)', borderBottom: '2px solid var(--border-color)' }}>
+                      <th style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>Baho</th>
+                      <th style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)', color: '#34d399' }}>TG</th>
+                      <th style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)', color: '#34d399' }}>%</th>
+                      <th style={{ padding: '0.6rem', textAlign: 'center', borderRight: '1px solid var(--border-color)', color: '#fb7185' }}>NG</th>
+                      <th style={{ padding: '0.6rem', textAlign: 'center', color: '#fb7185' }}>%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {['5', '4', '3', '2'].map(g => {
+                      const tgCount = data.grades.distribution.experiment_post?.[g] || 0;
+                      const ngCount = data.grades.distribution.control_post?.[g] || 0;
+                      const tgN = data.grades.experiment?.post?.n || 1;
+                      const ngN = data.grades.control?.post?.n || 1;
+                      return (
+                        <tr key={g} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '0.5rem', textAlign: 'center', borderRight: '1px solid var(--border-color)', fontWeight: 700 }}>
+                            {g === '5' ? '🥇 5 (a\'lo)' : g === '4' ? '🥈 4 (yaxshi)' : g === '3' ? '🥉 3 (qoniqarli)' : '😢 2 (qoniqarsiz)'}
+                          </td>
+                          <td style={{ padding: '0.5rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>{tgCount}</td>
+                          <td style={{ padding: '0.5rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>{Math.round(tgCount/tgN*100)}%</td>
+                          <td style={{ padding: '0.5rem', textAlign: 'center', borderRight: '1px solid var(--border-color)' }}>{ngCount}</td>
+                          <td style={{ padding: '0.5rem', textAlign: 'center' }}>{Math.round(ngCount/ngN*100)}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Xulosa */}
+            <div style={{ marginTop: '1.5rem', padding: '1.25rem', background: 'rgba(6,182,212,0.04)', border: '1px solid rgba(6,182,212,0.15)', borderRadius: '10px' }}>
+              <h4 style={{ color: 'var(--primary-light)', margin: '0 0 0.75rem' }}>📝 Xulosa (dissertatsiyaga):</h4>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.8 }}>
+                <p style={{ margin: '0 0 0.5rem' }}>1. Pre-test: t={data.t_test_pre?.t || '—'}, p={data.t_test_pre?.p || '—'} {'>'} 0.05 — guruhlar tajriba boshida <strong>TENG</strong>.</p>
+                <p style={{ margin: '0 0 0.5rem' }}>2. Post-test: t={data.t_test_post?.t || '—'}, p={data.t_test_post?.p || '—'} {data.t_test_post?.significant ? '< 0.05' : '> 0.05'} — farq {data.t_test_post?.significant ? 'SEZILARLI ✅' : 'sezilarli emas'}.</p>
+                <p style={{ margin: '0 0 0.5rem' }}>3. Cohen's d = {data.cohens_d?.abs_d || '—'} — <strong>{data.cohens_d?.interpretation || '—'}</strong>.</p>
+                <p style={{ margin: '0 0 0.5rem' }}>4. Tajriba guruhi +{data.growth?.experiment || 0}% o'sdi, nazorat +{data.growth?.control || 0}% o'sdi. Farq: +{data.growth?.difference || 0}%.</p>
+                {data.paired_t_experiment && <p style={{ margin: '0' }}>5. TG ichida o'sish: t={data.paired_t_experiment.t}, p={data.paired_t_experiment.p} — {data.paired_t_experiment.significant ? 'SEZILARLI ✅' : 'sezilarli emas'}.</p>}
+              </div>
+            </div>
+          </Section>
+
           {/* BAHO (2-5) bo'yicha */}
           {data.grades && (
             <Section title="🎓 BAHO (2-5) bo'yicha natijalar" info="Foizlar bahoga aylantirildi: 86%+=5(a'lo), 60-85%=4(yaxshi), 40-59%=3(qoniqarli), <40%=2(qoniqarsiz). Dissertatsiyada baho shkalasida ham ko'rsatiladi.">
