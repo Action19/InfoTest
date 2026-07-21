@@ -383,6 +383,17 @@ async function runMigrations(db) {
     await db.run('CREATE INDEX IF NOT EXISTS idx_diag_r_user ON diagnostic_results(user_id)').catch(()=>{});
     await db.run('CREATE INDEX IF NOT EXISTS idx_diag_r_test ON diagnostic_results(test_id)').catch(()=>{});
 
+    // control_group_data — nazorat guruhi qo'lda kiritilgan ma'lumotlar
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS control_group_data (
+        id           SERIAL PRIMARY KEY,
+        data         JSONB NOT NULL,
+        description  TEXT DEFAULT '',
+        created_by   INTEGER REFERENCES users(id),
+        created_at   TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
     // survey_responses — so'rovnoma javoblari
     await db.run(`
       CREATE TABLE IF NOT EXISTS survey_responses (
