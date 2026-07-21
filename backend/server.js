@@ -147,7 +147,7 @@ async function runMigrations(db) {
         title         TEXT NOT NULL,
         description   TEXT NOT NULL DEFAULT '',
         task_type     TEXT NOT NULL CHECK(task_type IN (
-          'word','excel','access','python','scratch','html','javascript','css','other'
+          'word','excel','powerpoint','access','paint','python','scratch','html','javascript','css','other'
         )),
         instructions  TEXT NOT NULL,
         max_score     INTEGER DEFAULT 100,
@@ -396,6 +396,10 @@ async function runMigrations(db) {
 
     // is_blocked ustuni qo'shish
     await db.run('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT FALSE').catch(()=>{});
+
+    // assignments task_type CHECK constraint yangilash (powerpoint, paint qo'shish)
+    await db.run('ALTER TABLE assignments DROP CONSTRAINT IF EXISTS assignments_task_type_check').catch(()=>{});
+    await db.run(`ALTER TABLE assignments ADD CONSTRAINT assignments_task_type_check CHECK(task_type IN ('word','excel','powerpoint','access','paint','python','scratch','html','javascript','css','other'))`).catch(()=>{});
 
     // survey_responses — so'rovnoma javoblari
     await db.run(`
