@@ -167,6 +167,119 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// POST /api/assignments/upload-excel — Excel'dan amaliy topshiriqlar import
+const multerExcelAssign = require('multer')({ storage: require('multer').memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+router.post('/upload-excel', authenticateToken, requireRole(['teacher','admin']), multerExcelAssign.single('file'), async (req, res) => {
+  try {
+    const { lesson_id } = req.body;
+    if (!lesson_id) return res.status(400).json({ error: 'lesson_id kerak' });
+    if (!req.file) return res.status(400).json({ error: 'Excel fayl yuklanmadi' });
+
+    const XLSX = require('xlsx');
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    // Sarlavha qatorini topish
+    let headerIdx = -1, headers = [];
+    for (let i = 0; i < Math.min(rawRows.length, 5); i++) {
+      if (rawRows[i] && rawRows[i].some(c => {
+        const val = String(c || '').toLowerCase();
+        return val.includes('topshiriq') || val.includes('nomi') || val === 'title';
+      })) {
+        headerIdx = i;
+        headers = rawRows[i].map(h => String(h || '').trim());
+        break;
+      }
+    }
+
+    if (headerIdx === -1) {
+      return res.status(400).json({
+        error: '"Topshiriq nomi" ustuni topilmadi',
+        hint: 'Excel ustunlari: Topshiriq nomi, Turi, Ko\'rsatmalar, Ball, Muddat'
+      });
+    }
+
+    const findCol = (...names) => {
+      for (const n of names) {
+        const idx = headers.findIndex(h => h && h.toLowerCase() === n.toLowerCase());
+        if (idx !== -1) return idx;
+      }
+      for (const n of names) {
+        const idx = headers.findIndex(h => h && h.toLowerCase().includes(n.toLowerCase()));
+        if (idx !== -1) return idx;
+      }
+      return -1;
+    };
+
+    const cTitle = findCol('Topshiriq nomi', 'Nomi', 'Title', 'Sarlavha');
+    const cType = findCol('Turi', 'Type', 'Task type');
+    const cInstructions = findCol("Ko'rsatmalar", 'Instructions', 'Vazifa', 'Bajarish');
+    const cDesc = findCol('Tavsif', 'Description');
+    const cScore = findCol('Ball', 'Max ball', 'Score', 'Max score');
+    const cDeadline = findCol('Muddat', 'Deadline');
+
+    if (cTitle === -1) {
+      return res.status(400).json({ error: '"Topshiriq nomi" ustuni topilmadi. Ustunlar: ' + headers.join(', ') });
+    }
+    if (findCol("Ko'rsatmalar", 'Instructions', 'Vazifa') === -1) {
+      return res.status(400).json({ error: '"Ko\'rsatmalar" ustuni topilmadi' });
+    }
+
+    const dataRows = rawRows.slice(headerIdx + 1);
+    let imported = 0;
+    const errors = [];
+
+    // Task type mapping
+    const typeMap = {
+      'word': 'word', 'excel': 'excel', 'access': 'access',
+      'python': 'python', 'scratch': 'scratch', 'html': 'html',
+      'javascript': 'javascript', 'js': 'javascript',
+      'css': 'css', 'boshqa': 'other', 'other': 'other'
+    };
+
+    for (let i = 0; i < dataRows.length; i++) {
+      const row = dataRows[i];
+      if (!row || row.every(c => !c)) continue;
+
+      const title = String(row[cTitle] || '').trim();
+      if (!title) { errors.push(`${headerIdx + i + 2}-qator: nomi bo'sh`); continue; }
+
+      const rawType = cType !== -1 ? String(row[cType] || '').trim().toLowerCase() : 'other';
+      const task_type = typeMap[rawType] || 'other';
+      const instructions = cInstructions !== -1 ? String(row[cInstructions] || '').trim() : '';
+      const description = cDesc !== -1 ? String(row[cDesc] || '').trim() : '';
+      const max_score = cScore !== -1 ? (parseInt(row[cScore]) || 20) : 20;
+      const deadline = cDeadline !== -1 && row[cDeadline] ? String(row[cDeadline]).trim() : null;
+
+      if (!instructions) { errors.push(`${headerIdx + i + 2}-qator: ko'rsatmalar bo'sh`); continue; }
+
+      await Assignment.create({
+        lesson_id: parseInt(lesson_id),
+        created_by: req.user.id,
+        title,
+        description,
+        task_type,
+        instructions,
+        max_score,
+        deadline,
+        ai_generated: false
+      });
+      imported++;
+    }
+
+    res.json({
+      message: `${imported} ta amaliy topshiriq import qilindi!`,
+      imported,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (err) {
+    console.error('Assignment Excel import error:', err);
+    res.status(500).json({ error: 'Excel import xatolik: ' + err.message });
+  }
+});
+
 // POST /api/assignments — create (teacher/admin)
 router.post('/', authenticateToken, requireRole(['teacher','admin']), async (req, res) => {
   try {

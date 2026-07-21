@@ -1107,6 +1107,28 @@ const LessonDetail = () => {
           {isOwner && (
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button onClick={() => setShowCreateAssignModal(true)} className="btn btn-primary">➕ Topshiriq</button>
+              <label className="btn btn-outline" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                📊 Excel'dan
+                <input type="file" accept=".xlsx,.xls" style={{ display: 'none' }}
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('lesson_id', id);
+                    try {
+                      const res = await api.post('/assignments/upload-excel', formData, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                      });
+                      alert(`✅ ${res.data.imported} ta topshiriq import qilindi!${res.data.errors ? '\n\n⚠️ Xatoliklar:\n' + res.data.errors.join('\n') : ''}`);
+                      await fetchAssignments();
+                    } catch (err) {
+                      alert('❌ ' + (err.response?.data?.error || err.message) + (err.response?.data?.hint ? '\n\n💡 ' + err.response?.data?.hint : ''));
+                    }
+                    e.target.value = '';
+                  }}
+                />
+              </label>
               <button onClick={() => setShowAIAssignModal(true)} className="btn btn-success">🤖 AI bilan</button>
             </div>
           )}
