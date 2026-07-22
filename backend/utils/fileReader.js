@@ -201,6 +201,15 @@ async function readFileForAI(filePath, fileName) {
     };
   }
 
+  // ── Access (.accdb/.mdb) — o'qib bo'lmaydi ─────────────────
+  if (ext === '.accdb' || ext === '.mdb') {
+    if (isTemp && fs.existsSync(localPath)) fs.unlinkSync(localPath);
+    return {
+      type: 'text',
+      content: `🗄️ Access ma'lumotlar bazasi: "${fileName}"\n\n⚠️ MUHIM: Access (.accdb/.mdb) format proprietary bo'lgani uchun avtomatik o'qib bo'lmaydi.\n\nFayl muvaffaqiyatli YUKLANGAN. O'qituvchi qo'lda tekshirishi kerak:\n- Jadvallar yaratilganmi\n- So'rovlar (Query) to'g'ri ishlayaptimi\n- Formalar va hisobotlar bormi\n\nAI BAHOLASH: Bu fayl turini avtomatik baholab bo'lmaydi. Iltimos, o'qituvchi qo'lda ball qo'ysin.`
+    };
+  }
+
   // ── Access, Scratch va boshqalar ───────────────────────────
   if (isTemp && fs.existsSync(localPath)) fs.unlinkSync(localPath);
   return {
