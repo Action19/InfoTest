@@ -35,6 +35,7 @@ async function migrate() {
         correct_option   TEXT NOT NULL CHECK(correct_option IN ('a','b','c','d')),
         concept          TEXT NOT NULL,
         difficulty_level INTEGER DEFAULT 3 CHECK(difficulty_level BETWEEN 1 AND 5),
+        explanation      TEXT DEFAULT '',
         edited_by_teacher BOOLEAN DEFAULT FALSE,
         order_number     INTEGER
       )

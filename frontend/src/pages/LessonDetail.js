@@ -69,6 +69,7 @@ const LessonDetail = () => {
   // ─── Adaptive test state ───────────────────────────────────
   const [adaptiveTest, setAdaptiveTest] = useState(null);
   const [generatingAdaptive, setGeneratingAdaptive] = useState(false);
+  const [adaptiveExpanded, setAdaptiveExpanded] = useState(false);
 
   // New test form
   const [newTest, setNewTest] = useState({
@@ -826,32 +827,59 @@ const LessonDetail = () => {
 
 
 
-      {/* ── Adaptive Test section ── */}
+      {/* ── Adaptive Test section (collapsible) ── */}
       <div className="profile-section" style={{ marginBottom: '2rem' }}>
-        <div className="section-header">
-          <h3>🎯 Adaptiv test</h3>
+        <div
+          className="section-header"
+          onClick={() => setAdaptiveExpanded(!adaptiveExpanded)}
+          style={{ cursor: 'pointer', userSelect: 'none' }}
+        >
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{
+              display: 'inline-flex', transition: 'transform 0.3s',
+              transform: adaptiveExpanded ? 'rotate(90deg)' : 'rotate(0deg)'
+            }}>▶</span>
+            🎯 Adaptiv test
+            {adaptiveTest && (
+              <span style={{
+                fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', marginLeft: '0.5rem',
+                background: adaptiveTest.status === 'published' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+                color: adaptiveTest.status === 'published' ? '#16a34a' : '#d97706'
+              }}>
+                {adaptiveTest.status === 'published' ? '✅ E\'lon qilingan' : '📝 Qoralama'}
+              </span>
+            )}
+          </h3>
           {isOwner && (
-            <button onClick={handleGenerateAdaptiveTest} className="btn btn-primary" disabled={generatingAdaptive}>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleGenerateAdaptiveTest(); }}
+              className="btn btn-primary"
+              disabled={generatingAdaptive}
+            >
               {generatingAdaptive ? '⏳ Yaratilmoqda...' : '✨ Adaptiv testni shakllantirish'}
             </button>
           )}
         </div>
 
-        {!adaptiveTest ? (
-          <div className="empty-state" style={{ padding: '2rem 0' }}>
-            <div className="empty-icon">🎯</div>
-            <p>{isOwner ? "Bu darsga hali adaptiv test yaratilmagan. AI 20 ta savol yaratadi." : "Adaptiv test hali tayyor emas"}</p>
+        {adaptiveExpanded && (
+          <div style={{ marginTop: '1rem', animation: 'fadeIn 0.3s ease' }}>
+            {!adaptiveTest ? (
+              <div className="empty-state" style={{ padding: '2rem 0' }}>
+                <div className="empty-icon">🎯</div>
+                <p>{isOwner ? "Bu darsga hali adaptiv test yaratilmagan. AI 20 ta savol yaratadi." : "Adaptiv test hali tayyor emas"}</p>
+              </div>
+            ) : adaptiveTest.status === 'draft' && isOwner ? (
+              <AdaptiveTestReviewPanel
+                adaptiveTest={adaptiveTest}
+                onPublish={handlePublishAdaptive}
+                onRefresh={fetchAdaptiveTest}
+              />
+            ) : adaptiveTest.status === 'published' ? (
+              <AdaptiveTestStudentView adaptiveTest={adaptiveTest} />
+            ) : (
+              <p style={{ padding: '1rem 0', color: 'var(--text-secondary)' }}>Adaptiv test hali o'qituvchi tomonidan e'lon qilinmagan</p>
+            )}
           </div>
-        ) : adaptiveTest.status === 'draft' && isOwner ? (
-          <AdaptiveTestReviewPanel
-            adaptiveTest={adaptiveTest}
-            onPublish={handlePublishAdaptive}
-            onRefresh={fetchAdaptiveTest}
-          />
-        ) : adaptiveTest.status === 'published' ? (
-          <AdaptiveTestStudentView adaptiveTest={adaptiveTest} />
-        ) : (
-          <p style={{ padding: '1rem 0', color: 'var(--text-secondary)' }}>Adaptiv test hali o'qituvchi tomonidan e'lon qilinmagan</p>
         )}
       </div>
 

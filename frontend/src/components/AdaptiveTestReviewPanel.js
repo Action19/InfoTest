@@ -33,7 +33,8 @@ const AdaptiveTestReviewPanel = ({ adaptiveTest, onPublish, onRefresh }) => {
       option_d: q.option_d,
       correct_option: q.correct_option,
       concept: q.concept,
-      difficulty_level: q.difficulty_level
+      difficulty_level: q.difficulty_level,
+      explanation: q.explanation || ''
     });
   };
 
@@ -168,6 +169,16 @@ const AdaptiveTestReviewPanel = ({ adaptiveTest, onPublish, onRefresh }) => {
                     </select>
                   </div>
                 </div>
+                <div style={{ marginBottom: '0.75rem' }}>
+                  <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '3px' }}>💡 Tushuntirish (noto'g'ri javobda o'quvchiga ko'rsatiladi)</label>
+                  <textarea
+                    value={editForm.explanation}
+                    onChange={e => setEditForm({ ...editForm, explanation: e.target.value })}
+                    rows="2"
+                    placeholder="Nima uchun to'g'ri javob aynan shu? Qisqa tushuntirish yozing..."
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontSize: '0.85rem', resize: 'vertical' }}
+                  />
+                </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button onClick={handleSave} disabled={saving} className="btn btn-sm btn-primary">
                     {saving ? '⏳' : '💾'} Saqlash
@@ -239,6 +250,17 @@ const AdaptiveTestReviewPanel = ({ adaptiveTest, onPublish, onRefresh }) => {
                           </span>
                         )}
                       </div>
+                      {/* Tushuntirish */}
+                      {q.explanation && (
+                        <div style={{
+                          marginTop: '0.5rem', padding: '0.5rem 0.75rem',
+                          background: 'rgba(99,102,241,0.06)', borderRadius: '8px',
+                          borderLeft: '3px solid rgba(99,102,241,0.4)',
+                          fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5
+                        }}>
+                          💡 <strong>Tushuntirish:</strong> {q.explanation}
+                        </div>
+                      )}
                     </div>
                   </div>
                   {/* Amallar */}

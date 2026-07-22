@@ -46,20 +46,22 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
         selectedOption
       });
 
-      setLastAnswer({ isCorrect: res.data.isCorrect, correctOption: res.data.correctOption });
+      setLastAnswer({ isCorrect: res.data.isCorrect, correctOption: res.data.correctOption, explanation: res.data.explanation || '' });
 
       if (res.data.finished) {
         // Test tugadi — natijani olish
-        setTimeout(() => handleFinish(), 1500);
+        const finishDelay = (!res.data.isCorrect && res.data.explanation) ? 3500 : 1500;
+        setTimeout(() => handleFinish(), finishDelay);
       } else {
-        // 1.5 sekund kutish (natija ko'rsatish uchun), keyin keyingi savol
+        // Tushuntirish bo'lsa ko'proq vaqt berish
+        const nextDelay = (!res.data.isCorrect && res.data.explanation) ? 3500 : 1500;
         setTimeout(() => {
           setCurrentQuestion(res.data.nextQuestion);
           setQuestionNumber(res.data.questionNumber);
           setCurrentDifficulty(res.data.currentDifficulty);
           setSelectedOption(null);
           setLastAnswer(null);
-        }, 1500);
+        }, nextDelay);
       }
     } catch (err) {
       alert('Javob yuborishda xatolik: ' + (err.response?.data?.error || err.message));
@@ -254,13 +256,29 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
         {/* Natija indikatori */}
         {lastAnswer && (
           <div style={{
-            textAlign: 'center', padding: '0.75rem', borderRadius: '10px', marginBottom: '1rem',
+            padding: '0.75rem', borderRadius: '10px', marginBottom: '1rem',
             background: lastAnswer.isCorrect ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-            color: lastAnswer.isCorrect ? '#16a34a' : '#dc2626',
-            fontWeight: 600, fontSize: '0.95rem'
+            border: lastAnswer.isCorrect ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(239,68,68,0.3)'
           }}>
-            {lastAnswer.isCorrect ? '✅ To\'g\'ri!' : '❌ Noto\'g\'ri'}
-            {questionNumber >= totalQuestions && ' — Test tugadi, natija hisoblanmoqda...'}
+            <div style={{
+              textAlign: 'center',
+              color: lastAnswer.isCorrect ? '#16a34a' : '#dc2626',
+              fontWeight: 600, fontSize: '0.95rem'
+            }}>
+              {lastAnswer.isCorrect ? '✅ To\'g\'ri!' : '❌ Noto\'g\'ri'}
+              {questionNumber >= totalQuestions && ' — Test tugadi, natija hisoblanmoqda...'}
+            </div>
+            {/* Noto'g'ri javobda tushuntirish */}
+            {!lastAnswer.isCorrect && lastAnswer.explanation && (
+              <div style={{
+                marginTop: '0.6rem', padding: '0.6rem 0.75rem',
+                background: 'rgba(99,102,241,0.06)', borderRadius: '8px',
+                borderLeft: '3px solid rgba(99,102,241,0.5)',
+                fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.6, textAlign: 'left'
+              }}>
+                💡 <strong>Tushuntirish:</strong> {lastAnswer.explanation}
+              </div>
+            )}
           </div>
         )}
 

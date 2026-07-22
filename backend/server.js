@@ -440,9 +440,13 @@ async function runMigrations(db) {
         correct_option   TEXT NOT NULL CHECK(correct_option IN ('a','b','c','d')),
         concept          TEXT NOT NULL,
         difficulty_level INTEGER DEFAULT 3 CHECK(difficulty_level BETWEEN 1 AND 5),
+        explanation      TEXT DEFAULT '',
         edited_by_teacher BOOLEAN DEFAULT FALSE,
         order_number     INTEGER
       )
+    `);
+    // explanation ustunini mavjud jadvalga qo'shish (agar jadval allaqachon yaratilgan bo'lsa)
+    await db.run('ALTER TABLE adaptive_questions ADD COLUMN IF NOT EXISTS explanation TEXT DEFAULT \'\'').catch(()=>{});
     `);
     await db.run(`
       CREATE TABLE IF NOT EXISTS adaptive_attempts (

@@ -73,25 +73,37 @@ router.post('/lessons/:lessonId/adaptive-test/generate', authenticateToken, requ
     let prompt;
     if (generatedFrom === 'material' && sourceContent.trim()) {
       prompt = `Mavzu: "${lesson.title}"
-Quyidagi dars materialiga asoslanib, LEKIN zarur bo'lsa o'zingizning bilimingizdan ham qo'shimcha qilib, aynan 20 ta test savoli tuzing (4 variantli, faqat bitta to'g'ri javob).
+Quyidagi dars materialiga QATTIQ asoslanib, aynan 20 ta test savoli tuzing (4 variantli, faqat bitta to'g'ri javob).
+
+⚠️ MUHIM QOIDA: Savollar FAQAT quyida berilgan material tarkibidagi ma'lumotlardan bo'lsin! Materialda yo'q mavzularga, boshqa fanlarga yoki umumiy bilim savollariga O'TMAGIN. Agar material qisqa bo'lsa, bir tushunchadan bir nechta burchakda savol tuz.
 
 MATERIAL:
 ${sourceContent}
 
-Har bir savol uchun "concept" maydonida qaysi tor tushunchaga tegishli ekanini (2-3 so'zda, o'zbek tilida) va "difficulty" (1-5) ko'rsating.
+Har bir savol uchun:
+- "concept": qaysi tor tushunchaga tegishli (2-3 so'zda, o'zbek tilida, FAQAT materialdagi tushuncha)
+- "difficulty": qiyinlik darajasi (1-5)
+- "explanation": noto'g'ri javob bergan o'quvchiga tushuntirish — nima uchun to'g'ri javob aynan shu, qisqa va aniq (2-3 gap, o'zbek tilida)
+
 Qiyinlik taqsimoti: 5 ta oson (1-2), 10 ta o'rta (3), 5 ta qiyin (4-5).
 
 Faqat JSON qaytaring, boshqa hech narsa yozmang:
-[{"question":"...","a":"...","b":"...","c":"...","d":"...","correct":"a","concept":"...","difficulty":3}, ...]`;
+[{"question":"...","a":"...","b":"...","c":"...","d":"...","correct":"a","concept":"...","difficulty":3,"explanation":"..."}, ...]`;
     } else {
       prompt = `Mavzu: "${lesson.title}"
-Bu mavzu bo'yicha material yuklanmagan. O'zingizning bilimingizga asoslanib, berilgan mavzu doirasida aynan 20 ta test savoli tuzing (4 variantli, faqat bitta to'g'ri javob).
+Bu mavzu bo'yicha material yuklanmagan. FAQAT berilgan mavzu doirasida (boshqa fanlarga o'tmasdan!) aynan 20 ta test savoli tuzing (4 variantli, faqat bitta to'g'ri javob).
 
-Har bir savol uchun "concept" (2-3 so'zda, o'zbek tilida) va "difficulty" (1-5) ko'rsating.
+⚠️ MUHIM: Savollar faqat "${lesson.title}" mavzusiga tegishli bo'lsin. Boshqa mavzularga, fanlarga o'tmagin.
+
+Har bir savol uchun:
+- "concept": qaysi tor tushunchaga tegishli (2-3 so'zda, o'zbek tilida)
+- "difficulty": qiyinlik darajasi (1-5)
+- "explanation": noto'g'ri javob bergan o'quvchiga tushuntirish — nima uchun to'g'ri javob aynan shu, qisqa va aniq (2-3 gap, o'zbek tilida)
+
 Qiyinlik taqsimoti: 5 ta oson (1-2), 10 ta o'rta (3), 5 ta qiyin (4-5).
 
 Faqat JSON qaytaring:
-[{"question":"...","a":"...","b":"...","c":"...","d":"...","correct":"a","concept":"...","difficulty":3}, ...]`;
+[{"question":"...","a":"...","b":"...","c":"...","d":"...","correct":"a","concept":"...","difficulty":3,"explanation":"..."}, ...]`;
     }
 
     // AI chaqirish
@@ -144,14 +156,15 @@ Faqat JSON qaytaring:
       const q = questions[i];
       const correctOption = (q.correct || 'a').toLowerCase();
       const difficulty = Math.max(1, Math.min(5, parseInt(q.difficulty) || 3));
+      const explanation = q.explanation || '';
 
       const qResult = await database.run(
         `INSERT INTO adaptive_questions
-         (adaptive_test_id, question_text, option_a, option_b, option_c, option_d, correct_option, concept, difficulty_level, order_number)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [adaptiveTestId, q.question, q.a, q.b, q.c, q.d, correctOption, q.concept || 'Umumiy', difficulty, i + 1]
+         (adaptive_test_id, question_text, option_a, option_b, option_c, option_d, correct_option, concept, difficulty_level, explanation, order_number)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+        [adaptiveTestId, q.question, q.a, q.b, q.c, q.d, correctOption, q.concept || 'Umumiy', difficulty, explanation, i + 1]
       );
-      savedQuestions.push({ id: qResult.id, question_text: q.question, concept: q.concept, difficulty_level: difficulty });
+      savedQuestions.push({ id: qResult.id, question_text: q.question, concept: q.concept, difficulty_level: difficulty, explanation });
     }
 
     res.json({
@@ -173,7 +186,7 @@ Faqat JSON qaytaring:
 // ═══════════════════════════════════════════════════════════════
 router.put('/adaptive-questions/:id', authenticateToken, requireRole(['teacher', 'admin']), async (req, res) => {
   try {
-    const { question_text, option_a, option_b, option_c, option_d, correct_option, concept, difficulty_level } = req.body;
+    const { question_text, option_a, option_b, option_c, option_d, correct_option, concept, difficulty_level, explanation } = req.body;
 
     const question = await database.get('SELECT * FROM adaptive_questions WHERE id = $1', [req.params.id]);
     if (!question) return res.status(404).json({ error: 'Savol topilmadi' });
@@ -188,9 +201,10 @@ router.put('/adaptive-questions/:id', authenticateToken, requireRole(['teacher',
         correct_option = COALESCE($6, correct_option),
         concept = COALESCE($7, concept),
         difficulty_level = COALESCE($8, difficulty_level),
+        explanation = COALESCE($9, explanation),
         edited_by_teacher = TRUE
-       WHERE id = $9`,
-      [question_text, option_a, option_b, option_c, option_d, correct_option, concept, difficulty_level, req.params.id]
+       WHERE id = $10`,
+      [question_text, option_a, option_b, option_c, option_d, correct_option, concept, difficulty_level, explanation, req.params.id]
     );
 
     const updated = await database.get('SELECT * FROM adaptive_questions WHERE id = $1', [req.params.id]);
@@ -402,6 +416,7 @@ router.post('/adaptive-attempts/:attemptId/answer', authenticateToken, async (re
         attemptId,
         isCorrect,
         correctOption: question.correct_option,
+        explanation: !isCorrect ? (question.explanation || '') : '',
         questionNumber: askedIds.length,
         totalAnswered: askedIds.length
       });
@@ -420,6 +435,7 @@ router.post('/adaptive-attempts/:attemptId/answer', authenticateToken, async (re
         attemptId,
         isCorrect,
         correctOption: question.correct_option,
+        explanation: !isCorrect ? (question.explanation || '') : '',
         questionNumber: askedIds.length,
         totalAnswered: askedIds.length
       });
@@ -429,6 +445,7 @@ router.post('/adaptive-attempts/:attemptId/answer', authenticateToken, async (re
       finished: false,
       isCorrect,
       correctOption: question.correct_option,
+      explanation: !isCorrect ? (question.explanation || '') : '',
       nextQuestion,
       questionNumber: askedIds.length + 1,
       totalQuestions: 15,
