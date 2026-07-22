@@ -54,7 +54,7 @@ async function readFileForAI(filePath, fileName) {
   const ext = path.extname(fileName).toLowerCase();
 
   // ── Matn fayllari ──────────────────────────────────────────
-  const textExts = ['.py', '.js', '.css', '.html', '.htm', '.txt', '.csv', '.json', '.xml', '.sb3'];
+  const textExts = ['.py', '.js', '.css', '.html', '.htm', '.txt', '.csv', '.json', '.xml'];
   if (textExts.includes(ext)) {
     try {
       const content = fs.readFileSync(localPath, 'utf8');
@@ -63,6 +63,38 @@ async function readFileForAI(filePath, fileName) {
     } catch (e) {
       if (isTemp && fs.existsSync(localPath)) fs.unlinkSync(localPath);
       return { type: 'text', content: `(Faylni o'qib bo'lmadi: ${e.message})` };
+    }
+  }
+
+  // ── Scratch (.sb3) fayli — ZIP ichidan project.json o'qish ──
+  if (ext === '.sb3') {
+    try {
+      const AdmZip = require('adm-zip');
+      const zip = new AdmZip(localPath);
+      const projectEntry = zip.getEntry('project.json');
+      if (!projectEntry) throw new Error('project.json topilmadi');
+      const project = JSON.parse(zip.readAsText(projectEntry));
+
+      let output = `🐱 Scratch loyihasi: "${fileName}"\n`;
+      output += `Sprite'lar soni: ${project.targets?.length || 0}\n\n`;
+
+      for (const target of (project.targets || [])) {
+        const blockCount = Object.keys(target.blocks || {}).length;
+        output += `— Sprite "${target.name}": ${blockCount} ta blok\n`;
+        const opcodes = Object.values(target.blocks || {}).map(b => b.opcode).filter(Boolean);
+        const opcodeCounts = {};
+        opcodes.forEach(op => { opcodeCounts[op] = (opcodeCounts[op] || 0) + 1; });
+        const topOps = Object.entries(opcodeCounts).sort((a,b) => b[1]-a[1]).slice(0, 10);
+        if (topOps.length) {
+          output += `  Bloklar: ${topOps.map(([op, c]) => `${op}(${c})`).join(', ')}\n`;
+        }
+      }
+
+      if (isTemp && fs.existsSync(localPath)) fs.unlinkSync(localPath);
+      return { type: 'text', content: output.slice(0, 6000) };
+    } catch (e) {
+      if (isTemp && fs.existsSync(localPath)) fs.unlinkSync(localPath);
+      return { type: 'text', content: `(Scratch fayli o'qilmadi: ${e.message})` };
     }
   }
 
