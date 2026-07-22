@@ -55,7 +55,9 @@
   flex: 1;
   justify-content: center;
   flex-wrap: nowrap;
-  overflow: hidden;
+  overflow-x: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .navbar-menu::-webkit-scrollbar {

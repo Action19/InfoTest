@@ -15,6 +15,23 @@ const Navbar = () => {
     setShowUserMenu(false);
   }, [location.pathname]);
 
+  // Foydalanuvchi almashganda UI ni reset qilish
+  useEffect(() => {
+    setShowUserMenu(false);
+    setMobileMenuOpen(false);
+  }, [user?.id]);
+
+  // Dropdown tashqarisiga bosganda yopish
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (showUserMenu && !e.target.closest('.navbar-user')) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showUserMenu]);
+
   // Body scroll bloklash
   useEffect(() => {
     if (mobileMenuOpen) {

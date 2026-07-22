@@ -24,12 +24,17 @@ if ('serviceWorker' in navigator) {
             .catch((err) => console.log('⚠️ SW: Background sync not supported', err));
         }
 
-        // Yangilanishlarni tekshirish
+        // Yangilanishlarni tekshirish — har 60 sekundda
+        setInterval(() => registration.update(), 60 * 1000);
+
+        // Yangi versiya topilganda
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;
           newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'activated') {
-              console.log('🆕 SW: New version available');
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              // Yangi versiya tayyor — darhol faollashtirish
+              console.log('🆕 SW: New version found, activating...');
+              newWorker.postMessage({ type: 'SKIP_WAITING' });
             }
           });
         });
@@ -38,10 +43,19 @@ if ('serviceWorker' in navigator) {
         console.error('❌ SW: Registration failed:', error);
       });
 
+    // SW controller o'zgarganda sahifani yangilash
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true;
+        console.log('🔄 SW: Controller changed, reloading...');
+        window.location.reload();
+      }
+    });
+
     // Service Worker dan xabarlarni qabul qilish
     navigator.serviceWorker.addEventListener('message', (event) => {
       if (event.data.type === 'SYNC_COMPLETE') {
-        // Offline saqlangan javoblar yuborildi
         const count = event.data.count;
         showNotification(`✅ ${count} ta offline javob muvaffaqiyatli yuborildi!`);
       }

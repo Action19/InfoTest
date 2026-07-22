@@ -1,33 +1,18 @@
 /**
  * InfoTest Service Worker
- * PWA Offline rejim — test topshirish, caching, background sync
+ * PWA Offline rejim — Stale-While-Revalidate strategiyasi
+ * CACHE_NAME har deploy'da timestamp bilan yangilanadi
  */
 
-const CACHE_NAME = 'infotest-v3';
-const API_CACHE = 'infotest-api-v3';
+const CACHE_VERSION = Date.now(); // Har yangi SW install'da o'zgaradi
+const CACHE_NAME = `infotest-v4-${CACHE_VERSION}`;
+const API_CACHE = 'infotest-api-v4';
 const OFFLINE_QUEUE = 'infotest-offline-queue';
 
-// Keshlanadigan statik fayllar
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/static/js/bundle.js',
-  '/static/css/main.css',
-];
-
-// ─── INSTALL — statik fayllarni keshlash ─────────────────────
+// ─── INSTALL — darhol faollashtirish ─────────────────────────
 self.addEventListener('install', (event) => {
-  console.log('🔧 SW: Installing...');
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('📦 SW: Caching static assets');
-      return cache.addAll(STATIC_ASSETS).catch(() => {
-        // Ba'zi fayllar topilmasa ham davom etish
-        console.log('⚠️ SW: Some assets failed to cache');
-      });
-    })
-  );
+  console.log('🔧 SW: Installing (version:', CACHE_VERSION, ')');
+  // Eski SW'ni kutmasdan darhol o'z o'rniga o'tish
   self.skipWaiting();
 });
 
@@ -38,6 +23,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
+          // Faqat joriy kesh va API keshni saqlash, qolganlarini o'chirish
           if (cacheName !== CACHE_NAME && cacheName !== API_CACHE) {
             console.log('🗑️ SW: Deleting old cache:', cacheName);
             return caches.delete(cacheName);
@@ -46,6 +32,7 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
+  // Barcha ochiq tab'larga darhol nazoratni olish
   self.clients.claim();
 });
 
@@ -54,37 +41,59 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // API so'rovlar
+  // Chrome extension va boshqa tashqi so'rovlarni o'tkazib yuborish
+  if (!url.protocol.startsWith('http')) return;
+
+  // API so'rovlar — Network First
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(handleApiRequest(request));
     return;
   }
 
-  // Statik fayllar — Cache First
+  // Statik fayllar — Stale-While-Revalidate
   event.respondWith(handleStaticRequest(request));
 });
 
-// Statik fayllar: Cache First, Network Fallback
+/**
+ * Stale-While-Revalidate — tez javob berish + fonda yangilash
+ * 1. Keshda bo'lsa — darhol qaytaradi
+ * 2. Parallel ravishda network'dan yangi versiyani tortadi
+ * 3. Yangi versiya keshga yoziladi (keyingi safar yangi bo'ladi)
+ * 4. Keshda yo'q bo'lsa — network'dan kutadi
+ */
 async function handleStaticRequest(request) {
-  const cached = await caches.match(request);
-  if (cached) return cached;
+  const cache = await caches.open(CACHE_NAME);
 
-  try {
-    const response = await fetch(request);
-    // Muvaffaqiyatli javoblarni keshlash
-    if (response.ok && response.type === 'basic') {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, response.clone());
+  // Network'dan tortish (fonda)
+  const fetchPromise = fetch(request).then((networkResponse) => {
+    if (networkResponse.ok && networkResponse.type === 'basic') {
+      // Yangi versiyani keshga yozish
+      cache.put(request, networkResponse.clone());
     }
-    return response;
-  } catch (error) {
-    // Offline — index.html qaytarish (SPA routing)
-    if (request.mode === 'navigate') {
-      const cached = await caches.match('/index.html');
-      if (cached) return cached;
-    }
-    return new Response('Offline', { status: 503 });
+    return networkResponse;
+  }).catch(() => null);
+
+  // Keshdan darhol qaytarish
+  const cachedResponse = await cache.match(request);
+
+  if (cachedResponse) {
+    // Keshdan qaytarish, fonda yangilanadi
+    // Keyingi safar ochganda yangi versiya bo'ladi
+    fetchPromise; // fire-and-forget
+    return cachedResponse;
   }
+
+  // Keshda yo'q — network'dan kutish
+  const networkResponse = await fetchPromise;
+  if (networkResponse) return networkResponse;
+
+  // Offline + keshda yo'q — SPA uchun index.html
+  if (request.mode === 'navigate') {
+    const indexCached = await caches.match('/index.html');
+    if (indexCached) return indexCached;
+  }
+
+  return new Response('Offline', { status: 503 });
 }
 
 // API so'rovlar: Network First, Cache Fallback
@@ -96,13 +105,11 @@ async function handleApiRequest(request) {
     try {
       const response = await fetch(request);
       if (response.ok) {
-        // Muvaffaqiyatli API javoblarni keshlash
         const cache = await caches.open(API_CACHE);
         cache.put(request, response.clone());
       }
       return response;
     } catch (error) {
-      // Offline — keshdan qaytarish
       const cached = await caches.match(request);
       if (cached) return cached;
 
@@ -122,7 +129,6 @@ async function handleApiRequest(request) {
       const response = await fetch(request.clone());
       return response;
     } catch (error) {
-      // Offline — javoblarni saqlash
       const body = await request.json();
       await saveOfflineSubmission(body);
 
@@ -137,7 +143,7 @@ async function handleApiRequest(request) {
     }
   }
 
-  // Boshqa POST/PUT so'rovlar — oddiy fetch
+  // Boshqa POST/PUT so'rovlar
   try {
     return await fetch(request);
   } catch (error) {
@@ -207,7 +213,6 @@ self.addEventListener('sync', (event) => {
 
 async function syncOfflineSubmissions() {
   const submissions = await getOfflineSubmissions();
-
   if (submissions.length === 0) return;
 
   console.log(`📤 SW: Syncing ${submissions.length} offline submission(s)...`);
@@ -227,18 +232,16 @@ async function syncOfflineSubmissions() {
       });
 
       if (response.ok) {
-        console.log(`✅ SW: Submission synced successfully`);
+        console.log('✅ SW: Submission synced successfully');
       }
     } catch (error) {
       console.error('❌ SW: Sync failed:', error);
-      // Keyingi urinishda qayta sync qilinadi
       return;
     }
   }
 
   await clearSyncedSubmissions();
 
-  // Clientlarga xabar berish
   const clients = await self.clients.matchAll();
   clients.forEach(client => {
     client.postMessage({
@@ -248,7 +251,7 @@ async function syncOfflineSubmissions() {
   });
 }
 
-// Token olish (localStorage dan)
+// Token olish (client dan)
 async function getToken() {
   const clients = await self.clients.matchAll();
   if (clients.length > 0) {
@@ -256,6 +259,8 @@ async function getToken() {
       const channel = new MessageChannel();
       channel.port1.onmessage = (event) => resolve(event.data.token);
       clients[0].postMessage({ type: 'GET_TOKEN' }, [channel.port2]);
+      // Timeout — 3 sekund
+      setTimeout(() => resolve(null), 3000);
     });
   }
   return null;
@@ -265,5 +270,10 @@ async function getToken() {
 self.addEventListener('message', (event) => {
   if (event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+  if (event.data.type === 'CLEAR_CACHE') {
+    caches.keys().then(names => {
+      names.forEach(name => caches.delete(name));
+    });
   }
 });
