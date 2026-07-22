@@ -400,8 +400,14 @@ router.post('/:id/submit', authenticateToken, upload.single('file'), async (req,
       fileUrl = result.url;
     } catch (uploadErr) {
       console.error('Firebase upload error:', uploadErr.message);
-      // Fallback URL
-      fileUrl = `file://uploaded/${Date.now()}_${req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      return res.status(500).json({
+        error: 'Fayl yuklashda muammo yuz berdi. Qaytadan urinib ko\'ring.',
+        details: uploadErr.message
+      });
+    }
+
+    if (!fileUrl) {
+      return res.status(500).json({ error: 'Fayl yuklash muvaffaqiyatsiz. Qaytadan urinib ko\'ring.' });
     }
 
     const subId = await Assignment.submitFile({
@@ -478,19 +484,32 @@ router.post('/:id/submit-code', authenticateToken, aiLimiter, async (req, res) =
 
       const raw = completion.choices[0].message.content.trim();
       const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
-      aiResult = JSON.parse(jsonStr);
+      
+      try {
+        aiResult = JSON.parse(jsonStr);
+      } catch (parseErr) {
+        console.error('AI JSON parse error (non-fatal):', parseErr.message);
+        aiResult = {
+          score_percent: null,
+          feedback: 'AI javobini o\'qib bo\'lmadi. O\'qituvchi qo\'lda baholashi kerak.',
+          strengths: '',
+          improvements: ''
+        };
+      }
 
-      const score = Math.round(((aiResult.score_percent || 0) / 100) * (assignment.max_score || 100));
-      await Assignment.gradeSubmission(subId, {
-        score,
-        feedback: aiResult.feedback || '',
-        graded_by: 'ai',
-        ai_report: JSON.stringify(aiResult)
-      });
+      if (aiResult.score_percent !== null) {
+        const score = Math.round(((aiResult.score_percent || 0) / 100) * (assignment.max_score || 100));
+        await Assignment.gradeSubmission(subId, {
+          score,
+          feedback: aiResult.feedback || '',
+          graded_by: 'ai',
+          ai_report: JSON.stringify(aiResult)
+        });
 
-      aiResult.score = score;
-      // Lesson progress yangilash (kod submit + AI grade)
-      await triggerLessonProgress(parseInt(req.params.id), req.user.id);
+        aiResult.score = score;
+        // Lesson progress yangilash (kod submit + AI grade)
+        await triggerLessonProgress(parseInt(req.params.id), req.user.id);
+      }
     } catch (aiErr) {
       console.error('Auto AI grade error (non-fatal):', aiErr.message);
       // AI baholash muvaffaqiyatsiz bo'lsa ham, submission saqlangan
