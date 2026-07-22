@@ -6,6 +6,7 @@ const OpenAI = require('openai');
 const Assignment = require('../models/Assignment');
 const database = require('../config/database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { aiLimiter } = require('../middleware/rateLimiter');
 const { readFileForAI } = require('../utils/fileReader');
 const { uploadMulterFile, uploadFile } = require('../utils/firebaseStorage');
 
@@ -308,7 +309,7 @@ router.post('/', authenticateToken, requireRole(['teacher','admin']), async (req
 });
 
 // POST /api/assignments/ai-generate — AI bilan yaratish
-router.post('/ai-generate', authenticateToken, requireRole(['teacher','admin']), async (req, res) => {
+router.post('/ai-generate', authenticateToken, requireRole(['teacher','admin']), aiLimiter, async (req, res) => {
   try {
     const { lesson_id, task_type, topic, grade = 10, level = 'medium', save = true } = req.body;
     if (!lesson_id || !task_type || !topic) {
@@ -422,7 +423,7 @@ router.post('/:id/submit', authenticateToken, upload.single('file'), async (req,
 const CODE_TYPES = ['python', 'html', 'javascript', 'css'];
 const CODE_EXTENSIONS = { python: '.py', html: '.html', javascript: '.js', css: '.css' };
 
-router.post('/:id/submit-code', authenticateToken, async (req, res) => {
+router.post('/:id/submit-code', authenticateToken, aiLimiter, async (req, res) => {
   try {
     if (req.user.role !== 'student')
       return res.status(403).json({ error: 'Faqat o\'quvchilar topshiriq yuboradi' });
@@ -587,7 +588,7 @@ function checkFileType(task_type, fileName) {
 }
 
 // POST /api/assignments/submissions/:subId/ai-grade — AI baholash
-router.post('/submissions/:subId/ai-grade', authenticateToken, requireRole(['teacher','admin']), async (req, res) => {
+router.post('/submissions/:subId/ai-grade', authenticateToken, requireRole(['teacher','admin']), aiLimiter, async (req, res) => {
   try {
     const sub = await Assignment.getSubmissionById(req.params.subId);
     if (!sub) return res.status(404).json({ error: 'Topshirma topilmadi' });
