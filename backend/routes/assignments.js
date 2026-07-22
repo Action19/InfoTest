@@ -644,6 +644,17 @@ router.post('/submissions/:subId/ai-grade', authenticateToken, requireRole(['tea
     // ── 2. Faylni o'qish ──────────────────────────────────────
     const fileData = await readFileForAI(sub.file_path, sub.file_name);
 
+    // ── 2a. Access/binary — AI CHAQIRILMAYDI, qo'lda baholash ──
+    const ext = require('path').extname(sub.file_name || '').toLowerCase();
+    if (ext === '.accdb' || ext === '.mdb' || a.task_type === 'access') {
+      return res.json({
+        message: 'Access fayl turini avtomatik baholab bo\'lmaydi',
+        score: null,
+        feedback: '🗄️ Access (.accdb/.mdb) format proprietary — avtomatik o\'qib bo\'lmaydi.\n\nFayl yuklangan. O\'qituvchi qo\'lda tekshirishi kerak:\n- Jadvallar yaratilganmi\n- So\'rovlar (Query) to\'g\'ri ishlayaptimi\n- Formalar va hisobotlar bormi',
+        needs_manual_grading: true
+      });
+    }
+
     let result;
 
     if (fileData.type === 'image') {
@@ -692,7 +703,11 @@ Quyidagi JSON formatda javob ber (boshqa hech narsa yozma):
 
       const raw = completion.choices[0].message.content.trim();
       const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
-      result = JSON.parse(jsonStr);
+      try {
+        result = JSON.parse(jsonStr);
+      } catch (parseErr) {
+        result = { score_percent: null, feedback: 'AI javobini o\'qib bo\'lmadi. O\'qituvchi qo\'lda baholashi kerak.' };
+      }
 
     } else {
       // ── 3b. Matn yoki binary — to'liq tarkib bilan ────────
@@ -708,10 +723,23 @@ Quyidagi JSON formatda javob ber (boshqa hech narsa yozma):
 
       const raw = completion.choices[0].message.content.trim();
       const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
-      result = JSON.parse(jsonStr);
+      try {
+        result = JSON.parse(jsonStr);
+      } catch (parseErr) {
+        result = { score_percent: null, feedback: 'AI javobini o\'qib bo\'lmadi. O\'qituvchi qo\'lda baholashi kerak.' };
+      }
     }
 
     // ── 4. Natijani saqlash ───────────────────────────────────
+    if (result.score_percent === null) {
+      return res.json({
+        message: 'AI baholay olmadi — qo\'lda baholang',
+        score: null,
+        feedback: result.feedback,
+        needs_manual_grading: true
+      });
+    }
+
     const score = Math.round(((result.score_percent || 0) / 100) * (sub.max_score || 100));
     await Assignment.gradeSubmission(req.params.subId, {
       score,
