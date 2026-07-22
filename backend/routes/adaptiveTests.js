@@ -476,14 +476,17 @@ router.post('/adaptive-attempts/:attemptId/finish', authenticateToken, async (re
     const totalCorrect = answers.filter(a => a.isCorrect).length;
     const totalScore = Math.round((totalCorrect / answers.length) * 100);
 
-    // Zaif tushunchalarni aniqlash (60% dan past)
+    // Zaif tushunchalarni aniqlash — kamida 1 ta noto'g'ri javob bo'lgan BARCHA tushunchalar
     const weakConcepts = [];
     for (const [concept, data] of Object.entries(conceptScores)) {
       const percent = Math.round((data.correct / data.total) * 100);
-      if (percent < 60) {
+      // 100% dan past bo'lgan har bir tushuncha uchun tushuntirish beriladi
+      if (percent < 100) {
         weakConcepts.push({ concept, score: percent, correct: data.correct, total: data.total });
       }
     }
+    // Eng zaiflarini oldin ko'rsatish (foiz bo'yicha saralash)
+    weakConcepts.sort((a, b) => a.score - b.score);
 
     // Noto'g'ri javob berilgan savollarning explanation'larini olish
     const wrongQuestionIds = answers.filter(a => !a.isCorrect).map(a => a.questionId);

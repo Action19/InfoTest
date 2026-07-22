@@ -342,27 +342,33 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
           </div>
         )}
 
-        {/* Zaif tushunchalar va tushuntirishlar */}
+        {/* Noto'g'ri javob berilgan tushunchalar va tushuntirishlar */}
         {results.weakConcepts && results.weakConcepts.length > 0 && (
           <div>
-            <h4 style={{ margin: '0 0 1rem', color: '#dc2626', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              📖 Zaif tushunchalar — batafsil tushuntirish
+            <h4 style={{ margin: '0 0 1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              📖 Tushuntirishlar ({results.weakConcepts.length} ta tushuncha)
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              {results.weakConcepts.map((weak, idx) => (
+              {results.weakConcepts.map((weak, idx) => {
+                const borderColor = weak.score < 50 ? 'rgba(239,68,68,0.3)' : weak.score < 80 ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)';
+                const bgColor = weak.score < 50 ? 'rgba(239,68,68,0.06)' : weak.score < 80 ? 'rgba(245,158,11,0.06)' : 'rgba(34,197,94,0.06)';
+                const textColor = weak.score < 50 ? '#dc2626' : weak.score < 80 ? '#d97706' : '#16a34a';
+                const icon = weak.score < 50 ? '❌' : weak.score < 80 ? '⚠️' : '📝';
+
+                return (
                 <div key={idx} style={{
                   background: 'var(--card-bg)', borderRadius: '14px', overflow: 'hidden',
-                  border: '1px solid rgba(239,68,68,0.2)'
+                  border: `1px solid ${borderColor}`
                 }}>
                   {/* Sarlavha */}
                   <div style={{
                     padding: '0.75rem 1.25rem',
-                    background: 'rgba(239,68,68,0.06)',
-                    borderBottom: '1px solid rgba(239,68,68,0.15)',
+                    background: bgColor,
+                    borderBottom: `1px solid ${borderColor}`,
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                   }}>
-                    <span style={{ fontWeight: 700, color: '#dc2626' }}>❌ {weak.concept}</span>
-                    <span style={{ fontSize: '0.8rem', color: '#dc2626', fontWeight: 600 }}>{weak.score}%</span>
+                    <span style={{ fontWeight: 700, color: textColor }}>{icon} {weak.concept}</span>
+                    <span style={{ fontSize: '0.8rem', color: textColor, fontWeight: 600 }}>{weak.score}%</span>
                   </div>
 
                   <div style={{ padding: '1.25rem' }}>
@@ -415,7 +421,8 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
