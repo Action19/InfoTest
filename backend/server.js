@@ -21,6 +21,7 @@ const forumRoutes = require('./routes/forum');
 const experimentRoutes = require('./routes/experiment');
 const surveyRoutes = require('./routes/survey');
 const diagnosticRoutes = require('./routes/diagnostic');
+const adaptiveTestRoutes = require('./routes/adaptiveTests');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -87,6 +88,7 @@ app.use('/api/forum', forumRoutes);
 app.use('/api/experiment', experimentRoutes);
 app.use('/api/survey', surveyRoutes);
 app.use('/api/diagnostic', diagnosticRoutes);
+app.use('/api', adaptiveTestRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -412,6 +414,65 @@ async function runMigrations(db) {
       )
     `);
     await db.run('CREATE INDEX IF NOT EXISTS idx_survey_user ON survey_responses(user_id)').catch(()=>{});
+
+    // ─── ADAPTIVE TEST TABLES ────────────────────────────────
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS adaptive_tests (
+        id            SERIAL PRIMARY KEY,
+        lesson_id     INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+        status        TEXT DEFAULT 'draft' CHECK(status IN ('draft','published')),
+        generated_from TEXT CHECK(generated_from IN ('material','topic_only')),
+        created_by    INTEGER NOT NULL REFERENCES users(id),
+        created_at    TIMESTAMPTZ DEFAULT NOW(),
+        updated_at    TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(lesson_id)
+      )
+    `);
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS adaptive_questions (
+        id               SERIAL PRIMARY KEY,
+        adaptive_test_id INTEGER NOT NULL REFERENCES adaptive_tests(id) ON DELETE CASCADE,
+        question_text    TEXT NOT NULL,
+        option_a         TEXT NOT NULL,
+        option_b         TEXT NOT NULL,
+        option_c         TEXT NOT NULL,
+        option_d         TEXT NOT NULL,
+        correct_option   TEXT NOT NULL CHECK(correct_option IN ('a','b','c','d')),
+        concept          TEXT NOT NULL,
+        difficulty_level INTEGER DEFAULT 3 CHECK(difficulty_level BETWEEN 1 AND 5),
+        edited_by_teacher BOOLEAN DEFAULT FALSE,
+        order_number     INTEGER
+      )
+    `);
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS adaptive_attempts (
+        id                  SERIAL PRIMARY KEY,
+        user_id             INTEGER NOT NULL REFERENCES users(id),
+        adaptive_test_id    INTEGER NOT NULL REFERENCES adaptive_tests(id) ON DELETE CASCADE,
+        current_difficulty  INTEGER DEFAULT 3,
+        asked_question_ids  INTEGER[] DEFAULT '{}',
+        answers             JSONB DEFAULT '[]',
+        concept_scores      JSONB DEFAULT '{}',
+        status              TEXT DEFAULT 'in_progress' CHECK(status IN ('in_progress','completed')),
+        started_at          TIMESTAMPTZ DEFAULT NOW(),
+        completed_at        TIMESTAMPTZ
+      )
+    `);
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS concept_explanations (
+        id               SERIAL PRIMARY KEY,
+        adaptive_test_id INTEGER NOT NULL REFERENCES adaptive_tests(id) ON DELETE CASCADE,
+        concept          TEXT NOT NULL,
+        explanation_html TEXT NOT NULL,
+        created_at       TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(adaptive_test_id, concept)
+      )
+    `);
+    await db.run('CREATE INDEX IF NOT EXISTS idx_adaptive_tests_lesson ON adaptive_tests(lesson_id)').catch(()=>{});
+    await db.run('CREATE INDEX IF NOT EXISTS idx_adaptive_questions_test ON adaptive_questions(adaptive_test_id)').catch(()=>{});
+    await db.run('CREATE INDEX IF NOT EXISTS idx_adaptive_attempts_user ON adaptive_attempts(user_id)').catch(()=>{});
+    await db.run('CREATE INDEX IF NOT EXISTS idx_adaptive_attempts_test ON adaptive_attempts(adaptive_test_id)').catch(()=>{});
+    await db.run('CREATE INDEX IF NOT EXISTS idx_concept_explanations_test ON concept_explanations(adaptive_test_id)').catch(()=>{});
 
     // Demo foydalanuvchilarni o'chirish (dilshod_karimov, madina_rashidova)
     try {

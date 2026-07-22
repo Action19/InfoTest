@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import AdaptiveTestReviewPanel from '../components/AdaptiveTestReviewPanel';
+import AdaptiveTestStudentView from '../components/AdaptiveTestStudentView';
 import '../assets/css/Pages.css';
 
 const LessonDetail = () => {
@@ -64,6 +66,10 @@ const LessonDetail = () => {
   const [codeResult, setCodeResult] = useState({});    // { [assignmentId]: { score, feedback, ... } }
   const [submittingCode, setSubmittingCode] = useState(false);
 
+  // ─── Adaptive test state ───────────────────────────────────
+  const [adaptiveTest, setAdaptiveTest] = useState(null);
+  const [generatingAdaptive, setGeneratingAdaptive] = useState(false);
+
   // New test form
   const [newTest, setNewTest] = useState({
     title: '',
@@ -96,6 +102,7 @@ const LessonDetail = () => {
   useEffect(() => {
     fetchLesson();
     fetchAssignments();
+    fetchAdaptiveTest();
     if (user?.role === 'student') fetchProgress();
   }, [id]);
 
@@ -144,6 +151,36 @@ const LessonDetail = () => {
     } finally {
       setLoadingSubmissions(false);
     }
+  };
+
+  // ─── Adaptive test funksiyalari ─────────────────────────────
+  const fetchAdaptiveTest = async () => {
+    try {
+      const res = await api.get(`/lessons/${id}/adaptive-test`);
+      setAdaptiveTest(res.data);
+    } catch (err) {
+      // 404 — test yo'q, normal holat
+      setAdaptiveTest(null);
+    }
+  };
+
+  const handleGenerateAdaptiveTest = async () => {
+    if (!window.confirm('AI 20 ta savol yaratadi. Davom etsinmi?')) return;
+    try {
+      setGeneratingAdaptive(true);
+      const res = await api.post(`/lessons/${id}/adaptive-test/generate`);
+      setAdaptiveTest(res.data.adaptiveTest ? { ...res.data.adaptiveTest, questions: res.data.questions || [] } : res.data);
+      await fetchAdaptiveTest();
+      alert(`✅ ${res.data.totalQuestions || 20} ta savol yaratildi! Tekshirib, e'lon qiling.`);
+    } catch (err) {
+      alert('Adaptiv test yaratishda xatolik: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setGeneratingAdaptive(false);
+    }
+  };
+
+  const handlePublishAdaptive = async () => {
+    await fetchAdaptiveTest();
   };
 
   const fetchTestDetails = async (testId) => {
@@ -788,6 +825,35 @@ const LessonDetail = () => {
       </div>
 
 
+
+      {/* ── Adaptive Test section ── */}
+      <div className="profile-section" style={{ marginBottom: '2rem' }}>
+        <div className="section-header">
+          <h3>🎯 Adaptiv test</h3>
+          {isOwner && (
+            <button onClick={handleGenerateAdaptiveTest} className="btn btn-primary" disabled={generatingAdaptive}>
+              {generatingAdaptive ? '⏳ Yaratilmoqda...' : '✨ Adaptiv testni shakllantirish'}
+            </button>
+          )}
+        </div>
+
+        {!adaptiveTest ? (
+          <div className="empty-state" style={{ padding: '2rem 0' }}>
+            <div className="empty-icon">🎯</div>
+            <p>{isOwner ? "Bu darsga hali adaptiv test yaratilmagan. AI 20 ta savol yaratadi." : "Adaptiv test hali tayyor emas"}</p>
+          </div>
+        ) : adaptiveTest.status === 'draft' && isOwner ? (
+          <AdaptiveTestReviewPanel
+            adaptiveTest={adaptiveTest}
+            onPublish={handlePublishAdaptive}
+            onRefresh={fetchAdaptiveTest}
+          />
+        ) : adaptiveTest.status === 'published' ? (
+          <AdaptiveTestStudentView adaptiveTest={adaptiveTest} />
+        ) : (
+          <p style={{ padding: '1rem 0', color: 'var(--text-secondary)' }}>Adaptiv test hali o'qituvchi tomonidan e'lon qilinmagan</p>
+        )}
+      </div>
 
       {/* ── Tests section ── */}
       <div className="profile-section">
