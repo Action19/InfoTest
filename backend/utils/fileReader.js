@@ -178,12 +178,16 @@ async function readFileForAI(filePath, fileName) {
   // ── Word fayllari ──────────────────────────────────────────
   if (ext === '.docx') {
     try {
+      // Sahifa sozlamalarini olish (adm-zip orqali document.xml dan)
+      const pageSetupInfo = extractDocxPageSetup(localPath);
+
       const mammoth = require('mammoth');
       const result = await mammoth.extractRawText({ path: localPath });
       if (isTemp) fs.unlinkSync(localPath);
       const text = result.value || '';
       let output = `📝 Word fayl: "${fileName}"\n\n`;
-      output += `Matn tarkibi:\n${text.slice(0, 5000)}`;
+      output += `${pageSetupInfo}\n\n`;
+      output += `Matn tarkibi:\n${text.slice(0, 4500)}`;
       if (text.length === 0) output += '(Hujjat bo\'sh yoki matn topilmadi)';
       return { type: 'text', content: output };
     } catch (e) {
@@ -216,6 +220,78 @@ async function readFileForAI(filePath, fileName) {
     type: 'binary_unreadable',
     content: `Fayl: "${fileName}" (${ext})\n\nBu fayl turi avtomatik o'qilmaydi. Fayl yuklangan, lekin tarkibini baholash uchun qo'lda tekshirish tavsiya etiladi.`
   };
+}
+
+// ── Word (.docx) sahifa sozlamalarini olish ──────────────────
+function extractDocxPageSetup(localPath) {
+  try {
+    const AdmZip = require('adm-zip');
+    const zip = new AdmZip(localPath);
+    const docEntry = zip.getEntry('word/document.xml');
+    if (!docEntry) return 'Sahifa sozlamalari aniqlanmadi (document.xml topilmadi)';
+
+    const xml = zip.readAsText(docEntry);
+
+    // <w:sectPr> ichidan <w:pgSz ... /> va <w:pgMar ... /> ni topish
+    const sectPrMatch = xml.match(/<w:sectPr[^>]*>([\s\S]*?)<\/w:sectPr>/);
+    if (!sectPrMatch) return 'Sahifa sozlamalari aniqlanmadi (sectPr topilmadi — standart qiymatlar bo\'lishi mumkin)';
+
+    const sectPr = sectPrMatch[0];
+
+    // ── Sahifa o'lchami va yo'nalishi ──
+    let orientation = 'portrait';
+    const pgSzMatch = sectPr.match(/<w:pgSz([^/]*)\/?>/);
+    if (pgSzMatch) {
+      const attrs = pgSzMatch[1];
+      const orientAttr = attrs.match(/w:orient="([^"]+)"/);
+      if (orientAttr) {
+        orientation = orientAttr[1]; // "landscape" yoki "portrait"
+      } else {
+        // w:orient yo'q bo'lsa, w:w va w:h solishtirish
+        const wMatch = attrs.match(/w:w="(\d+)"/);
+        const hMatch = attrs.match(/w:h="(\d+)"/);
+        if (wMatch && hMatch) {
+          const w = parseInt(wMatch[1]);
+          const h = parseInt(hMatch[1]);
+          if (w > h) orientation = 'landscape';
+        }
+      }
+    }
+
+    // ── Hoshiyalar (margins) ──
+    let margins = null;
+    const pgMarMatch = sectPr.match(/<w:pgMar([^/]*)\/?>/);
+    if (pgMarMatch) {
+      const attrs = pgMarMatch[1];
+      const topM = attrs.match(/w:top="(-?\d+)"/);
+      const bottomM = attrs.match(/w:bottom="(-?\d+)"/);
+      const leftM = attrs.match(/w:left="(\d+)"/);
+      const rightM = attrs.match(/w:right="(\d+)"/);
+
+      // Twips dan sm ga: 1 sm = 566.9291 twips
+      const toSm = (twips) => (Math.abs(parseInt(twips)) / 566.9291).toFixed(2);
+
+      margins = {
+        top: topM ? toSm(topM[1]) : '?',
+        bottom: bottomM ? toSm(bottomM[1]) : '?',
+        left: leftM ? toSm(leftM[1]) : '?',
+        right: rightM ? toSm(rightM[1]) : '?'
+      };
+    }
+
+    // Natijani matn sifatida shakllantirish
+    let result = `📐 Sahifa sozlamalari:\n`;
+    result += `- Yo'nalish (orientation): ${orientation}\n`;
+    if (margins) {
+      result += `- Hoshiyalar (margins): yuqori ${margins.top}sm, pastki ${margins.bottom}sm, chap ${margins.left}sm, o'ng ${margins.right}sm\n`;
+    } else {
+      result += `- Hoshiyalar: aniqlanmadi (standart qiymatlar bo'lishi mumkin)\n`;
+    }
+
+    return result;
+  } catch (e) {
+    return `Sahifa sozlamalari aniqlanmadi: ${e.message}`;
+  }
 }
 
 // Excel da formulalar sonini hisoblash

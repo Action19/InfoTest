@@ -101,6 +101,7 @@ MUHIM: "❌ Diagramma topilmadi" yoki "Formulalar soni: 0" ko'rsatilsa — jiddi
 - Hujjat tuzilmasi va formatlash
 - Sarlavhalar, jadvallar, rasmlar talabga muvofiqmi
 - Mazmun to'liqmi
+- Fayl tarkibida ko'rsatilgan "📐 Sahifa sozlamalari" bo'limidagi yo'nalish (orientation) va hoshiya (margin) qiymatlarini topshiriq talabiga solishtirib tekshir. Agar topshiriqda sahifa yo'nalishi yoki hoshiya talabi berilgan bo'lsa, haqiqiy son qiymatlarni solishtir va farq bo'lsa ball kes. Agar "Sahifa sozlamalari" bo'limi mavjud bo'lmasa, bu mezonlar bo'yicha ball kesma va buni feedback'da aniq ayt.
 ❌ QOIDALAR: Word hujjatda Excel formulalari so'RALMAYDI!`,
 
     access: `BAHOLASH MEZONLARI (Access):
