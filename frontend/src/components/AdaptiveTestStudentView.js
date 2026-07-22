@@ -46,22 +46,19 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
         selectedOption
       });
 
-      setLastAnswer({ isCorrect: res.data.isCorrect, correctOption: res.data.correctOption, explanation: res.data.explanation || '' });
+      setLastAnswer({ isCorrect: res.data.isCorrect, correctOption: res.data.correctOption });
 
       if (res.data.finished) {
         // Test tugadi — natijani olish
-        const finishDelay = (!res.data.isCorrect && res.data.explanation) ? 3500 : 1500;
-        setTimeout(() => handleFinish(), finishDelay);
+        setTimeout(() => handleFinish(), 1500);
       } else {
-        // Tushuntirish bo'lsa ko'proq vaqt berish
-        const nextDelay = (!res.data.isCorrect && res.data.explanation) ? 3500 : 1500;
         setTimeout(() => {
           setCurrentQuestion(res.data.nextQuestion);
           setQuestionNumber(res.data.questionNumber);
           setCurrentDifficulty(res.data.currentDifficulty);
           setSelectedOption(null);
           setLastAnswer(null);
-        }, nextDelay);
+        }, 1500);
       }
     } catch (err) {
       alert('Javob yuborishda xatolik: ' + (err.response?.data?.error || err.message));
@@ -256,29 +253,14 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
         {/* Natija indikatori */}
         {lastAnswer && (
           <div style={{
-            padding: '0.75rem', borderRadius: '10px', marginBottom: '1rem',
+            textAlign: 'center', padding: '0.75rem', borderRadius: '10px', marginBottom: '1rem',
             background: lastAnswer.isCorrect ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-            border: lastAnswer.isCorrect ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(239,68,68,0.3)'
+            border: lastAnswer.isCorrect ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(239,68,68,0.3)',
+            color: lastAnswer.isCorrect ? '#16a34a' : '#dc2626',
+            fontWeight: 600, fontSize: '0.95rem'
           }}>
-            <div style={{
-              textAlign: 'center',
-              color: lastAnswer.isCorrect ? '#16a34a' : '#dc2626',
-              fontWeight: 600, fontSize: '0.95rem'
-            }}>
-              {lastAnswer.isCorrect ? '✅ To\'g\'ri!' : '❌ Noto\'g\'ri'}
-              {questionNumber >= totalQuestions && ' — Test tugadi, natija hisoblanmoqda...'}
-            </div>
-            {/* Noto'g'ri javobda tushuntirish */}
-            {!lastAnswer.isCorrect && lastAnswer.explanation && (
-              <div style={{
-                marginTop: '0.6rem', padding: '0.6rem 0.75rem',
-                background: 'rgba(99,102,241,0.06)', borderRadius: '8px',
-                borderLeft: '3px solid rgba(99,102,241,0.5)',
-                fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.6, textAlign: 'left'
-              }}>
-                💡 <strong>Tushuntirish:</strong> {lastAnswer.explanation}
-              </div>
-            )}
+            {lastAnswer.isCorrect ? '✅ To\'g\'ri!' : '❌ Noto\'g\'ri'}
+            {questionNumber >= totalQuestions && ' — Test tugadi, natija hisoblanmoqda...'}
           </div>
         )}
 
@@ -364,27 +346,74 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
         {results.weakConcepts && results.weakConcepts.length > 0 && (
           <div>
             <h4 style={{ margin: '0 0 1rem', color: '#dc2626', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              📖 Zaif tushunchalar — tushuntirish
+              📖 Zaif tushunchalar — batafsil tushuntirish
             </h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               {results.weakConcepts.map((weak, idx) => (
                 <div key={idx} style={{
                   background: 'var(--card-bg)', borderRadius: '14px', overflow: 'hidden',
                   border: '1px solid rgba(239,68,68,0.2)'
                 }}>
+                  {/* Sarlavha */}
                   <div style={{
                     padding: '0.75rem 1.25rem',
                     background: 'rgba(239,68,68,0.06)',
                     borderBottom: '1px solid rgba(239,68,68,0.15)',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                   }}>
-                    <span style={{ fontWeight: 700, color: '#dc2626' }}>{weak.concept}</span>
+                    <span style={{ fontWeight: 700, color: '#dc2626' }}>❌ {weak.concept}</span>
                     <span style={{ fontSize: '0.8rem', color: '#dc2626', fontWeight: 600 }}>{weak.score}%</span>
                   </div>
-                  <div
-                    style={{ padding: '1.25rem', lineHeight: 1.7, fontSize: '0.9rem', color: 'var(--text-primary)' }}
-                    dangerouslySetInnerHTML={{ __html: weak.explanation }}
-                  />
+
+                  <div style={{ padding: '1.25rem' }}>
+                    {/* O'qituvchi tushuntirishlari (savol bo'yicha) */}
+                    {weak.teacherExplanations && weak.teacherExplanations.length > 0 && (
+                      <div style={{ marginBottom: '1rem' }}>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#2563eb', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          👨‍🏫 O'qituvchi tushuntirishi:
+                        </div>
+                        {weak.teacherExplanations.map((te, i) => (
+                          <div key={i} style={{
+                            padding: '0.6rem 0.75rem', marginBottom: '0.4rem',
+                            background: 'rgba(37,99,235,0.05)', borderRadius: '8px',
+                            borderLeft: '3px solid rgba(37,99,235,0.4)',
+                            fontSize: '0.85rem', lineHeight: 1.6
+                          }}>
+                            <div style={{ fontWeight: 600, marginBottom: '0.2rem', color: 'var(--text-primary)' }}>
+                              {te.question}
+                            </div>
+                            <div style={{ color: '#16a34a', fontSize: '0.8rem', marginBottom: '0.2rem' }}>
+                              ✓ To'g'ri javob: {te.correctAnswer}
+                            </div>
+                            <div style={{ color: 'var(--text-secondary)' }}>
+                              💡 {te.explanation}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* AI batafsil tushuntirish */}
+                    {weak.aiExplanation && (
+                      <div>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#7c3aed', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          🤖 AI batafsil tushuntirish:
+                        </div>
+                        <div
+                          style={{ lineHeight: 1.7, fontSize: '0.9rem', color: 'var(--text-primary)', padding: '0.75rem', background: 'rgba(124,58,237,0.03)', borderRadius: '8px', border: '1px solid rgba(124,58,237,0.1)' }}
+                          dangerouslySetInnerHTML={{ __html: weak.aiExplanation }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Eski format bilan backward compatibility */}
+                    {!weak.aiExplanation && weak.explanation && (
+                      <div
+                        style={{ lineHeight: 1.7, fontSize: '0.9rem', color: 'var(--text-primary)' }}
+                        dangerouslySetInnerHTML={{ __html: weak.explanation }}
+                      />
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

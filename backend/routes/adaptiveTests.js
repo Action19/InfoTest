@@ -485,65 +485,96 @@ router.post('/adaptive-attempts/:attemptId/finish', authenticateToken, async (re
       }
     }
 
-    // Har bir zaif tushuncha uchun tushuntirish
+    // Noto'g'ri javob berilgan savollarning explanation'larini olish
+    const wrongQuestionIds = answers.filter(a => !a.isCorrect).map(a => a.questionId);
+    let questionExplanations = [];
+    if (wrongQuestionIds.length > 0) {
+      questionExplanations = await database.all(
+        `SELECT id, question_text, correct_option, option_a, option_b, option_c, option_d, concept, explanation
+         FROM adaptive_questions WHERE id = ANY($1::int[])`,
+        [wrongQuestionIds]
+      );
+    }
+
+    // Har bir zaif tushuncha uchun: o'qituvchi explanation + AI batafsil tushuntirish
     const explanations = [];
     for (const weak of weakConcepts) {
-      // Keshdan tekshirish
+      // 1. Shu tushunchaga tegishli noto'g'ri javob berilgan savollarning explanationlarini yig'ish
+      const relatedQuestions = questionExplanations.filter(q => q.concept === weak.concept);
+      const teacherExplanations = relatedQuestions
+        .filter(q => q.explanation && q.explanation.trim())
+        .map(q => ({
+          question: q.question_text,
+          correctAnswer: q[`option_${q.correct_option}`],
+          explanation: q.explanation
+        }));
+
+      // 2. AI batafsil tushuntirish (keshdan yoki yangi)
+      let aiExplanationHtml = '';
       let cached = await database.get(
         'SELECT * FROM concept_explanations WHERE adaptive_test_id = $1 AND concept = $2',
         [attempt.adaptive_test_id, weak.concept]
       );
 
       if (cached) {
-        explanations.push({
-          concept: weak.concept,
-          score: weak.score,
-          explanation: cached.explanation_html
-        });
+        aiExplanationHtml = cached.explanation_html;
       } else {
-        // AI bilan tushuntirish yaratish
+        // AI bilan batafsil tushuntirish yaratish
         try {
-          // Dars materialini olish (kontekst uchun)
           const test = await database.get('SELECT lesson_id FROM adaptive_tests WHERE id = $1', [attempt.adaptive_test_id]);
           const lesson = test ? await database.get('SELECT title FROM lessons WHERE id = $1', [test.lesson_id]) : null;
 
-          const explainPrompt = `O'quvchi "${weak.concept}" tushunchasini yaxshi tushunmadi.
+          // Materialdan kontekst olish
+          let materialContext = '';
+          if (test && test.lesson_id) {
+            const materials = await database.all('SELECT file_path, file_name FROM lesson_materials WHERE lesson_id = $1 LIMIT 2', [test.lesson_id]);
+            for (const mat of materials) {
+              try {
+                const fileData = await readFileForAI(mat.file_path, mat.file_name);
+                if (fileData && fileData.content && fileData.type === 'text') {
+                  materialContext += fileData.content.slice(0, 3000) + '\n';
+                }
+              } catch (e) { /* skip */ }
+            }
+          }
+
+          const explainPrompt = `O'quvchi "${weak.concept}" tushunchasini yaxshi tushunmadi (${weak.correct}/${weak.total} to'g'ri).
 ${lesson ? `Mavzu: "${lesson.title}"` : ''}
-9-10 sinf o'quvchisi tushunadigan tilda, oddiy, aniq misol bilan tushuntiring.
-Formatlash: qisqa sarlavha, 2-3 paragraf, agar kerak bo'lsa oddiy kod/misol.
-Faqat HTML qaytaring (h4, p, code, pre teglaridan foydalaning), boshqa hech narsa yozmang.`;
+${materialContext ? `\nDars materialidan tegishli qism:\n${materialContext.slice(0, 4000)}\n` : ''}
+${teacherExplanations.length > 0 ? `\nO'qituvchi qisqa tushuntirishi:\n${teacherExplanations.map(t => `- "${t.question}" → ${t.explanation}`).join('\n')}\n\nYuqoridagi qisqa tushuntirishlarni kengaytirib, batafsil tushuntiring.` : ''}
+
+9-10 sinf o'quvchisi tushunadigan tilda, oddiy va aniq misol bilan BATAFSIL tushuntiring.
+Formatlash: sarlavha, 3-4 paragraf, real hayotiy misol, agar kerak bo'lsa oddiy kod/formula.
+Faqat HTML qaytaring (h4, p, ul, li, code, pre, strong teglaridan foydalaning), boshqa hech narsa yozmang.`;
 
           const explainResult = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
             messages: [{ role: 'user', content: explainPrompt }],
             temperature: 0.5,
-            max_tokens: 1000
+            max_tokens: 1500
           });
 
-          const explanationHtml = explainResult.choices[0].message.content.trim();
+          aiExplanationHtml = explainResult.choices[0].message.content.trim();
 
           // Keshga saqlash
           await database.run(
             `INSERT INTO concept_explanations (adaptive_test_id, concept, explanation_html)
              VALUES ($1, $2, $3)
              ON CONFLICT (adaptive_test_id, concept) DO UPDATE SET explanation_html = $3`,
-            [attempt.adaptive_test_id, weak.concept, explanationHtml]
+            [attempt.adaptive_test_id, weak.concept, aiExplanationHtml]
           );
-
-          explanations.push({
-            concept: weak.concept,
-            score: weak.score,
-            explanation: explanationHtml
-          });
         } catch (aiErr) {
           console.error(`Concept explanation AI error (${weak.concept}):`, aiErr.message);
-          explanations.push({
-            concept: weak.concept,
-            score: weak.score,
-            explanation: `<h4>${weak.concept}</h4><p>Tushuntirish yaratishda xatolik yuz berdi. O'qituvchingizdan so'rang.</p>`
-          });
+          aiExplanationHtml = `<h4>${weak.concept}</h4><p>Batafsil tushuntirish yaratishda xatolik. O'qituvchingizdan so'rang.</p>`;
         }
       }
+
+      explanations.push({
+        concept: weak.concept,
+        score: weak.score,
+        teacherExplanations, // O'qituvchi qisqa tushuntirishlari (savol bo'yicha)
+        aiExplanation: aiExplanationHtml // AI batafsil tushuntirish
+      });
     }
 
     // Barcha tushunchalar bali
