@@ -868,13 +868,15 @@ const LessonDetail = () => {
                 <div className="empty-icon">🎯</div>
                 <p>{isOwner ? "Bu darsga hali adaptiv test yaratilmagan. AI 20 ta savol yaratadi." : "Adaptiv test hali tayyor emas"}</p>
               </div>
-            ) : adaptiveTest.status === 'draft' && isOwner ? (
+            ) : isOwner ? (
+              /* O'qituvchi/admin — doim savollar ko'rinadi, tahrirlash mumkin */
               <AdaptiveTestReviewPanel
                 adaptiveTest={adaptiveTest}
                 onPublish={handlePublishAdaptive}
                 onRefresh={fetchAdaptiveTest}
               />
             ) : adaptiveTest.status === 'published' ? (
+              /* O'quvchi — faqat e'lon qilingan testni yechadi */
               <AdaptiveTestStudentView adaptiveTest={adaptiveTest} />
             ) : (
               <p style={{ padding: '1rem 0', color: 'var(--text-secondary)' }}>Adaptiv test hali o'qituvchi tomonidan e'lon qilinmagan</p>
