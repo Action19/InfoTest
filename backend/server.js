@@ -447,7 +447,6 @@ async function runMigrations(db) {
     `);
     // explanation ustunini mavjud jadvalga qo'shish (agar jadval allaqachon yaratilgan bo'lsa)
     await db.run('ALTER TABLE adaptive_questions ADD COLUMN IF NOT EXISTS explanation TEXT DEFAULT \'\'').catch(()=>{});
-    `);
     await db.run(`
       CREATE TABLE IF NOT EXISTS adaptive_attempts (
         id                  SERIAL PRIMARY KEY,
