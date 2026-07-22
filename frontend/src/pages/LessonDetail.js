@@ -70,6 +70,8 @@ const LessonDetail = () => {
   const [adaptiveTest, setAdaptiveTest] = useState(null);
   const [generatingAdaptive, setGeneratingAdaptive] = useState(false);
   const [adaptiveExpanded, setAdaptiveExpanded] = useState(false);
+  const [testsExpanded, setTestsExpanded] = useState(false);
+  const [assignmentsExpanded, setAssignmentsExpanded] = useState(false);
 
   // New test form
   const [newTest, setNewTest] = useState({
@@ -885,17 +887,29 @@ const LessonDetail = () => {
         )}
       </div>
 
-      {/* ── Tests section ── */}
+      {/* ── Tests section (collapsible) ── */}
       <div className="profile-section">
-        <div className="section-header">
-          <h3>📝 Testlar ({lesson.tests?.length || 0})</h3>
+        <div
+          className="section-header"
+          onClick={() => setTestsExpanded(!testsExpanded)}
+          style={{ cursor: 'pointer', userSelect: 'none' }}
+        >
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{
+              display: 'inline-flex', transition: 'transform 0.3s',
+              transform: testsExpanded ? 'rotate(90deg)' : 'rotate(0deg)'
+            }}>▶</span>
+            📝 Testlar ({lesson.tests?.length || 0})
+          </h3>
           {isOwner && (
-            <button onClick={() => setShowCreateTestModal(true)} className="btn btn-primary">
+            <button onClick={(e) => { e.stopPropagation(); setShowCreateTestModal(true); }} className="btn btn-primary">
               ➕ Yangi test
             </button>
           )}
         </div>
 
+        {testsExpanded && (
+        <div style={{ marginTop: '1rem' }}>
         {(!lesson.tests || lesson.tests.length === 0) ? (
           <div className="empty-state" style={{ padding: '2rem 0' }}>
             <div className="empty-icon">📝</div>
@@ -1194,16 +1208,28 @@ const LessonDetail = () => {
 
           </div>
         )}
+        </div>
+        )}
       </div>
 
 
 
-      {/* ═══════════════ AMALIY TOPSHIRIQLAR ═══════════════════ */}
+      {/* ═══════════════ AMALIY TOPSHIRIQLAR (collapsible) ═══════════════════ */}
       <div className="profile-section" style={{ marginTop: '2rem' }}>
-        <div className="section-header">
-          <h3>🖥️ Amaliy Topshiriqlar ({assignments.length})</h3>
+        <div
+          className="section-header"
+          onClick={() => setAssignmentsExpanded(!assignmentsExpanded)}
+          style={{ cursor: 'pointer', userSelect: 'none' }}
+        >
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{
+              display: 'inline-flex', transition: 'transform 0.3s',
+              transform: assignmentsExpanded ? 'rotate(90deg)' : 'rotate(0deg)'
+            }}>▶</span>
+            🖥️ Amaliy Topshiriqlar ({assignments.length})
+          </h3>
           {isOwner && (
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem' }} onClick={(e) => e.stopPropagation()}>
               <button onClick={() => setShowCreateAssignModal(true)} className="btn btn-primary">➕ Topshiriq</button>
               <label className="btn btn-outline" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
                 📊 Excel'dan
@@ -1232,6 +1258,8 @@ const LessonDetail = () => {
           )}
         </div>
 
+        {assignmentsExpanded && (
+        <div style={{ marginTop: '1rem' }}>
         {loadingAssignments ? (
           <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>Yuklanmoqda...</div>
         ) : assignments.length === 0 ? (
@@ -1605,6 +1633,8 @@ const LessonDetail = () => {
               </div>
             )}
           </div>
+        )}
+        </div>
         )}
       </div>
 
