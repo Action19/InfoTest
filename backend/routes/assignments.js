@@ -9,6 +9,7 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 const { aiLimiter } = require('../middleware/rateLimiter');
 const { readFileForAI } = require('../utils/fileReader');
 const { uploadMulterFile, uploadFile } = require('../utils/firebaseStorage');
+const { runCodeForAI } = require('../utils/codeRunner');
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -462,7 +463,10 @@ router.post('/:id/submit-code', authenticateToken, aiLimiter, async (req, res) =
     // ── Avtomatik AI baholash ────────────────────────────────
     let aiResult = null;
     try {
-      const codeContent = `Fayl: kod${ext}\n\nO'quvchi yozgan kod:\n\`\`\`${assignment.task_type}\n${code.slice(0, 5000)}\n\`\`\``;
+      // Kodni haqiqatda ishga tushirish (Piston API)
+      const executionResult = await runCodeForAI(code, assignment.task_type);
+
+      const codeContent = `Fayl: kod${ext}\n\nO'quvchi yozgan kod:\n\`\`\`${assignment.task_type}\n${code.slice(0, 5000)}\n\`\`\`${executionResult}`;
       const prompt = buildAIGradePrompt(assignment.task_type, assignment.instructions, codeContent);
 
       const completion = await openai.chat.completions.create({
