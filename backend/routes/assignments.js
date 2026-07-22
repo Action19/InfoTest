@@ -18,7 +18,7 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = /docx?|xlsx?|accdb|mdb|py|sb3|html?|css|js|txt|zip|rar|pdf|png|jpe?g/i;
+    const allowed = /docx?|xlsx?|pptx?|accdb|mdb|py|sb3|html?|css|js|txt|zip|rar|pdf|png|jpe?g/i;
     const ext = path.extname(file.originalname).slice(1);
     allowed.test(ext) ? cb(null, true) : cb(new Error('Fayl turi qabul qilinmaydi'));
   }
