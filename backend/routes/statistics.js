@@ -1,6 +1,7 @@
 const express = require('express');
 const database = require('../config/database');
 const User = require('../models/User');
+const LessonProgress = require('../models/LessonProgress');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -84,6 +85,18 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
       WHERE student_id = ?
     `, [userId]);
 
+    // Mastery ball hisoblash (jonli — daraja hisobi uchun)
+    let masteryEarned = 0;
+    let masteryPossible = 0;
+    if (user) {
+      const gradeNum = parseInt((user.class_name || '').match(/\d+/)?.[0]) || null;
+      if (gradeNum) {
+        const masteryStats = await LessonProgress.getMasteryStats(user.id, gradeNum);
+        masteryPossible = masteryStats.totalPossible;
+        masteryEarned = masteryStats.totalEarned + (user.bonus_points || 0);
+      }
+    }
+
     res.json({
       totalAttempts:       toInt(stats?.total_tests_taken),
       totalPassed:         toInt(stats?.total_tests_passed),
@@ -108,6 +121,8 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
         id: user.id, username: user.username,
         full_name: user.full_name, points: user.points,
         level: user.level, mastery_percent: user.mastery_percent,
+        mastery_earned: masteryEarned,
+        mastery_possible: masteryPossible,
         avatar: user.avatar
       } : null,
 

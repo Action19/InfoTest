@@ -142,8 +142,11 @@ const Dashboard = () => {
           <div className="stats-grid" style={{ marginTop: '0.75rem' }}>
             <StatCard
               icon="⭐" className="stat-warning"
-              value={user.points}
-              label="Umumiy ball"
+              value={stats.user?.mastery_possible > 0
+                ? `${stats.user.mastery_earned} / ${stats.user.mastery_possible}`
+                : '—'}
+              label="Ball"
+              sub={`⭐ ${user.points || 0} faollik balli`}
             />
             <StatCard
               icon="🏆" className={`stat-level level-${getLevelColor(user.level)}`}
