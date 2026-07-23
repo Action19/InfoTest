@@ -198,11 +198,6 @@ const ForumPost = () => {
 
           {/* Actions */}
           <div className="post-actions-bar">
-            {!hasAI && (
-              <button className="action-btn ai-btn" onClick={handleAIAnswer} disabled={aiLoading}>
-                {aiLoading ? '🤖 AI o\'ylamoqda...' : '🤖 AI javob so\'rash'}
-              </button>
-            )}
             {canModerate && !post.is_approved && (
               <button className="action-btn" onClick={async () => {
                 try {

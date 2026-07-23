@@ -211,9 +211,8 @@ router.post('/posts', authenticateToken, async (req, res) => {
     try { post.tags = JSON.parse(post.tags || '[]'); } catch { post.tags = []; }
 
     res.status(201).json({
-      message: 'Post yaratildi (+1 ball)',
-      post,
-      points_added: 1
+      message: 'Post yaratildi',
+      post
     });
   } catch (err) {
     console.error('Create post error:', err);
