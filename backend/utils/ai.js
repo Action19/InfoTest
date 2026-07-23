@@ -57,8 +57,6 @@ async function chat(prompt, options = {}) {
     messages: [{ role: 'user', content: prompt }]
   };
 
-  // temperature faqat 0 dan farqli bo'lganda qo'shish
-  if (temperature !== undefined) body.temperature = temperature;
   if (system) body.system = system;
 
   const data = await callAnthropic(body);
@@ -85,7 +83,6 @@ async function chatMessages(messages, options = {}) {
     messages
   };
 
-  if (temperature !== undefined) body.temperature = temperature;
   if (system) body.system = system;
 
   const data = await callAnthropic(body);
@@ -128,8 +125,6 @@ async function chatWithImage(prompt, base64Data, mimeType, options = {}) {
       ]
     }]
   };
-
-  if (temperature !== undefined) body.temperature = temperature;
 
   const data = await callAnthropic(body);
   return data.content[0].text;
