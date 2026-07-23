@@ -8,7 +8,7 @@
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
-const DEFAULT_MODEL = 'claude-3-5-sonnet-latest';
+const DEFAULT_MODEL = 'claude-sonnet-5';
 
 /**
  * Anthropic API'ga raw HTTP so'rov yuborish
