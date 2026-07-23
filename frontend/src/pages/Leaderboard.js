@@ -137,7 +137,7 @@ const Leaderboard = () => {
               <thead>
                 <tr>
                   <th>Rank</th>
-                  <th>Talaba</th>
+                  <th>O'quvchi</th>
                   <th>Daraja</th>
                   <th>O'zlashtirish</th>
                   <th>Testlar</th>
@@ -170,7 +170,6 @@ const Leaderboard = () => {
                               <span className="badge badge-primary badge-sm">Siz</span>
                             )}
                           </span>
-                          <span className="student-username">@{student.username}</span>
                         </div>
                       </div>
                     </td>

@@ -55,7 +55,7 @@ const Profile = () => {
 
   const getRoleName = (role) => {
     const roleNames = {
-      student: 'Talaba',
+      student: "O'quvchi",
       teacher: "O'qituvchi",
       admin: 'Administrator'
     };

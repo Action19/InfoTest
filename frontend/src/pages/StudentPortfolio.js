@@ -538,7 +538,7 @@ const StudentPortfolio = () => {
   };
 
   if (loading) return <div className="loading-container"><div className="spinner"/><p>Yuklanmoqda...</p></div>;
-  if (!student) return <div className="error-container"><h2>Talaba topilmadi</h2><Link to="/students" className="btn btn-primary">Orqaga</Link></div>;
+  if (!student) return <div className="error-container"><h2>O'quvchi topilmadi</h2><Link to="/students" className="btn btn-primary">Orqaga</Link></div>;
 
   const levelLabel = (LEVEL_COLORS[student.level-1] || 'bronze').toUpperCase();
   const filtered   = filter === 'all' ? items : items.filter(i => i.item_type === filter);
