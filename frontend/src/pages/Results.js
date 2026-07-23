@@ -203,8 +203,8 @@ const Results = () => {
                 {/* Progress bar */}
                 <div style={{ marginTop:'1rem' }}>
                   <div style={{ display:'flex', justifyContent:'space-between', fontSize:'0.78rem', opacity:0.9, marginBottom:'0.3rem' }}>
-                    <span>{activeLp.earned_score} / {activeLp.total_possible} ball</span>
-                    <span>{activeLp.percent}%</span>
+                    <span>{activeLp.earned_score} / {activeLp.total_possible_raw || activeLp.total_possible} ball</span>
+                    <span>{activeLp.total_possible_raw > 0 ? Math.round((activeLp.earned_score / activeLp.total_possible_raw) * 100) : activeLp.percent}%</span>
                   </div>
                   <div style={{ background:'rgba(255,255,255,0.2)', borderRadius:'99px', height:'8px' }}>
                     <div style={{ height:'100%', borderRadius:'99px', width:`${Math.min(activeLp.percent,100)}%`,
