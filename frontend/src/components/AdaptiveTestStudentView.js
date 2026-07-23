@@ -86,6 +86,47 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
     // Oldingi urinish bormi?
     const hasAttempt = adaptiveTest.myAttempt && adaptiveTest.myAttempt.status === 'completed';
 
+    // Agar allaqachon yechilgan bo'lsa — natijani ko'rsatish tugmasi
+    if (hasAttempt) {
+      return (
+        <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✅</div>
+          <h3 style={{ margin: '0 0 0.75rem', color: 'var(--text-primary)' }}>Adaptiv test yechilgan</h3>
+          <div style={{
+            background: 'rgba(34,197,94,0.08)', borderRadius: '12px', padding: '1.25rem',
+            maxWidth: '400px', margin: '0 auto 1.5rem',
+            border: '1px solid rgba(34,197,94,0.2)'
+          }}>
+            <div style={{ fontWeight: 600, color: '#16a34a', marginBottom: '0.5rem', fontSize: '1.1rem' }}>
+              ✅ Siz bu testni muvaffaqiyatli yechdingiz
+            </div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+              Adaptiv testni faqat 1 marta yechish mumkin. Natijangizni ko'rish uchun quyidagi tugmani bosing.
+            </p>
+          </div>
+          <button
+            onClick={async () => {
+              try {
+                setLoading(true);
+                const res = await api.post(`/adaptive-attempts/${adaptiveTest.myAttempt.id}/finish`);
+                setResults(res.data);
+                setStage('finished');
+              } catch (err) {
+                alert('Natijani olishda xatolik: ' + (err.response?.data?.error || err.message));
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+            className="btn btn-primary"
+            style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}
+          >
+            {loading ? '⏳ Yuklanmoqda...' : '📊 Natijani ko\'rish'}
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎯</div>
@@ -93,6 +134,7 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
         <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', maxWidth: '500px', margin: '0 auto 1rem', lineHeight: 1.6 }}>
           Bu test sizning bilim darajangizga moslashadi. To'g'ri javob bersangiz — savollar qiyinlashadi,
           noto'g'ri bo'lsa — osonlashadi. Jami <strong>15 ta savol</strong>dan iborat.
+          <br /><strong style={{ color: '#dc2626' }}>Diqqat: testni faqat 1 marta yechish mumkin!</strong>
         </p>
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
           <span style={{ fontSize: '0.82rem', padding: '0.4rem 0.75rem', borderRadius: '20px', background: 'rgba(99,102,241,0.1)', color: '#4f46e5' }}>
@@ -102,24 +144,9 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
             4 variant
           </span>
           <span style={{ fontSize: '0.82rem', padding: '0.4rem 0.75rem', borderRadius: '20px', background: 'rgba(245,158,11,0.1)', color: '#d97706' }}>
-            Adaptiv qiyinlik
+            1 urinish
           </span>
         </div>
-
-        {hasAttempt && (
-          <div style={{
-            background: 'rgba(34,197,94,0.08)', borderRadius: '12px', padding: '1rem',
-            marginBottom: '1.5rem', maxWidth: '400px', margin: '0 auto 1.5rem',
-            border: '1px solid rgba(34,197,94,0.2)'
-          }}>
-            <div style={{ fontWeight: 600, color: '#16a34a', marginBottom: '0.25rem' }}>
-              ✅ Avvalgi urinish mavjud
-            </div>
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0 }}>
-              Qayta yechishingiz mumkin — har safar savollar tasodifiy tanlanadi
-            </p>
-          </div>
-        )}
 
         <button onClick={handleStart} disabled={loading} className="btn btn-primary" style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
           {loading ? '⏳ Yuklanmoqda...' : '▶ Testni boshlash'}
@@ -439,15 +466,9 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
           </div>
         )}
 
-        {/* Qayta yechish */}
-        <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-          <button
-            onClick={() => { setStage('intro'); setResults(null); setAttemptId(null); }}
-            className="btn btn-outline"
-            style={{ padding: '0.6rem 1.5rem' }}
-          >
-            🔄 Qayta yechish
-          </button>
+        {/* Test faqat 1 marta — qayta yechish yo'q */}
+        <div style={{ textAlign: 'center', marginTop: '2rem', padding: '0.75rem', background: 'rgba(99,102,241,0.06)', borderRadius: '10px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+          ℹ️ Adaptiv testni faqat 1 marta yechish mumkin. Natijangiz saqlangan.
         </div>
       </div>
     );

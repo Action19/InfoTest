@@ -307,6 +307,40 @@ router.post('/adaptive-tests/:id/start', authenticateToken, async (req, res) => 
     if (!test) return res.status(404).json({ error: 'Adaptiv test topilmadi' });
     if (test.status !== 'published') return res.status(400).json({ error: 'Test hali e\'lon qilinmagan' });
 
+    // O'quvchi allaqachon tugatgan bo'lsa — qayta yechishga ruxsat yo'q
+    const completedAttempt = await database.get(
+      `SELECT id FROM adaptive_attempts 
+       WHERE user_id = $1 AND adaptive_test_id = $2 AND status = 'completed'`,
+      [req.user.id, test.id]
+    );
+    if (completedAttempt) {
+      return res.status(400).json({ 
+        error: 'Siz bu testni allaqachon yechgansiz. Qayta yechish mumkin emas.',
+        alreadyCompleted: true,
+        attemptId: completedAttempt.id
+      });
+    }
+
+    // Tugallanmagan attempt bormi? — davom ettirish
+    const inProgressAttempt = await database.get(
+      `SELECT * FROM adaptive_attempts 
+       WHERE user_id = $1 AND adaptive_test_id = $2 AND status = 'in_progress'`,
+      [req.user.id, test.id]
+    );
+    if (inProgressAttempt) {
+      // Davom ettirish — keyingi savolni berish
+      const askedIds = inProgressAttempt.asked_question_ids || [];
+      const nextQ = await getNextQuestion(test.id, inProgressAttempt.current_difficulty, askedIds);
+      return res.json({
+        attemptId: inProgressAttempt.id,
+        question: nextQ,
+        questionNumber: askedIds.length + 1,
+        totalQuestions: 15,
+        currentDifficulty: inProgressAttempt.current_difficulty,
+        resumed: true
+      });
+    }
+
     // Yangi attempt yaratish
     const attemptResult = await database.run(
       `INSERT INTO adaptive_attempts (user_id, adaptive_test_id, current_difficulty)
