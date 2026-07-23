@@ -1,11 +1,10 @@
 const express = require('express');
-const OpenAI = require('openai');
+const { chat, chatMessages } = require('../utils/ai');
 const database = require('../config/database');
 const User = require('../models/User');
 const { authenticateToken, isTeacherOrAdmin } = require('../middleware/auth');
 const { aiLimiter } = require('../middleware/rateLimiter');
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const router = express.Router();
 
 // Helper: xavfsiz query
@@ -415,19 +414,16 @@ VAZIFA: Quyidagi bo'limlar bo'yicha batafsil tahlil va tavsiyalar ber. Javobni F
 MUHIM: Faqat JSON qaytar, boshqa matn yozma. Ma'lumotlar yetarli bo'lmasa, umumiy informatika o'qitish bo'yicha tavsiyalar ber.`;
 
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: 'Sen tajribali informatika metodisti va AI tahlilchisisisan. O\'zbek tilida javob ber. Faqat JSON formatda javob qaytar.' },
+    const raw = await chatMessages([
         { role: 'user', content: prompt }
-      ],
-      temperature: 0.4,
-      max_tokens: 3000
-    });
+      ], {
+        system: 'Sen tajribali informatika metodisti va AI tahlilchisisisan. O\'zbek tilida javob ber. Faqat JSON formatda javob qaytar.',
+        temperature: 0.4,
+        max_tokens: 3000
+      });
 
     let analysis;
     try {
-      const raw = completion.choices[0].message.content.trim();
       const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
       analysis = JSON.parse(jsonStr);
     } catch (parseErr) {
@@ -473,18 +469,16 @@ O'qituvchi: ${teacher.full_name}, ${teacher.district}, ${teacher.school_number}-
 O'zbek tilida javob ber. Aniq, foydali va amaliy maslahatlar ber.
 ${context_data ? 'Kontekst: ' + JSON.stringify(context_data).substring(0, 2000) : ''}`;
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
+    const answer = await chatMessages([
         { role: 'user', content: question }
-      ],
-      temperature: 0.5,
-      max_tokens: 1500
-    });
+      ], {
+        system: systemPrompt,
+        temperature: 0.5,
+        max_tokens: 1500
+      });
 
     res.json({
-      answer: completion.choices[0].message.content,
+      answer: answer,
       question: question
     });
   } catch (err) {

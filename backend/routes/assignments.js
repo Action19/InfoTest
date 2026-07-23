@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
-const OpenAI = require('openai');
+const { chat, chatWithImage } = require('../utils/ai');
 const Assignment = require('../models/Assignment');
 const database = require('../config/database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
@@ -10,8 +10,6 @@ const { aiLimiter } = require('../middleware/rateLimiter');
 const { readFileForAI } = require('../utils/fileReader');
 const { uploadMulterFile, uploadFile } = require('../utils/firebaseStorage');
 const { runCodeForAI } = require('../utils/codeRunner');
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const router = express.Router();
 
@@ -319,16 +317,10 @@ router.post('/ai-generate', authenticateToken, requireRole(['teacher','admin']),
     }
 
     const prompt = buildAIInstructionPrompt(task_type, topic, grade, level);
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-      max_tokens: 1000
-    });
+    const raw = await chat(prompt, { temperature: 0.7, max_tokens: 1000 });
 
     let generated;
     try {
-      const raw = completion.choices[0].message.content.trim();
       const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
       generated = JSON.parse(jsonStr);
     } catch {
@@ -476,14 +468,7 @@ router.post('/:id/submit-code', authenticateToken, aiLimiter, async (req, res) =
       const codeContent = `Fayl: kod${ext}\n\nO'quvchi yozgan kod:\n\`\`\`${assignment.task_type}\n${code.slice(0, 5000)}\n\`\`\`${executionResult}`;
       const prompt = buildAIGradePrompt(assignment.task_type, assignment.instructions, codeContent);
 
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.2,
-        max_tokens: 1000
-      });
-
-      const raw = completion.choices[0].message.content.trim();
+      const raw = await chat(prompt, { temperature: 0.2, max_tokens: 1000 });
       const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
       
       try {
@@ -689,20 +674,9 @@ Quyidagi JSON formatda javob ber (boshqa hech narsa yozma):
   "improvements": "Yaxshilash kerak bo'lgan tomonlar"
 }`;
 
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'text', text: visionPrompt },
-            { type: 'image_url', image_url: { url: `data:${fileData.mimeType};base64,${fileData.content}`, detail: 'high' } }
-          ]
-        }],
-        temperature: 0.2,
-        max_tokens: 1000
-      });
+      const completion = await chatWithImage(visionPrompt, fileData.content, fileData.mimeType, { temperature: 0.2, max_tokens: 1000 });
 
-      const raw = completion.choices[0].message.content.trim();
+      const raw = completion.trim();
       const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
       try {
         result = JSON.parse(jsonStr);
@@ -715,14 +689,7 @@ Quyidagi JSON formatda javob ber (boshqa hech narsa yozma):
       // binary_unreadable bo'lsa ham — aniq "o'qilmadi" xabari bilan AI ga beramiz
       const prompt = buildAIGradePrompt(a.task_type, a.instructions, fileData.content);
 
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.2,
-        max_tokens: 1000
-      });
-
-      const raw = completion.choices[0].message.content.trim();
+      const raw = await chat(prompt, { temperature: 0.2, max_tokens: 1000 });
       const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
       try {
         result = JSON.parse(jsonStr);

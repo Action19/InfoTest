@@ -8,9 +8,7 @@ const database = require('../config/database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { aiLimiter } = require('../middleware/rateLimiter');
 const { readFileForAI } = require('../utils/fileReader');
-const OpenAI = require('openai');
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const { chat } = require('../utils/ai');
 
 // ─── HELPER: Keyingi savolni zinapoya algoritmi bilan tanlash ───
 async function getNextQuestion(adaptiveTestId, targetDifficulty, excludeIds) {
@@ -107,14 +105,7 @@ Faqat JSON qaytaring:
     }
 
     // AI chaqirish
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-      max_tokens: 4000
-    });
-
-    const raw = completion.choices[0].message.content.trim();
+    const raw = await chat(prompt, { temperature: 0.7, max_tokens: 4000 });
 
     // JSON parse — himoyalangan
     let questions;
@@ -550,14 +541,9 @@ ${teacherExplanations.length > 0 ? `\nO'qituvchi qisqa tushuntirishi:\n${teacher
 Formatlash: sarlavha, 3-4 paragraf, real hayotiy misol, agar kerak bo'lsa oddiy kod/formula.
 Faqat HTML qaytaring (h4, p, ul, li, code, pre, strong teglaridan foydalaning), boshqa hech narsa yozmang.`;
 
-          const explainResult = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [{ role: 'user', content: explainPrompt }],
-            temperature: 0.5,
-            max_tokens: 1500
-          });
+          const explainResult = await chat(explainPrompt, { temperature: 0.5, max_tokens: 1500 });
 
-          aiExplanationHtml = explainResult.choices[0].message.content.trim();
+          aiExplanationHtml = explainResult.trim();
 
           // Keshga saqlash
           await database.run(

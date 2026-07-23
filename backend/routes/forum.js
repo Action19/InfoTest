@@ -1,11 +1,10 @@
 const express = require('express');
-const OpenAI = require('openai');
+const { chatMessages } = require('../utils/ai');
 const database = require('../config/database');
 const User = require('../models/User');
 const { authenticateToken, isTeacherOrAdmin } = require('../middleware/auth');
 const { aiLimiter } = require('../middleware/rateLimiter');
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const router = express.Router();
 
 // ─── HELPER: ball qo'shish ───────────────────────────────────
@@ -544,17 +543,13 @@ QOIDALAR:
 - Javobni qisqa va aniq yoz (3-5 paragraf)
 - Agar bilmasang, shunchaki "Bu savolga aniq javob bera olmayman" de`;
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: 'Sen informatika bo\'yicha yordamchi. O\'zbek tilida, aniq va qisqa javob ber.' },
+    const aiContent = await chatMessages([
         { role: 'user', content: prompt }
-      ],
-      temperature: 0.5,
-      max_tokens: 1000
-    });
-
-    const aiContent = completion.choices[0].message.content;
+      ], {
+        system: 'Sen informatika bo\'yicha yordamchi. O\'zbek tilida, aniq va qisqa javob ber.',
+        temperature: 0.5,
+        max_tokens: 1000
+      });
 
     // AI javobni saqlash (user_id = 0 yoki admin id)
     const result = await database.run(`

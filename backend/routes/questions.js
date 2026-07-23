@@ -1,10 +1,9 @@
 const express = require('express');
-const OpenAI = require('openai');
+const { chatMessages } = require('../utils/ai');
 const Question = require('../models/Question');
 const Test = require('../models/Test');
 const { authenticateToken, isTeacherOrAdmin } = require('../middleware/auth');
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const router = express.Router();
 
 // Get all questions for a test
@@ -546,28 +545,22 @@ Har bir savol uchun JSON formatida:
 
 Faqat JSON array qaytaring, boshqa matn yo'q:`;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "Siz professional test savollari yaratuvchisiz. Faqat JSON formatida javob bering, boshqa matn yo'q."
-        },
+    const responseText = await chatMessages([
         {
           role: "user",
           content: prompt
         }
-      ],
-      temperature: 0.7,
-      max_tokens: 2000
-    });
+      ], {
+        system: "Siz professional test savollari yaratuvchisiz. Faqat JSON formatida javob bering, boshqa matn yo'q.",
+        temperature: 0.7,
+        max_tokens: 2000
+      });
 
-    console.log('OpenAI response received');
+    console.log('Claude response received');
 
     // Parse AI response
     let aiQuestions = [];
     try {
-      const responseText = completion.choices[0].message.content.trim();
       // Remove markdown code blocks if present
       const jsonText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       aiQuestions = JSON.parse(jsonText);
