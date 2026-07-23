@@ -13,6 +13,7 @@ const Students = () => {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [classFilter, setClassFilter] = useState('all');
 
   useEffect(() => {
     if (user.role === 'student') {
@@ -40,10 +41,15 @@ const Students = () => {
     navigate(`/students/${studentId}/portfolio`);
   };
 
-  const filteredStudents = students.filter(student =>
-    student.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.username?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredStudents = students.filter(student => {
+    const matchesSearch = student.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.username?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesClass = classFilter === 'all' || student.class_name === classFilter;
+    return matchesSearch && matchesClass;
+  });
+
+  // Mavjud sinflar ro'yxati (unique)
+  const availableClasses = [...new Set(students.map(s => s.class_name).filter(Boolean))].sort();
 
   if (loading) {
     return (
@@ -71,6 +77,27 @@ const Students = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+        {availableClasses.length > 1 && (
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
+            <button
+              className={`filter-btn ${classFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setClassFilter('all')}
+              style={{ padding: '0.4rem 0.9rem', borderRadius: '20px', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', border: '1px solid var(--border-color)', background: classFilter === 'all' ? 'var(--primary-color)' : 'var(--bg-secondary)', color: classFilter === 'all' ? '#fff' : 'var(--text-secondary)', transition: 'all 0.2s' }}
+            >
+              Barchasi ({students.length})
+            </button>
+            {availableClasses.map(cls => (
+              <button
+                key={cls}
+                className={`filter-btn ${classFilter === cls ? 'active' : ''}`}
+                onClick={() => setClassFilter(cls)}
+                style={{ padding: '0.4rem 0.9rem', borderRadius: '20px', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', border: '1px solid var(--border-color)', background: classFilter === cls ? 'var(--primary-color)' : 'var(--bg-secondary)', color: classFilter === cls ? '#fff' : 'var(--text-secondary)', transition: 'all 0.2s' }}
+              >
+                {cls} ({students.filter(s => s.class_name === cls).length})
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {filteredStudents.length === 0 ? (
