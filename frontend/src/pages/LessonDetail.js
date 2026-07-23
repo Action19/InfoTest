@@ -670,25 +670,25 @@ const LessonDetail = () => {
                     }
                   }}
                   className="btn btn-outline"
-                  style={{ borderColor: 'rgba(34,197,94,0.4)', color: '#16a34a' }}
+                  style={{ borderColor: 'rgba(34,197,94,0.4)', color: '#16a34a', background: 'rgba(34,197,94,0.08)' }}
                 >
-                  ✅ O'tilgan ({new Date(lesson.taught_at).toLocaleDateString('uz-UZ')}) — bekor qilish
+                  ✓ O'tilgan (bekor qilish uchun bos)
                 </button>
               ) : (
                 <button
                   onClick={async () => {
-                    if (!window.confirm("Darsni o'tilgan deb belgilaysizmi? Bu barcha o'quvchilar darajasini qayta hisoblaydi.")) return;
+                    if (!window.confirm("Darsni o'tilgan deb belgilaysizmi? Bu barcha o'quvchilar darajasini qayta hisoblaydi va keyingi darsni ochadi.")) return;
                     try {
                       await api.patch(`/lessons/${id}/mark-taught`);
                       fetchLesson();
-                      alert("✅ Dars o'tilgan deb belgilandi!");
+                      alert("✅ Dars o'tilgan deb belgilandi! Keyingi dars o'quvchilarga ochildi.");
                     } catch (err) {
                       alert('Xatolik: ' + (err.response?.data?.error || err.message));
                     }
                   }}
                   className="btn btn-success"
                 >
-                  📋 Dars o'tildi
+                  📋 Dars o'tildi deb belgilash
                 </button>
               )}
             </div>

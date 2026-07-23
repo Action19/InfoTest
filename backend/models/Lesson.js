@@ -117,7 +117,18 @@ class Lesson {
       ORDER BY l.created_at ASC
     `, [grade, teacherDistrict, teacherSchool]);
 
-    return lessons;
+    // Ketma-ket ochilish: 1-dars doim ko'rinadi. Har keyingi dars faqat
+    // undan OLDINGI dars "taught_at" belgilangan bo'lsagina ko'rinadi.
+    // Birinchi yopiq darsdan keyingi HAMMASI ham yopiq hisoblanadi (zanjir).
+    const visibleLessons = [];
+    for (let i = 0; i < lessons.length; i++) {
+      if (i === 0 || lessons[i - 1].taught_at) {
+        visibleLessons.push(lessons[i]);
+      } else {
+        break;
+      }
+    }
+    return visibleLessons;
   }
 
   // Update lesson

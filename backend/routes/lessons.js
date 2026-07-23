@@ -73,6 +73,14 @@ router.get('/:id', authenticateToken, async (req, res) => {
       if (lesson.grade !== grade) {
         return res.status(403).json({ error: 'Bu darsga ruxsatingiz yo\'q' });
       }
+
+      // Ketma-ket ochilish tekshiruvi — shu dars hozircha ochiqmi?
+      const visibleLessons = await Lesson.getByGrade(grade, user.district, user.school_number);
+      const isUnlocked = visibleLessons.some(l => l.id === parseInt(req.params.id));
+      if (!isUnlocked) {
+        return res.status(403).json({ error: 'Bu dars hali ochilmagan. Oldingi dars tugagach ochiladi.' });
+      }
+
       // Students only see published tests
       lesson.tests = (lesson.tests_published || lesson.tests.filter(t => t.is_published));
     }

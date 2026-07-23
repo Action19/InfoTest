@@ -224,6 +224,24 @@ const Lessons = () => {
               </div>
             </div>
           ))}
+
+          {/* O'quvchi uchun: keyingi dars hali ochilmagan */}
+          {user.role === 'student' && filteredLessons.length > 0 && (
+            <div className="test-card lesson-card" style={{
+              opacity: 0.5, cursor: 'not-allowed',
+              background: 'var(--bg-secondary)',
+              border: '2px dashed var(--border-color)',
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center',
+              padding: '2rem', textAlign: 'center', minHeight: '180px'
+            }}>
+              <span style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🔒</span>
+              <h3 style={{ margin: '0 0 0.5rem', color: 'var(--text-secondary)' }}>Keyingi dars hali ochilmagan</h3>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                O'qituvchingiz joriy darsni yakunlagach ochiladi
+              </p>
+            </div>
+          )}
         </div>
       )}
 
