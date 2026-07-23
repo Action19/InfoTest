@@ -194,8 +194,8 @@ const Profile = () => {
               
               <div className="profile-stats">
                 <div className="profile-stat-item">
-                  <span className="stat-label">Ballar</span>
-                  <span className="stat-value">⭐ {user.points}</span>
+                  <span className="stat-label">O'zlashtirish</span>
+                  <span className="stat-value">📊 {user.mastery_percent || 0}%</span>
                 </div>
               </div>
             </>

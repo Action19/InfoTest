@@ -461,7 +461,7 @@ const Portfolio = () => {
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'1rem',marginBottom:'2rem'}}>
         {[
           {icon:'🏅', val:`Daraja ${user.level}`, label:levelLabel, gradient:'linear-gradient(135deg,#667eea,#764ba2)', white:true},
-          {icon:'⭐', val:user.points,           label:'Jami ballar'},
+          {icon:'📊', val:`${user.mastery_percent || 0}%`, label:'O\'zlashtirish'},
           {icon:'📁', val:items.length,           label:'Portfolio elementlari'},
           {icon:'📊', val:stats?.totalAttempts||0, label:'Topshirilgan testlar'},
         ].map((s,i)=>(

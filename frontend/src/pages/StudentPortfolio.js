@@ -571,7 +571,7 @@ const StudentPortfolio = () => {
         </div>
         <div className="stat-card">
           <div className="stat-icon">⭐</div>
-          <div className="stat-content"><h3>{student.points}</h3><p>Jami ballar</p></div>
+          <div className="stat-content"><h3>{student.mastery_percent || 0}%</h3><p>O'zlashtirish</p></div>
         </div>
         <div className="stat-card">
           <div className="stat-icon">📊</div>

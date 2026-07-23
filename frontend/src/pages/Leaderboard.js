@@ -96,7 +96,7 @@ const Leaderboard = () => {
                 <div className={`level-badge level-${getLevelColor(filteredLeaderboard[1].level)}`}>
                   {getLevelName(filteredLeaderboard[1].level)}
                 </div>
-                <div className="podium-points">{filteredLeaderboard[1].mastery_percent || 0}% • ⭐ {filteredLeaderboard[1].points}</div>
+                <div className="podium-points">{filteredLeaderboard[1].mastery_percent || 0}%</div>
                 <div className="podium-stand podium-stand-2">2</div>
               </div>
 
@@ -111,7 +111,7 @@ const Leaderboard = () => {
                 <div className={`level-badge level-${getLevelColor(filteredLeaderboard[0].level)}`}>
                   {getLevelName(filteredLeaderboard[0].level)}
                 </div>
-                <div className="podium-points">{filteredLeaderboard[0].mastery_percent || 0}% • ⭐ {filteredLeaderboard[0].points}</div>
+                <div className="podium-points">{filteredLeaderboard[0].mastery_percent || 0}%</div>
                 <div className="podium-stand podium-stand-1">1</div>
               </div>
 
@@ -125,7 +125,7 @@ const Leaderboard = () => {
                 <div className={`level-badge level-${getLevelColor(filteredLeaderboard[2].level)}`}>
                   {getLevelName(filteredLeaderboard[2].level)}
                 </div>
-                <div className="podium-points">{filteredLeaderboard[2].mastery_percent || 0}% • ⭐ {filteredLeaderboard[2].points}</div>
+                <div className="podium-points">{filteredLeaderboard[2].mastery_percent || 0}%</div>
                 <div className="podium-stand podium-stand-3">3</div>
               </div>
             </div>
@@ -139,7 +139,7 @@ const Leaderboard = () => {
                   <th>Rank</th>
                   <th>Talaba</th>
                   <th>Daraja</th>
-                  <th>Ballar</th>
+                  <th>O'zlashtirish</th>
                   <th>Testlar</th>
                   <th>O'rtacha</th>
                 </tr>
@@ -180,7 +180,7 @@ const Leaderboard = () => {
                       </div>
                     </td>
                     <td className="points-cell">
-                      <strong>⭐ {student.points}</strong>
+                      <strong>📊 {student.mastery_percent || 0}%</strong>
                     </td>
                     <td>{student.total_tests || 0}</td>
                     <td>
@@ -202,7 +202,7 @@ const Leaderboard = () => {
                 <div className="position-rank">#{leaderboard.findIndex(s => s.id === user.id) + 1}</div>
                 <div className="position-info">
                   <h4>{user.full_name}</h4>
-                  <p>{user.mastery_percent || 0}% • Daraja {user.level} • ⭐ {user.points}</p>
+                  <p>{user.mastery_percent || 0}% • Daraja {user.level}</p>
                 </div>
               </div>
             </div>
