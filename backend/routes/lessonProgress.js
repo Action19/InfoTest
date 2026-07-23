@@ -150,12 +150,12 @@ router.get('/journal/teacher', authenticateToken, async (req, res) => {
         if (teachingClasses.length > 0) {
           studentsQuery = `
             SELECT
-              lp.student_id, lp.earned_score, lp.total_possible,
-              lp.percent, lp.grade, lp.updated_at,
-              u.full_name, u.class_name, u.username
-            FROM lesson_progress lp
-            JOIN users u ON lp.student_id = u.id
-            WHERE lp.lesson_id = ?
+              u.id AS student_id, u.full_name, u.class_name, u.username,
+              lp.earned_score, lp.total_possible, lp.percent, lp.grade, lp.updated_at
+            FROM users u
+            LEFT JOIN lesson_progress lp
+              ON lp.student_id = u.id AND lp.lesson_id = ?
+            WHERE u.role = 'student'
               AND u.class_name = ?
               AND u.district = ?
               AND u.school_number = ?
@@ -165,12 +165,12 @@ router.get('/journal/teacher', authenticateToken, async (req, res) => {
         } else {
           studentsQuery = `
             SELECT
-              lp.student_id, lp.earned_score, lp.total_possible,
-              lp.percent, lp.grade, lp.updated_at,
-              u.full_name, u.class_name, u.username
-            FROM lesson_progress lp
-            JOIN users u ON lp.student_id = u.id
-            WHERE lp.lesson_id = ?
+              u.id AS student_id, u.full_name, u.class_name, u.username,
+              lp.earned_score, lp.total_possible, lp.percent, lp.grade, lp.updated_at
+            FROM users u
+            LEFT JOIN lesson_progress lp
+              ON lp.student_id = u.id AND lp.lesson_id = ?
+            WHERE u.role = 'student'
             ORDER BY u.class_name, u.full_name
           `;
           studentsParams = [lesson.id];
@@ -200,12 +200,13 @@ router.get('/journal/teacher', authenticateToken, async (req, res) => {
       const allJournal = [];
       for (const lesson of lessons) {
         const students = await database.all(`
-          SELECT lp.student_id, lp.earned_score, lp.total_possible,
-                 lp.percent, lp.grade, lp.updated_at,
-                 u.full_name, u.class_name, u.username
-          FROM lesson_progress lp
-          JOIN users u ON lp.student_id = u.id
-          WHERE lp.lesson_id = ?
+          SELECT
+            u.id AS student_id, u.full_name, u.class_name, u.username,
+            lp.earned_score, lp.total_possible, lp.percent, lp.grade, lp.updated_at
+          FROM users u
+          LEFT JOIN lesson_progress lp
+            ON lp.student_id = u.id AND lp.lesson_id = ?
+          WHERE u.role = 'student'
           ORDER BY u.class_name, u.full_name
         `, [lesson.id]);
 
