@@ -3,6 +3,7 @@ const { chatMessages } = require('../utils/ai');
 const Question = require('../models/Question');
 const Test = require('../models/Test');
 const { authenticateToken, isTeacherOrAdmin } = require('../middleware/auth');
+const { aiLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
@@ -488,7 +489,7 @@ router.post('/upload-excel-file', authenticateToken, isTeacherOrAdmin, multerExc
 });
 
 // Generate questions using AI (OpenAI GPT)
-router.post('/generate-ai', authenticateToken, isTeacherOrAdmin, async (req, res) => {
+router.post('/generate-ai', authenticateToken, isTeacherOrAdmin, aiLimiter, async (req, res) => {
   try {
     const { test_id, topic, count = 5, difficulty = 'medium', question_type = 'single_choice' } = req.body;
 
@@ -566,7 +567,7 @@ Faqat JSON array qaytaring, boshqa matn yo'q:`;
       aiQuestions = JSON.parse(jsonText);
     } catch (parseError) {
       console.error('Error parsing AI response:', parseError);
-      console.log('AI Response:', completion.choices[0].message.content);
+      console.log('AI Response:', responseText);
       return res.status(500).json({ 
         error: 'Failed to parse AI response',
         details: 'AI javobini parse qilishda xatolik'
