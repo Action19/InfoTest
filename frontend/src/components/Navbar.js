@@ -118,7 +118,7 @@ const Navbar = () => {
                 </div>
                 {user.role === 'student' && (
                   <div className="user-stats-inline">
-                    <span className="points-badge-small">⭐ {user.points}</span>
+                    <span className="points-badge-small">📊 {user.mastery_percent || 0}%</span>
                   </div>
                 )}
                 <span className="dropdown-arrow">▼</span>
@@ -174,7 +174,7 @@ const Navbar = () => {
             <span className="mobile-user-role">{getRoleName(user.role)}</span>
           </div>
           {user.role === 'student' && (
-            <span className="mobile-points">⭐ {user.points}</span>
+            <span className="mobile-points">📊 {user.mastery_percent || 0}%</span>
           )}
         </div>
 
