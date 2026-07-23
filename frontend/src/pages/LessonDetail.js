@@ -659,9 +659,21 @@ const LessonDetail = () => {
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button onClick={() => setShowEditLessonModal(true)} className="btn btn-outline">✏️ Tahrirlash</button>
               {lesson.taught_at ? (
-                <span style={{ padding: '0.5rem 1rem', borderRadius: '8px', background: 'rgba(34,197,94,0.1)', color: '#16a34a', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                  ✅ O'tilgan ({new Date(lesson.taught_at).toLocaleDateString('uz-UZ')})
-                </span>
+                <button
+                  onClick={async () => {
+                    if (!window.confirm("Bu darsni 'o'tilmagan' holatiga qaytarasizmi? O'quvchilarning shu darsdagi natijasi Daraja hisobidan chiqib ketadi.")) return;
+                    try {
+                      await api.patch(`/lessons/${id}/mark-taught`);
+                      fetchLesson();
+                    } catch (err) {
+                      alert('Xatolik: ' + (err.response?.data?.error || err.message));
+                    }
+                  }}
+                  className="btn btn-outline"
+                  style={{ borderColor: 'rgba(34,197,94,0.4)', color: '#16a34a' }}
+                >
+                  ✅ O'tilgan ({new Date(lesson.taught_at).toLocaleDateString('uz-UZ')}) — bekor qilish
+                </button>
               ) : (
                 <button
                   onClick={async () => {

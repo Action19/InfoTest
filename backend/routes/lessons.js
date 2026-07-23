@@ -267,7 +267,7 @@ router.delete('/:lessonId/materials/:materialId', authenticateToken, requireRole
   }
 });
 
-// ─── "Dars o'tildi" deb belgilash ────────────────────────────
+// ─── "Dars o'tildi" toggle (belgilash / bekor qilish) ────────
 router.patch('/:id/mark-taught', authenticateToken, requireRole(['teacher', 'admin']), async (req, res) => {
   try {
     const lessonId = req.params.id;
@@ -275,7 +275,9 @@ router.patch('/:id/mark-taught', authenticateToken, requireRole(['teacher', 'adm
     const lesson = await database.get('SELECT * FROM lessons WHERE id = ?', [lessonId]);
     if (!lesson) return res.status(404).json({ error: 'Dars topilmadi' });
 
-    await database.run('UPDATE lessons SET taught_at = NOW() WHERE id = ?', [lessonId]);
+    // Toggle: agar allaqachon o'tilgan bo'lsa — bekor qilamiz, aks holda belgilaymiz
+    const newTaughtAt = lesson.taught_at ? null : new Date();
+    await database.run('UPDATE lessons SET taught_at = ? WHERE id = ?', [newTaughtAt, lessonId]);
 
     // Shu sinfdagi barcha o'quvchilar uchun darajani qayta hisobla
     const students = await database.all(
@@ -286,9 +288,12 @@ router.patch('/:id/mark-taught', authenticateToken, requireRole(['teacher', 'adm
       await User.updateMasteryLevel(s.id);
     }
 
-    res.json({ message: 'Dars o\'tilgan deb belgilandi', taught_at: new Date() });
+    res.json({
+      message: newTaughtAt ? 'Dars o\'tilgan deb belgilandi' : 'Dars "o\'tilmagan" holatiga qaytarildi',
+      taught_at: newTaughtAt
+    });
   } catch (err) {
-    console.error('Mark-taught error:', err);
+    console.error('Mark-taught toggle error:', err);
     res.status(500).json({ error: 'Xatolik yuz berdi' });
   }
 });
