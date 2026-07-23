@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const Lesson = require('../models/Lesson');
 const User = require('../models/User');
+const LessonProgress = require('../models/LessonProgress');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { uploadMulterFile, deleteFile } = require('../utils/firebaseStorage');
 
@@ -293,6 +294,7 @@ router.patch('/:id/mark-taught', authenticateToken, requireRole(['teacher', 'adm
       [`${lesson.grade}%`]
     );
     for (const s of students) {
+      await LessonProgress.recalculate(lessonId, s.id);
       await User.updateMasteryLevel(s.id);
     }
 

@@ -48,6 +48,12 @@ class LessonProgress {
   // Test bali: (to'g'ri/umumiy) × test.max_score
   // Topshiriq bali: assignment_submissions.score (allaqachon max_score ga nisbatan hisoblangan)
   static async calcEarnedScore(lessonId, studentId) {
+    // Dars o'tilganmi tekshirish — o'tilmagan bo'lsa 0 qaytarish
+    const lesson = await database.get('SELECT taught_at FROM lessons WHERE id = ?', [lessonId]);
+    if (!lesson || !lesson.taught_at) {
+      return { testScore: 0, assignScore: 0, total: 0 };
+    }
+
     // Testdan to'plangan ball — proportsional (to'g'ri javoblar nisbati × test.max_score)
     const testRow = await database.get(`
       SELECT COALESCE(SUM(best.earned), 0) AS test_score
