@@ -70,23 +70,22 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Get leaderboard (filtered by school for students)
+// Get leaderboard (filtered by school for students and teachers)
 router.get('/leaderboard/top', authenticateToken, async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = parseInt(req.query.limit) || 200;
     const user = await User.findById(req.user.id);
     
     let leaderboard;
     
-    // Filter by school for students
-    if (user.role === 'student' && user.district && user.school_number) {
+    // O'quvchi va o'qituvchi — faqat o'z maktabi, admin — hammasi
+    if ((user.role === 'student' || user.role === 'teacher') && user.district && user.school_number) {
       leaderboard = await User.getLeaderboard(limit, user.district, user.school_number);
     } else {
-      // Admins and teachers see all
       leaderboard = await User.getLeaderboard(limit);
     }
     
-    res.json(leaderboard); // Return array directly
+    res.json(leaderboard);
   } catch (error) {
     console.error('Get leaderboard error:', error);
     res.status(500).json({ error: 'Failed to get leaderboard' });
