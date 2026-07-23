@@ -203,6 +203,20 @@ const ForumPost = () => {
                 {aiLoading ? '🤖 AI o\'ylamoqda...' : '🤖 AI javob so\'rash'}
               </button>
             )}
+            {canModerate && !post.is_approved && (
+              <button className="action-btn" onClick={async () => {
+                try {
+                  await api.patch(`/forum/posts/${post.id}/approve`);
+                  setPost(p => ({ ...p, is_approved: true }));
+                  alert('✅ Post tasdiqlandi (+1 ball)');
+                } catch (err) { alert(err.response?.data?.error || 'Xatolik'); }
+              }} style={{ color: '#16a34a' }}>
+                ✓ Tasdiqlash
+              </button>
+            )}
+            {post.is_approved && (
+              <span style={{ fontSize: '0.8rem', color: '#16a34a', fontWeight: 600, padding: '0.3rem 0.6rem' }}>✅ Tasdiqlangan</span>
+            )}
             {canModerate && (
               <button className="action-btn" onClick={handlePin}>
                 {post.pinned ? '📌 Unpin' : '📌 Pin'}
@@ -259,6 +273,20 @@ const ForumPost = () => {
                   {comment.author_role === 'teacher' && <span className="role-tag">O'qituvchi</span>}
                 </span>
                 <span className="comment-date">{timeAgo(comment.created_at)}</span>
+                {canModerate && !comment.is_approved && !comment.is_ai_answer && (
+                  <button className="best-btn" onClick={async () => {
+                    try {
+                      await api.patch(`/forum/comments/${comment.id}/approve`);
+                      setComments(cs => cs.map(c => c.id === comment.id ? { ...c, is_approved: true } : c));
+                      alert('✅ Javob tasdiqlandi (+2 ball)');
+                    } catch (err) { alert(err.response?.data?.error || 'Xatolik'); }
+                  }} style={{ color: '#16a34a' }}>
+                    ✓ Tasdiqlash
+                  </button>
+                )}
+                {comment.is_approved && (
+                  <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 600 }}>✅</span>
+                )}
                 {(isOwner || canModerate) && !comment.is_best_answer && (
                   <button className="best-btn" onClick={() => handleBestAnswer(comment.id)}>
                     ✅ Eng yaxshi

@@ -482,6 +482,11 @@ async function runMigrations(db) {
     await db.run('ALTER TABLE tests ADD COLUMN IF NOT EXISTS max_score INTEGER DEFAULT 20').catch(()=>{});
     await db.run('ALTER TABLE users ADD COLUMN IF NOT EXISTS mastery_percent NUMERIC DEFAULT 0').catch(()=>{});
 
+    // ─── FORUM APPROVAL TIZIMI ───────────────────────────────
+    await db.run('ALTER TABLE users ADD COLUMN IF NOT EXISTS bonus_points INTEGER DEFAULT 0').catch(()=>{});
+    await db.run('ALTER TABLE forum_posts ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE').catch(()=>{});
+    await db.run('ALTER TABLE forum_comments ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE').catch(()=>{});
+
     console.log('✓ Migrations applied');
   } catch (err) {
     console.error('Migration warning:', err.message);

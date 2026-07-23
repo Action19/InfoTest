@@ -12,6 +12,14 @@ async function addPoints(userId, points) {
   await database.run('UPDATE users SET points = points + ? WHERE id = ?', [points, userId]);
 }
 
+// ─── HELPER: bonus ball qo'shish (daraja hisobiga kiradi) ───
+async function addBonusPoints(userId, points) {
+  await database.run(
+    'UPDATE users SET points = points + ?, bonus_points = bonus_points + ? WHERE id = ?',
+    [points, points, userId]
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════
 // KATEGORIYALAR
 // ═══════════════════════════════════════════════════════════════
@@ -197,8 +205,7 @@ router.post('/posts', authenticateToken, async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?)
     `, [req.user.id, category_id, title, content, tagsJson, image_url || null]);
 
-    // +1 ball (savol berganlik uchun)
-    await addPoints(req.user.id, 1);
+    // Post yaratildi — ball FAQAT o'qituvchi tasdiqlagandan keyin beriladi
 
     const post = await database.get('SELECT * FROM forum_posts WHERE id = ?', [result.id]);
     try { post.tags = JSON.parse(post.tags || '[]'); } catch { post.tags = []; }
@@ -296,8 +303,7 @@ router.post('/posts/:postId/comments', authenticateToken, async (req, res) => {
       VALUES (?, ?, ?)
     `, [req.params.postId, req.user.id, content]);
 
-    // +2 ball (javob yozganlik uchun)
-    await addPoints(req.user.id, 2);
+    // Javob yaratildi — ball FAQAT o'qituvchi tasdiqlagandan keyin beriladi
 
     const comment = await database.get(`
       SELECT fc.*, u.full_name AS author_name, u.username AS author_username, u.role AS author_role
@@ -357,9 +363,9 @@ router.patch('/comments/:id/best', authenticateToken, async (req, res) => {
     const newBest = !comment.is_best_answer;
     if (newBest) {
       await database.run('UPDATE forum_comments SET is_best_answer = TRUE WHERE id = ?', [req.params.id]);
-      // +5 ball javob egasiga
+      // +5 bonus ball javob egasiga (eng yaxshi javob)
       if (comment.user_id !== req.user.id) {
-        await addPoints(comment.user_id, 5);
+        await addBonusPoints(comment.user_id, 5);
       }
     }
 
@@ -601,6 +607,44 @@ router.get('/stats', async (req, res) => {
     res.json(stats);
   } catch (err) {
     res.status(500).json({ error: 'Xatolik' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// TASDIQLASH (faqat teacher/admin)
+// ═══════════════════════════════════════════════════════════════
+
+// PATCH /api/forum/posts/:id/approve — postni tasdiqlash (+1 bonus ball)
+router.patch('/posts/:id/approve', authenticateToken, isTeacherOrAdmin, async (req, res) => {
+  try {
+    const post = await database.get('SELECT * FROM forum_posts WHERE id = ?', [req.params.id]);
+    if (!post) return res.status(404).json({ error: 'Post topilmadi' });
+    if (post.is_approved) return res.status(400).json({ error: 'Allaqachon tasdiqlangan' });
+
+    await database.run('UPDATE forum_posts SET is_approved = TRUE WHERE id = ?', [req.params.id]);
+    await addBonusPoints(post.user_id, 1);
+
+    res.json({ message: 'Post tasdiqlandi (+1 ball)', is_approved: true });
+  } catch (err) {
+    console.error('Post approve error:', err);
+    res.status(500).json({ error: 'Tasdiqlashda xatolik' });
+  }
+});
+
+// PATCH /api/forum/comments/:id/approve — javobni tasdiqlash (+2 bonus ball)
+router.patch('/comments/:id/approve', authenticateToken, isTeacherOrAdmin, async (req, res) => {
+  try {
+    const comment = await database.get('SELECT * FROM forum_comments WHERE id = ?', [req.params.id]);
+    if (!comment) return res.status(404).json({ error: 'Javob topilmadi' });
+    if (comment.is_approved) return res.status(400).json({ error: 'Allaqachon tasdiqlangan' });
+
+    await database.run('UPDATE forum_comments SET is_approved = TRUE WHERE id = ?', [req.params.id]);
+    await addBonusPoints(comment.user_id, 2);
+
+    res.json({ message: 'Javob tasdiqlandi (+2 ball)', is_approved: true });
+  } catch (err) {
+    console.error('Comment approve error:', err);
+    res.status(500).json({ error: 'Tasdiqlashda xatolik' });
   }
 });
 

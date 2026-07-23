@@ -368,12 +368,12 @@ router.post('/:id/rate', authenticateToken, async (req, res) => {
       );
     }
 
-    // O'quvchi ballariga qo'shish (yangi ball - eski ball = farq)
+    // O'quvchi ballariga qo'shish (bonus_points ga ham)
     const pointsDiff = score - oldScore;
     if (pointsDiff !== 0) {
       await database.run(
-        'UPDATE users SET points = points + ? WHERE id = ?',
-        [pointsDiff, item.user_id]
+        'UPDATE users SET points = points + ?, bonus_points = bonus_points + ? WHERE id = ?',
+        [pointsDiff, pointsDiff, item.user_id]
       );
     }
 

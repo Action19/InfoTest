@@ -147,7 +147,7 @@ class User {
   static async updateMasteryLevel(studentId) {
     const LessonProgress = require('./LessonProgress');
 
-    const user = await database.get('SELECT class_name, level FROM users WHERE id = ?', [studentId]);
+    const user = await database.get('SELECT class_name, level, bonus_points FROM users WHERE id = ?', [studentId]);
     if (!user) return;
 
     // O'quvchi sinfidan grade ni ajratib olish (masalan "9-A" → 9)
@@ -162,7 +162,7 @@ class User {
       return;
     }
 
-    const percent = (stats.totalEarned / stats.totalPossible) * 100;
+    const percent = ((stats.totalEarned + (user.bonus_points || 0)) / stats.totalPossible) * 100;
 
     // Daraja chegaralari
     const BANDS = [
