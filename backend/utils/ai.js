@@ -14,8 +14,8 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY
 });
 
-// Asosiy model — Claude Sonnet
-const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
+// Asosiy model — Claude Sonnet 4 (alias, eng yangi versiyaga yo'naltiradi)
+const DEFAULT_MODEL = 'claude-sonnet-4-0';
 
 /**
  * Matnli so'rov yuborish (text-only)
