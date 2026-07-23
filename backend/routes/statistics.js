@@ -107,7 +107,8 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
       user: user ? {
         id: user.id, username: user.username,
         full_name: user.full_name, points: user.points,
-        level: user.level, avatar: user.avatar
+        level: user.level, mastery_percent: user.mastery_percent,
+        avatar: user.avatar
       } : null,
 
       statistics:    stats     || {},

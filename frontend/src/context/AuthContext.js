@@ -89,6 +89,16 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('user', JSON.stringify(userData));
   };
 
+  const refreshUser = async () => {
+    try {
+      const response = await authAPI.getMe();
+      setUser(response.data.user);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+    } catch (err) {
+      console.error('User refresh error:', err);
+    }
+  };
+
   const value = {
     user,
     loading,
@@ -97,6 +107,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateUser,
+    refreshUser,
     isAuthenticated: !!user,
     isStudent: user?.role === 'student',
     isTeacher: user?.role === 'teacher',

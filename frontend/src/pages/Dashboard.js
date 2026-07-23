@@ -23,7 +23,7 @@ const StatCard = ({ icon, value, label, sub, className }) => (
 );
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [stats,       setStats]       = useState(null);
   const [recentTests, setRecentTests] = useState([]);
   const [recentAssign,setRecentAssign]= useState([]);
@@ -42,6 +42,11 @@ const Dashboard = () => {
         : '/statistics/overall';
       const statsRes = await api.get(endpoint).catch(() => ({ data: {} }));
       setStats(statsRes.data);
+
+      // O'quvchi bo'lsa — daraja/ball har safar yangilansin
+      if (user.role === 'student') {
+        await refreshUser();
+      }
 
       if (user.role === 'student') {
         // So'nggi test natijalari
@@ -129,7 +134,7 @@ const Dashboard = () => {
               icon="🎓" className="stat-purple"
               value={`${stats.gradedLessons || 0} / ${stats.totalLessons || 0}`}
               label="Darslar bajarildi"
-              sub={stats.avgLessonPct > 0 ? `o'rtacha ${stats.avgLessonPct}%` : null}
+              sub="Batafsil foiz — Daraja kartasida"
             />
           </div>
 

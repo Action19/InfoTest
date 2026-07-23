@@ -96,7 +96,7 @@ const Leaderboard = () => {
                 <div className={`level-badge level-${getLevelColor(filteredLeaderboard[1].level)}`}>
                   {getLevelName(filteredLeaderboard[1].level)}
                 </div>
-                <div className="podium-points">⭐ {filteredLeaderboard[1].points}</div>
+                <div className="podium-points">{filteredLeaderboard[1].mastery_percent || 0}% • ⭐ {filteredLeaderboard[1].points}</div>
                 <div className="podium-stand podium-stand-2">2</div>
               </div>
 
@@ -111,7 +111,7 @@ const Leaderboard = () => {
                 <div className={`level-badge level-${getLevelColor(filteredLeaderboard[0].level)}`}>
                   {getLevelName(filteredLeaderboard[0].level)}
                 </div>
-                <div className="podium-points">⭐ {filteredLeaderboard[0].points}</div>
+                <div className="podium-points">{filteredLeaderboard[0].mastery_percent || 0}% • ⭐ {filteredLeaderboard[0].points}</div>
                 <div className="podium-stand podium-stand-1">1</div>
               </div>
 
@@ -125,7 +125,7 @@ const Leaderboard = () => {
                 <div className={`level-badge level-${getLevelColor(filteredLeaderboard[2].level)}`}>
                   {getLevelName(filteredLeaderboard[2].level)}
                 </div>
-                <div className="podium-points">⭐ {filteredLeaderboard[2].points}</div>
+                <div className="podium-points">{filteredLeaderboard[2].mastery_percent || 0}% • ⭐ {filteredLeaderboard[2].points}</div>
                 <div className="podium-stand podium-stand-3">3</div>
               </div>
             </div>
@@ -202,7 +202,7 @@ const Leaderboard = () => {
                 <div className="position-rank">#{leaderboard.findIndex(s => s.id === user.id) + 1}</div>
                 <div className="position-info">
                   <h4>{user.full_name}</h4>
-                  <p>⭐ {user.points} ball • Daraja {user.level}</p>
+                  <p>{user.mastery_percent || 0}% • Daraja {user.level} • ⭐ {user.points}</p>
                 </div>
               </div>
             </div>

@@ -199,7 +199,8 @@ class User {
   static async getLeaderboard(limit = 10, district = null, school_number = null) {
     let sql = `
       SELECT 
-        u.id, u.username, u.full_name, u.avatar, u.points, u.level, u.district, u.school_number, u.class_name,
+        u.id, u.username, u.full_name, u.avatar, u.points, u.level,
+        u.mastery_percent, u.district, u.school_number, u.class_name,
         s.total_tests_taken, s.average_score
       FROM users u
       LEFT JOIN statistics s ON u.id = s.user_id
@@ -212,7 +213,7 @@ class User {
       params.push(district, school_number);
     }
 
-    sql += ' ORDER BY u.points DESC LIMIT ?';
+    sql += ' ORDER BY u.mastery_percent DESC, u.points DESC LIMIT ?';
     params.push(limit);
 
     return await database.all(sql, params);
@@ -222,7 +223,8 @@ class User {
   static async getStudentsBySchool(district, school_number, teaching_classes = null) {
     let sql = `
       SELECT 
-        u.id, u.username, u.full_name, u.avatar, u.points, u.level, u.class_name, u.district, u.school_number,
+        u.id, u.username, u.full_name, u.avatar, u.points, u.level,
+        u.mastery_percent, u.class_name, u.district, u.school_number,
         s.total_tests_taken, s.average_score
       FROM users u
       LEFT JOIN statistics s ON u.id = s.user_id

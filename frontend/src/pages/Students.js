@@ -106,14 +106,19 @@ const Students = () => {
 
               <div className="student-stats-grid">
                 <div className="student-stat">
-                  <div className="stat-icon">⭐</div>
-                  <div className="stat-value">{student.points || 0}</div>
-                  <div className="stat-label">Ballar</div>
+                  <div className="stat-icon">📊</div>
+                  <div className="stat-value">{student.mastery_percent || 0}%</div>
+                  <div className="stat-label">O'zlashtirish</div>
                 </div>
                 <div className="student-stat">
                   <div className="stat-icon">🏆</div>
                   <div className="stat-value">{student.level || 1}</div>
                   <div className="stat-label">Daraja</div>
+                </div>
+                <div className="student-stat">
+                  <div className="stat-icon">⭐</div>
+                  <div className="stat-value">{student.points || 0}</div>
+                  <div className="stat-label">Ballar</div>
                 </div>
               </div>
 
