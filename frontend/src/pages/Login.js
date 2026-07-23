@@ -34,16 +34,6 @@ const Login = () => {
     }
   };
 
-  const demoAccounts = [
-    { username: 'admin', password: 'admin123', role: 'Administrator' },
-    { username: 'o_qituvchi', password: 'teacher123', role: "O'qituvchi" },
-    { username: 'akmal_yusupov', password: 'student123', role: 'Talaba' }
-  ];
-
-  const fillDemo = (username, password) => {
-    setFormData({ username, password });
-  };
-
   return (
     <div className="auth-container">
       <div className="auth-card">
@@ -97,27 +87,6 @@ const Login = () => {
           <p style={{ marginTop: '0.5rem' }}>
             <Link to="/forgot-password" style={{ fontSize: '0.9rem' }}>Parolni unutdingizmi?</Link>
           </p>
-        </div>
-
-        <div className="demo-accounts">
-          <h3>Demo hisoblar</h3>
-          <div className="demo-list">
-            {demoAccounts.map((account, index) => (
-              <div key={index} className="demo-account-card">
-                <div className="demo-info">
-                  <strong>{account.role}</strong>
-                  <span className="demo-username">{account.username}</span>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline"
-                  onClick={() => fillDemo(account.username, account.password)}
-                >
-                  To'ldirish
-                </button>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </div>
