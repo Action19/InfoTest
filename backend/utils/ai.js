@@ -1,26 +1,46 @@
 /**
- * AI Utility — Anthropic Claude SDK wrapper
- * Barcha route fayllar uchun yagona AI chaqiruv moduli
+ * AI Utility — Anthropic Claude API (to'g'ridan-to'g'ri HTTP fetch)
+ * SDK muammolaridan qochish uchun raw fetch ishlatiladi
  * 
- * OpenAI dan Claude ga o'tish uchun:
- * - model: claude-sonnet-4-20250514 (Sonnet 5 ekvivalenti)
- * - API: Anthropic Messages API
- * - Vision: base64 source type
+ * Model: claude-3-5-sonnet-latest
+ * API: https://api.anthropic.com/v1/messages
  */
 
-const Anthropic = require('@anthropic-ai/sdk');
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY
-});
-
-// Asosiy model — Claude 3.5 Sonnet (latest alias)
+const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+const ANTHROPIC_VERSION = '2023-06-01';
 const DEFAULT_MODEL = 'claude-3-5-sonnet-latest';
+
+/**
+ * Anthropic API'ga raw HTTP so'rov yuborish
+ */
+async function callAnthropic(body) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY environment variable not set');
+
+  const response = await fetch(ANTHROPIC_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': ANTHROPIC_VERSION
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Anthropic API error:', response.status, errorText);
+    throw new Error(`Anthropic API ${response.status}: ${errorText}`);
+  }
+
+  const data = await response.json();
+  return data;
+}
 
 /**
  * Matnli so'rov yuborish (text-only)
  * @param {string} prompt - Foydalanuvchi so'rovi
- * @param {object} options - { temperature, max_tokens, system }
+ * @param {object} options - { temperature, max_tokens, system, model }
  * @returns {string} AI javobi (text)
  */
 async function chat(prompt, options = {}) {
@@ -31,25 +51,24 @@ async function chat(prompt, options = {}) {
     model = DEFAULT_MODEL
   } = options;
 
-  const params = {
+  const body = {
     model,
     max_tokens,
-    temperature,
     messages: [{ role: 'user', content: prompt }]
   };
 
-  if (system) {
-    params.system = system;
-  }
+  // temperature faqat 0 dan farqli bo'lganda qo'shish
+  if (temperature !== undefined) body.temperature = temperature;
+  if (system) body.system = system;
 
-  const response = await anthropic.messages.create(params);
-  return response.content[0].text;
+  const data = await callAnthropic(body);
+  return data.content[0].text;
 }
 
 /**
  * Ko'p xabarli so'rov (multi-turn messages)
  * @param {Array} messages - [{role:'user'|'assistant', content:'...'}]
- * @param {object} options - { temperature, max_tokens, system }
+ * @param {object} options - { temperature, max_tokens, system, model }
  * @returns {string} AI javobi (text)
  */
 async function chatMessages(messages, options = {}) {
@@ -60,19 +79,17 @@ async function chatMessages(messages, options = {}) {
     model = DEFAULT_MODEL
   } = options;
 
-  const params = {
+  const body = {
     model,
     max_tokens,
-    temperature,
     messages
   };
 
-  if (system) {
-    params.system = system;
-  }
+  if (temperature !== undefined) body.temperature = temperature;
+  if (system) body.system = system;
 
-  const response = await anthropic.messages.create(params);
-  return response.content[0].text;
+  const data = await callAnthropic(body);
+  return data.content[0].text;
 }
 
 /**
@@ -80,7 +97,7 @@ async function chatMessages(messages, options = {}) {
  * @param {string} prompt - Matnli so'rov
  * @param {string} base64Data - Rasm base64 kodda
  * @param {string} mimeType - 'image/png', 'image/jpeg', etc.
- * @param {object} options - { temperature, max_tokens }
+ * @param {object} options - { temperature, max_tokens, model }
  * @returns {string} AI javobi (text)
  */
 async function chatWithImage(prompt, base64Data, mimeType, options = {}) {
@@ -90,10 +107,9 @@ async function chatWithImage(prompt, base64Data, mimeType, options = {}) {
     model = DEFAULT_MODEL
   } = options;
 
-  const response = await anthropic.messages.create({
+  const body = {
     model,
     max_tokens,
-    temperature,
     messages: [{
       role: 'user',
       content: [
@@ -111,15 +127,17 @@ async function chatWithImage(prompt, base64Data, mimeType, options = {}) {
         }
       ]
     }]
-  });
+  };
 
-  return response.content[0].text;
+  if (temperature !== undefined) body.temperature = temperature;
+
+  const data = await callAnthropic(body);
+  return data.content[0].text;
 }
 
 module.exports = {
   chat,
   chatMessages,
   chatWithImage,
-  DEFAULT_MODEL,
-  anthropic
+  DEFAULT_MODEL
 };
