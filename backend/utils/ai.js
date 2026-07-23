@@ -52,6 +52,9 @@ function extractText(data) {
   // Agar text turli element topilmasa, birinchi elementning textini qaytarish
   return data.content[0].text || JSON.stringify(data.content[0]);
 }
+
+/**
+ * Matnli so'rov yuborish (text-only)
  * @param {string} prompt - Foydalanuvchi so'rovi
  * @param {object} options - { temperature, max_tokens, system, model }
  * @returns {string} AI javobi (text)
