@@ -65,11 +65,11 @@ router.post('/register', registerLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Bu email allaqachon ro\'yxatdan o\'tgan' });
     }
 
-    // Validate role
-    const validRoles = ['student', 'teacher', 'admin'];
+    // Validate role — admin faqat mavjud admin tomonidan yaratilishi mumkin
+    const validRoles = ['student', 'teacher'];
     const userRole = role || 'student';
     if (!validRoles.includes(userRole)) {
-      return res.status(400).json({ error: 'Noto\'g\'ri rol' });
+      return res.status(400).json({ error: 'Noto\'g\'ri rol. Faqat student yoki teacher tanlash mumkin.' });
     }
 
     // Validate district and school

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import DOMPurify from 'dompurify';
 import api from '../services/api';
 
 /**
@@ -434,7 +435,7 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
                         </div>
                         <div
                           style={{ lineHeight: 1.7, fontSize: '0.9rem', color: 'var(--text-primary)', padding: '0.75rem', background: 'rgba(124,58,237,0.03)', borderRadius: '8px', border: '1px solid rgba(124,58,237,0.1)' }}
-                          dangerouslySetInnerHTML={{ __html: weak.aiExplanation }}
+                          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(weak.aiExplanation) }}
                         />
                       </div>
                     )}
@@ -443,7 +444,7 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
                     {!weak.aiExplanation && weak.explanation && (
                       <div
                         style={{ lineHeight: 1.7, fontSize: '0.9rem', color: 'var(--text-primary)' }}
-                        dangerouslySetInnerHTML={{ __html: weak.explanation }}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(weak.explanation) }}
                       />
                     )}
                   </div>
