@@ -45,9 +45,6 @@ router.get('/student/all', authenticateToken, async (req, res) => {
 
     // Har bir dars uchun test natijalari va topshiriq natijalari
     for (const p of progresses) {
-      // Tarixiy maksimal ball (taught_at'dan mustaqil)
-      p.total_possible_raw = await LessonProgress.calcTotalPossibleRaw(p.lesson_id);
-
       // Dars testlari va o'quvchi natijalari
       p.test_results = await database.all(`
         SELECT
@@ -75,10 +72,19 @@ router.get('/student/all', authenticateToken, async (req, res) => {
       `, [studentId, p.lesson_id]);
     }
 
-    // Yillik statistika
+    // Yillik statistika — jonli hisob (Dashboard bilan bir xil manba)
+    const student = await database.get('SELECT class_name, bonus_points FROM users WHERE id = ?', [studentId]);
+    const gradeNum = parseInt((student?.class_name || '').match(/\d+/)?.[0]) || null;
+
+    let totalEarned = 0;
+    let totalPossible = 0;
+    if (gradeNum) {
+      const masteryStats = await LessonProgress.getMasteryStats(studentId, gradeNum);
+      totalPossible = masteryStats.totalPossible;
+      totalEarned = masteryStats.totalEarned + (student?.bonus_points || 0);
+    }
+
     const totalGradePoints = progresses.reduce((s, p) => s + (p.grade || 0), 0);
-    const totalEarned = progresses.reduce((s, p) => s + (p.earned_score || 0), 0);
-    const totalPossible = progresses.reduce((s, p) => s + (p.total_possible_raw || p.total_possible || 0), 0);
     const medals = {
       gold:   progresses.filter(p => p.grade === 5).length,
       silver: progresses.filter(p => p.grade === 4).length,

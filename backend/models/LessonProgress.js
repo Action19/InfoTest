@@ -44,21 +44,6 @@ class LessonProgress {
     return parseInt(testRow?.total || 0) + parseInt(aRow?.total || 0);
   }
 
-  // ─── Natijalar (tarixiy) sahifasi uchun — taught_at holatidan qat'iy nazar ───
-  static async calcTotalPossibleRaw(lessonId) {
-    const testRow = await database.get(`
-      SELECT COALESCE(SUM(max_score), 0) AS total
-      FROM tests WHERE lesson_id = ? AND is_published = TRUE
-    `, [lessonId]);
-
-    const aRow = await database.get(
-      'SELECT COALESCE(SUM(max_score), 0) AS total FROM assignments WHERE lesson_id = ?',
-      [lessonId]
-    );
-
-    return parseInt(testRow?.total || 0) + parseInt(aRow?.total || 0);
-  }
-
   // ─── O'quvchining to'plagan balini hisoblash ─────────────
   // Test bali: (to'g'ri/umumiy) × test.max_score
   // Topshiriq bali: assignment_submissions.score (allaqachon max_score ga nisbatan hisoblangan)
@@ -214,6 +199,7 @@ class LessonProgress {
       FROM lesson_progress lp
       JOIN lessons l ON lp.lesson_id = l.id
       WHERE lp.student_id = ?
+        AND l.taught_at IS NOT NULL
       ORDER BY lp.updated_at DESC
     `, [studentId]);
   }
