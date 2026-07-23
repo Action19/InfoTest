@@ -103,19 +103,33 @@ class Lesson {
 
   // Get lessons for specific grade (for students)
   static async getByGrade(grade, teacherDistrict, teacherSchool, teacherClasses) {
-    // Get lessons created by teachers from same district, school, and teaching this grade
-    const lessons = await database.all(`
-      SELECT l.*,
-        u.full_name as creator_name,
-        (SELECT COUNT(*) FROM lesson_materials WHERE lesson_id = l.id) as materials_count,
-        (SELECT COUNT(*) FROM tests WHERE lesson_id = l.id AND is_published = TRUE) as tests_count
-      FROM lessons l
-      LEFT JOIN users u ON l.created_by = u.id
-      WHERE l.grade = ?
-        AND u.district = ?
-        AND u.school_number = ?
-      ORDER BY l.created_at ASC
-    `, [grade, teacherDistrict, teacherSchool]);
+    // Agar district/school bo'sh bo'lsa — faqat shu grade darslarini olish
+    let lessons;
+    if (teacherDistrict && teacherSchool) {
+      lessons = await database.all(`
+        SELECT l.*,
+          u.full_name as creator_name,
+          (SELECT COUNT(*) FROM lesson_materials WHERE lesson_id = l.id) as materials_count,
+          (SELECT COUNT(*) FROM tests WHERE lesson_id = l.id AND is_published = TRUE) as tests_count
+        FROM lessons l
+        LEFT JOIN users u ON l.created_by = u.id
+        WHERE l.grade = ?
+          AND u.district = ?
+          AND u.school_number = ?
+        ORDER BY l.created_at ASC
+      `, [grade, teacherDistrict, teacherSchool]);
+    } else {
+      lessons = await database.all(`
+        SELECT l.*,
+          u.full_name as creator_name,
+          (SELECT COUNT(*) FROM lesson_materials WHERE lesson_id = l.id) as materials_count,
+          (SELECT COUNT(*) FROM tests WHERE lesson_id = l.id AND is_published = TRUE) as tests_count
+        FROM lessons l
+        LEFT JOIN users u ON l.created_by = u.id
+        WHERE l.grade = ?
+        ORDER BY l.created_at ASC
+      `, [grade]);
+    }
 
     // Ketma-ket ochilish: 1-dars doim ko'rinadi. Har keyingi dars faqat
     // undan OLDINGI dars "taught_at" belgilangan bo'lsagina ko'rinadi.
