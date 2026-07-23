@@ -2,7 +2,7 @@
  * AI Utility — Anthropic Claude API (to'g'ridan-to'g'ri HTTP fetch)
  * SDK muammolaridan qochish uchun raw fetch ishlatiladi
  * 
- * Model: claude-3-5-sonnet-latest
+ * Model: claude-sonnet-5
  * API: https://api.anthropic.com/v1/messages
  */
 
@@ -56,15 +56,15 @@ function extractText(data) {
 /**
  * Matnli so'rov yuborish (text-only)
  * @param {string} prompt - Foydalanuvchi so'rovi
- * @param {object} options - { temperature, max_tokens, system, model }
+ * @param {object} options - { max_tokens, system, model, effort }
  * @returns {string} AI javobi (text)
  */
 async function chat(prompt, options = {}) {
   const {
-    temperature = 0.5,
     max_tokens = 2000,
     system = undefined,
-    model = DEFAULT_MODEL
+    model = DEFAULT_MODEL,
+    effort = 'low'
   } = options;
 
   const body = {
@@ -74,6 +74,7 @@ async function chat(prompt, options = {}) {
   };
 
   if (system) body.system = system;
+  if (effort) body.output_config = { effort };
 
   const data = await callAnthropic(body);
   return extractText(data);
@@ -82,15 +83,15 @@ async function chat(prompt, options = {}) {
 /**
  * Ko'p xabarli so'rov (multi-turn messages)
  * @param {Array} messages - [{role:'user'|'assistant', content:'...'}]
- * @param {object} options - { temperature, max_tokens, system, model }
+ * @param {object} options - { max_tokens, system, model, effort }
  * @returns {string} AI javobi (text)
  */
 async function chatMessages(messages, options = {}) {
   const {
-    temperature = 0.5,
     max_tokens = 2000,
     system = undefined,
-    model = DEFAULT_MODEL
+    model = DEFAULT_MODEL,
+    effort = 'low'
   } = options;
 
   const body = {
@@ -100,6 +101,7 @@ async function chatMessages(messages, options = {}) {
   };
 
   if (system) body.system = system;
+  if (effort) body.output_config = { effort };
 
   const data = await callAnthropic(body);
   return extractText(data);
@@ -110,14 +112,14 @@ async function chatMessages(messages, options = {}) {
  * @param {string} prompt - Matnli so'rov
  * @param {string} base64Data - Rasm base64 kodda
  * @param {string} mimeType - 'image/png', 'image/jpeg', etc.
- * @param {object} options - { temperature, max_tokens, model }
+ * @param {object} options - { max_tokens, model, effort }
  * @returns {string} AI javobi (text)
  */
 async function chatWithImage(prompt, base64Data, mimeType, options = {}) {
   const {
-    temperature = 0.2,
     max_tokens = 1000,
-    model = DEFAULT_MODEL
+    model = DEFAULT_MODEL,
+    effort = 'low'
   } = options;
 
   const body = {
@@ -141,6 +143,8 @@ async function chatWithImage(prompt, base64Data, mimeType, options = {}) {
       ]
     }]
   };
+
+  if (effort) body.output_config = { effort };
 
   const data = await callAnthropic(body);
   return extractText(data);

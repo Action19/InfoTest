@@ -105,7 +105,7 @@ Faqat JSON qaytaring:
     }
 
     // AI chaqirish
-    const raw = await chat(prompt, { temperature: 0.7, max_tokens: 4000 });
+    const raw = await chat(prompt, { max_tokens: 8000, effort: 'low' });
 
     // JSON parse — himoyalangan
     let questions;
