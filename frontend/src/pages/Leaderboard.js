@@ -33,8 +33,8 @@ const Leaderboard = () => {
   };
 
   const getLevelName = (level) => {
-    const names = ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond'];
-    return names[level - 1] || 'Bronze';
+    const names = ['🥉 Bronza', '🥈 Kumush', '🥇 Oltin', '💎 Platina', '💠 Brilliant'];
+    return names[level - 1] || '🥉 Bronza';
   };
 
   const filteredLeaderboard = filter === 'all' 
@@ -70,7 +70,7 @@ const Leaderboard = () => {
             className={`filter-btn level-${getLevelColor(level)} ${filter === `level${level}` ? 'active' : ''}`}
             onClick={() => setFilter(`level${level}`)}
           >
-            Daraja {level}
+            {getLevelName(level)}
           </button>
         ))}
       </div>
@@ -175,7 +175,7 @@ const Leaderboard = () => {
                     </td>
                     <td>
                       <div className={`level-badge level-${getLevelColor(student.level)}`}>
-                        Daraja {student.level}
+                        {getLevelName(student.level)}
                       </div>
                     </td>
                     <td className="points-cell">

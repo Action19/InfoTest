@@ -53,6 +53,16 @@ const Profile = () => {
     return colors[level - 1] || 'bronze';
   };
 
+  const getLevelEmoji = (level) => {
+    const emojis = ['🥉', '🥈', '🥇', '💎', '💠'];
+    return emojis[level - 1] || '🥉';
+  };
+
+  const getLevelName = (level) => {
+    const names = ['Bronza', 'Kumush', 'Oltin', 'Platina', 'Brilliant'];
+    return names[level - 1] || 'Bronza';
+  };
+
   const getRoleName = (role) => {
     const roleNames = {
       student: "O'quvchi",
@@ -188,8 +198,8 @@ const Profile = () => {
           {user.role === 'student' && (
             <>
               <div className={`level-badge-large level-${getLevelColor(user.level)}`}>
-                <div className="level-number">Daraja {user.level}</div>
-                <div className="level-name">{getLevelColor(user.level).toUpperCase()}</div>
+                <div className="level-number">{getLevelEmoji(user.level)} {getLevelName(user.level)}</div>
+                <div className="level-name">{user.mastery_percent || 0}%</div>
               </div>
               
               <div className="profile-stats">

@@ -9,27 +9,42 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import './assets/css/App.css';
 
+// ChunkLoadError tuzatish — yuklanmasa sahifani avtomatik reload qiladi
+const lazyWithRetry = (componentImport) =>
+  lazy(async () => {
+    try {
+      return await componentImport();
+    } catch (error) {
+      // ChunkLoadError bo'lsa — sahifani reload qilish (1 marta)
+      if (!window.__chunkRetried) {
+        window.__chunkRetried = true;
+        window.location.reload();
+      }
+      throw error;
+    }
+  });
+
 // Lazy loading — sahifalar kerak bo'lgandagina yuklanadi
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const TestDetail = lazy(() => import('./pages/TestDetail'));
-const TakeTest = lazy(() => import('./pages/TakeTest'));
-const Results = lazy(() => import('./pages/Results'));
-const Portfolio = lazy(() => import('./pages/Portfolio'));
-const Profile = lazy(() => import('./pages/Profile'));
-const Leaderboard = lazy(() => import('./pages/Leaderboard'));
-const Students = lazy(() => import('./pages/Students'));
-const StudentPortfolio = lazy(() => import('./pages/StudentPortfolio'));
-const Lessons = lazy(() => import('./pages/Lessons'));
-const LessonDetail = lazy(() => import('./pages/LessonDetail'));
-const Journal = lazy(() => import('./pages/Journal'));
-const AIAnalytics = lazy(() => import('./pages/AIAnalytics'));
-const Forum = lazy(() => import('./pages/Forum'));
-const ForumPost = lazy(() => import('./pages/ForumPost'));
-const NewPost = lazy(() => import('./pages/NewPost'));
-const ExperimentStats = lazy(() => import('./pages/ExperimentStats'));
-const AdminUsers = lazy(() => import('./pages/AdminUsers'));
-const Survey = lazy(() => import('./pages/Survey'));
-const DiagnosticTest = lazy(() => import('./pages/DiagnosticTest'));
+const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));
+const TestDetail = lazyWithRetry(() => import('./pages/TestDetail'));
+const TakeTest = lazyWithRetry(() => import('./pages/TakeTest'));
+const Results = lazyWithRetry(() => import('./pages/Results'));
+const Portfolio = lazyWithRetry(() => import('./pages/Portfolio'));
+const Profile = lazyWithRetry(() => import('./pages/Profile'));
+const Leaderboard = lazyWithRetry(() => import('./pages/Leaderboard'));
+const Students = lazyWithRetry(() => import('./pages/Students'));
+const StudentPortfolio = lazyWithRetry(() => import('./pages/StudentPortfolio'));
+const Lessons = lazyWithRetry(() => import('./pages/Lessons'));
+const LessonDetail = lazyWithRetry(() => import('./pages/LessonDetail'));
+const Journal = lazyWithRetry(() => import('./pages/Journal'));
+const AIAnalytics = lazyWithRetry(() => import('./pages/AIAnalytics'));
+const Forum = lazyWithRetry(() => import('./pages/Forum'));
+const ForumPost = lazyWithRetry(() => import('./pages/ForumPost'));
+const NewPost = lazyWithRetry(() => import('./pages/NewPost'));
+const ExperimentStats = lazyWithRetry(() => import('./pages/ExperimentStats'));
+const AdminUsers = lazyWithRetry(() => import('./pages/AdminUsers'));
+const Survey = lazyWithRetry(() => import('./pages/Survey'));
+const DiagnosticTest = lazyWithRetry(() => import('./pages/DiagnosticTest'));
 
 // Loading fallback
 const PageLoader = () => (

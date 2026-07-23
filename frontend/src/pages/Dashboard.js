@@ -8,7 +8,7 @@ const getLevelColor = (level) =>
   ['bronze','silver','gold','platinum','diamond'][level - 1] || 'bronze';
 
 const getLevelLabel = (level) =>
-  ['Bronza','Kumush','Oltin','Platina','Brilliant'][level - 1] || 'Bronza';
+  ['🥉 Bronza','🥈 Kumush','🥇 Oltin','💎 Platina','💠 Brilliant'][level - 1] || '🥉 Bronza';
 
 // ─── Kichik stat kartochkasi ──────────────────────────────────
 const StatCard = ({ icon, value, label, sub, className }) => (
@@ -150,8 +150,8 @@ const Dashboard = () => {
             />
             <StatCard
               icon="🏆" className={`stat-level level-${getLevelColor(user.level)}`}
-              value={`Daraja ${user.level}`}
-              label={`${getLevelLabel(user.level)} — ${user.mastery_percent || 0}%`}
+              value={getLevelLabel(user.level)}
+              label={`${user.mastery_percent || 0}% o'zlashtirish`}
             />
             {stats.medalCounts && (
               <>
@@ -334,7 +334,7 @@ const Dashboard = () => {
                     <div className="leader-avatar">{leader.full_name.charAt(0).toUpperCase()}</div>
                     <div className="leader-info">
                       <h4>{leader.full_name}</h4>
-                      <p>{leader.points} ball · Daraja {leader.level}</p>
+                      <p>{leader.mastery_percent || 0}% · {getLevelLabel(leader.level)}</p>
                     </div>
                     <div className={`level-badge level-${getLevelColor(leader.level)}`}>
                       {getLevelLabel(leader.level)}
