@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -13,6 +13,13 @@ const Navbar = () => {
   useEffect(() => {
     setMobileMenuOpen(false);
     setShowUserMenu(false);
+  }, [location.pathname]);
+
+  // Sahifa almashganda mastery_percent/level yangilash (markaziy yechim)
+  useEffect(() => {
+    if (user && user.role === 'student') {
+      refreshUser();
+    }
   }, [location.pathname]);
 
   // Foydalanuvchi almashganda UI ni reset qilish
