@@ -105,7 +105,7 @@ const Results = () => {
 
       {/* ── Yillik statistika ── */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:'1rem', marginBottom:'1.5rem' }}>
-        <StatCard value={user?.points || 0}      label="⭐ Umumiy ball"      gradient="linear-gradient(135deg,#667eea,#764ba2)" />
+        <StatCard value={summary?.total_earned || 0} label={`📊 ${summary?.total_earned || 0} / ${summary?.total_possible || 0} ball`} gradient="linear-gradient(135deg,#667eea,#764ba2)" />
         <StatCard value={progresses.length}       label="🎓 Bajarilgan darslar" gradient="linear-gradient(135deg,#11998e,#38ef7d)" />
         <StatCard value={allResults.length}       label="📝 Topshirilgan testlar" gradient="linear-gradient(135deg,#f093fb,#f5576c)" />
         <StatCard value={`${avgTestPct}%`}        label="📊 O'rtacha test bali"   gradient="linear-gradient(135deg,#4facfe,#00f2fe)" />
