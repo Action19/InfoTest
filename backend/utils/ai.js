@@ -38,7 +38,20 @@ async function callAnthropic(body) {
 }
 
 /**
- * Matnli so'rov yuborish (text-only)
+ * Anthropic API javobidan text contentni olish
+ * Claude Sonnet 5 da content massivida thinking + text bo'lishi mumkin
+ */
+function extractText(data) {
+  if (!data || !data.content || !Array.isArray(data.content) || data.content.length === 0) {
+    console.error('Anthropic: empty content response', JSON.stringify(data)?.slice(0, 500));
+    throw new Error('AI javob bermadi (bo\'sh content)');
+  }
+  // text turli elementni qidirish (thinking blockni o'tkazib yuborish)
+  const textBlock = data.content.find(c => c.type === 'text');
+  if (textBlock) return textBlock.text;
+  // Agar text turli element topilmasa, birinchi elementning textini qaytarish
+  return data.content[0].text || JSON.stringify(data.content[0]);
+}
  * @param {string} prompt - Foydalanuvchi so'rovi
  * @param {object} options - { temperature, max_tokens, system, model }
  * @returns {string} AI javobi (text)
@@ -60,7 +73,7 @@ async function chat(prompt, options = {}) {
   if (system) body.system = system;
 
   const data = await callAnthropic(body);
-  return data.content[0].text;
+  return extractText(data);
 }
 
 /**
@@ -86,7 +99,7 @@ async function chatMessages(messages, options = {}) {
   if (system) body.system = system;
 
   const data = await callAnthropic(body);
-  return data.content[0].text;
+  return extractText(data);
 }
 
 /**
@@ -127,7 +140,7 @@ async function chatWithImage(prompt, base64Data, mimeType, options = {}) {
   };
 
   const data = await callAnthropic(body);
-  return data.content[0].text;
+  return extractText(data);
 }
 
 module.exports = {
