@@ -7,18 +7,9 @@ const { aiLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
-// ─── HELPER: ball qo'shish ───────────────────────────────────
+// ─── HELPER: ball qo'shish (faqat points, level endi updateMasteryLevel boshqaradi) ───
 async function addPoints(userId, points) {
   await database.run('UPDATE users SET points = points + ? WHERE id = ?', [points, userId]);
-  await database.run(`
-    UPDATE users SET level = CASE 
-      WHEN points >= 1000 THEN 5
-      WHEN points >= 500 THEN 4
-      WHEN points >= 200 THEN 3
-      WHEN points >= 50 THEN 2
-      ELSE 1
-    END WHERE id = ?
-  `, [userId]);
 }
 
 // ═══════════════════════════════════════════════════════════════

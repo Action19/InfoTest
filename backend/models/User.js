@@ -58,7 +58,7 @@ class User {
 
   // Find user by ID
   static async findById(id) {
-    const sql = 'SELECT id, username, email, full_name, role, avatar, points, level, bio, district, school_number, class_name, teaching_classes, is_blocked, created_at FROM users WHERE id = ?';
+    const sql = 'SELECT id, username, email, full_name, role, avatar, points, level, mastery_percent, bio, district, school_number, class_name, teaching_classes, is_blocked, created_at FROM users WHERE id = ?';
     return await database.get(sql, [id]);
   }
 
@@ -132,22 +132,67 @@ class User {
     return await database.run(sql, [hashedPassword, id]);
   }
 
-  // Add points to user
+  // Add points to user (faqat points oshadi, level ENDI bu yerda o'zgarmaydi)
   static async addPoints(userId, points) {
     const sql = `
       UPDATE users 
       SET points = points + ?,
-          level = CASE 
-            WHEN points + ? >= 1000 THEN 5
-            WHEN points + ? >= 500 THEN 4
-            WHEN points + ? >= 200 THEN 3
-            WHEN points + ? >= 50 THEN 2
-            ELSE 1
-          END,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
-    return await database.run(sql, [points, points, points, points, points, userId]);
+    return await database.run(sql, [points, userId]);
+  }
+
+  // Daraja tizimi — foiz asosida hisoblash (hysteresis bilan)
+  static async updateMasteryLevel(studentId) {
+    const LessonProgress = require('./LessonProgress');
+
+    const user = await database.get('SELECT class_name, level FROM users WHERE id = ?', [studentId]);
+    if (!user) return;
+
+    // O'quvchi sinfidan grade ni ajratib olish (masalan "9-A" → 9)
+    const gradeNum = parseInt((user.class_name || '').match(/\d+/)?.[0]) || null;
+    if (!gradeNum) return;
+
+    const stats = await LessonProgress.getMasteryStats(studentId, gradeNum);
+
+    if (stats.totalPossible === 0) {
+      // Hali birorta ham dars o'tilmagan — daraja hisoblanmaydi
+      await database.run('UPDATE users SET mastery_percent = 0 WHERE id = ?', [studentId]);
+      return;
+    }
+
+    const percent = (stats.totalEarned / stats.totalPossible) * 100;
+
+    // Daraja chegaralari
+    const BANDS = [
+      { level: 1, min: 0 },
+      { level: 2, min: 41 },
+      { level: 3, min: 66 },
+      { level: 4, min: 91 },
+      { level: 5, min: 100.0001 }  // faqat 100% dan oshganda (bonus orqali)
+    ];
+    const BUFFER = 5; // foiz — faqat pastga tushishda qo'llanadi
+
+    // Hozirgi darajaning quyi chegarasini topish
+    const currentBand = BANDS.find(b => b.level === (user.level || 1)) || BANDS[0];
+    let newLevel = 1;
+
+    // Yuqoriga — darhol
+    for (const band of [...BANDS].reverse()) {
+      if (percent >= band.min) { newLevel = band.level; break; }
+    }
+
+    // Agar bu PASTGA tushish bo'lsa — faqat bufer bilan tasdiqlansa amalga oshir
+    if (newLevel < (user.level || 1)) {
+      const stillInCurrentBandWithBuffer = percent >= (currentBand.min - BUFFER);
+      if (stillInCurrentBandWithBuffer) newLevel = user.level; // hali o'zgarmasin
+    }
+
+    await database.run(
+      'UPDATE users SET mastery_percent = ?, level = ? WHERE id = ?',
+      [percent.toFixed(1), newLevel, studentId]
+    );
   }
 
   // Get leaderboard (filtered by school)

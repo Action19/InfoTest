@@ -127,9 +127,12 @@ router.post('/submit', authenticateToken, async (req, res) => {
     // ── Lesson progress yangilash ─────────────────────────────
     try {
       const LessonProgress = require('../models/LessonProgress');
+      const User = require('../models/User');
       if (test.lesson_id) {
         await LessonProgress.recalculate(test.lesson_id, user_id);
       }
+      // Mastery level yangilash
+      await User.updateMasteryLevel(user_id);
     } catch (lpErr) {
       console.error('LessonProgress update error (non-fatal):', lpErr.message);
     }

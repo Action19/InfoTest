@@ -96,9 +96,29 @@ const Lessons = () => {
           </p>
         </div>
         {(user.role === 'teacher' || user.role === 'admin') && (
-          <button onClick={() => setShowCreateModal(true)} className="btn btn-primary">
-            ➕ Yangi dars
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button onClick={() => setShowCreateModal(true)} className="btn btn-primary">
+              ➕ Yangi dars
+            </button>
+            {user.role === 'admin' && (
+              <button
+                onClick={async () => {
+                  if (!window.confirm("⚠️ DIQQAT! Yangi o'quv yilini boshlaysizmi?\n\nBu barcha darslarni 'o'tilmagan' holatiga qaytaradi va o'quvchilar darajasini 1 ga tushiradi.\n\nDars mazmuni, testlar, topshiriqlar SAQLANIB QOLADI.\n\nBu amalni qaytarib bo'lmaydi!")) return;
+                  try {
+                    await api.post('/lessons/reset-year');
+                    alert("✅ Yangi o'quv yili boshlandi! Barcha darslar va darajalar tozalandi.");
+                    window.location.reload();
+                  } catch (err) {
+                    alert('Xatolik: ' + (err.response?.data?.error || err.message));
+                  }
+                }}
+                className="btn btn-outline"
+                style={{ borderColor: 'rgba(239,68,68,0.4)', color: '#dc2626' }}
+              >
+                🔄 Yangi o'quv yili
+              </button>
+            )}
+          </div>
         )}
       </div>
 

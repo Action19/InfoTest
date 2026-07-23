@@ -477,6 +477,11 @@ async function runMigrations(db) {
     await db.run('CREATE INDEX IF NOT EXISTS idx_adaptive_attempts_test ON adaptive_attempts(adaptive_test_id)').catch(()=>{});
     await db.run('CREATE INDEX IF NOT EXISTS idx_concept_explanations_test ON concept_explanations(adaptive_test_id)').catch(()=>{});
 
+    // ─── MASTERY LEVEL TIZIMI ────────────────────────────────
+    await db.run('ALTER TABLE lessons ADD COLUMN IF NOT EXISTS taught_at TIMESTAMPTZ').catch(()=>{});
+    await db.run('ALTER TABLE tests ADD COLUMN IF NOT EXISTS max_score INTEGER DEFAULT 20').catch(()=>{});
+    await db.run('ALTER TABLE users ADD COLUMN IF NOT EXISTS mastery_percent NUMERIC DEFAULT 0').catch(()=>{});
+
     console.log('✓ Migrations applied');
   } catch (err) {
     console.error('Migration warning:', err.message);

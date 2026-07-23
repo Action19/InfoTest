@@ -1,18 +1,19 @@
 /**
  * LessonProgress — dars bo'yicha o'quvchi o'zlashtirish tizimi
  *
- * BALLAR:
- *   Test savoli to'g'ri javobi  → 2 ball
- *   Amaliy topshiriq (1 ta)     → 20 ball (max)
- *   Darsning umumiy bali = (testlar × 2) + (topshiriqlar × 20)
+ * YANGI TIZIM (foiz asosida):
+ *   Test bali = (to'g'ri javoblar / umumiy savollar) × test.max_score
+ *   Topshiriq bali = baholangan score (assignment_submissions.score)
+ *   Darsning maksimal bali = SUM(tests.max_score) + SUM(assignments.max_score)
+ *   Faqat taught_at to'ldirilgan darslar hisobga olinadi
  *
- * BAHOLAR:
+ * BAHOLAR (dars bo'yicha):
  *   0–39%  → 2 (qoniqarsiz)
  *   40–59% → 3 (qoniqarli)
  *   60–85% → 4 (yaxshi)
  *   86–100% → 5 (a'lo)
  *
- * MEDALLAR (Results sahifasida):
+ * MEDALLAR:
  *   5 → 🥇 oltin medal
  *   4 → 🥈 kumush medal
  *   3 → 🥉 bronza medal
@@ -20,61 +21,49 @@
  */
 const database = require('../config/database');
 
-const POINTS_PER_CORRECT_ANSWER = 2;
-const POINTS_PER_ASSIGNMENT = 20;
-
 class LessonProgress {
   // ─── Darsning maksimal balini hisoblash ───────────────────
+  // Endi test.max_score + assignments.max_score ishlatiladi
   static async calcTotalPossible(lessonId) {
-    // Test savollar soni (nashr qilingan testlar)
-    const qRow = await database.get(`
-      SELECT COALESCE(SUM(q.cnt), 0) AS total_q
-      FROM (
-        SELECT (SELECT COUNT(*) FROM questions WHERE test_id = t.id) AS cnt
-        FROM tests t
-        WHERE t.lesson_id = ? AND t.is_published = TRUE
-      ) q
+    // Dars o'tilganmi tekshirish
+    const lesson = await database.get('SELECT taught_at FROM lessons WHERE id = ?', [lessonId]);
+    if (!lesson || !lesson.taught_at) return 0; // hali o'tilmagan dars hisobga kirmaydi
+
+    // Testlarning max_score yig'indisi
+    const testRow = await database.get(`
+      SELECT COALESCE(SUM(max_score), 0) AS total
+      FROM tests WHERE lesson_id = ? AND is_published = TRUE
     `, [lessonId]);
 
-    // Topshiriqlar soni
+    // Topshiriqlarning max_score yig'indisi
     const aRow = await database.get(
-      'SELECT COUNT(*) AS cnt FROM assignments WHERE lesson_id = ?',
+      'SELECT COALESCE(SUM(max_score), 0) AS total FROM assignments WHERE lesson_id = ?',
       [lessonId]
     );
 
-    const totalQ = parseInt(qRow?.total_q || 0);
-    const totalA = parseInt(aRow?.cnt || 0);
-
-    return (totalQ * POINTS_PER_CORRECT_ANSWER) + (totalA * POINTS_PER_ASSIGNMENT);
+    return parseInt(testRow?.total || 0) + parseInt(aRow?.total || 0);
   }
 
   // ─── O'quvchining to'plagan balini hisoblash ─────────────
+  // Test bali: (to'g'ri/umumiy) × test.max_score
+  // Topshiriq bali: assignment_submissions.score (allaqachon max_score ga nisbatan hisoblangan)
   static async calcEarnedScore(lessonId, studentId) {
-    // Testdan to'plangan ball (har to'g'ri javob = 2 ball)
-    // Bir test uchun eng yuqori natija olinadi
+    // Testdan to'plangan ball — proportsional (to'g'ri javoblar nisbati × test.max_score)
     const testRow = await database.get(`
       SELECT COALESCE(SUM(best.earned), 0) AS test_score
       FROM (
         SELECT r.test_id,
-               MAX(r.correct_answers) * ${POINTS_PER_CORRECT_ANSWER} AS earned
+               ROUND((MAX(r.correct_answers)::REAL / GREATEST(MAX(r.total_questions), 1)) * t.max_score) AS earned
         FROM results r
         JOIN tests t ON r.test_id = t.id
         WHERE t.lesson_id = ? AND r.user_id = ?
-        GROUP BY r.test_id
+        GROUP BY r.test_id, t.max_score
       ) best
     `, [lessonId, studentId]);
 
-    // Amaliy topshiriqlardan to'plangan ball
-    // Har topshiriq max 20 ball, o'quvchi necha % olgan bo'lsa shuncha proportsional
+    // Amaliy topshiriqlardan to'plangan ball (score to'g'ridan-to'g'ri)
     const assignRow = await database.get(`
-      SELECT COALESCE(SUM(
-        LEAST(
-          ROUND(
-            (s.score::REAL / GREATEST(a.max_score, 1)) * ${POINTS_PER_ASSIGNMENT}
-          ),
-          ${POINTS_PER_ASSIGNMENT}
-        )
-      ), 0) AS assign_score
+      SELECT COALESCE(SUM(s.score), 0) AS assign_score
       FROM assignment_submissions s
       JOIN assignments a ON s.assignment_id = a.id
       WHERE a.lesson_id = ? AND s.student_id = ? AND s.status = 'graded'
@@ -85,6 +74,24 @@ class LessonProgress {
       assignScore: parseInt(assignRow?.assign_score || 0),
       total: parseInt(testRow?.test_score || 0) + parseInt(assignRow?.assign_score || 0)
     };
+  }
+
+  // ─── O'quvchining BARCHA o'tilgan darslar bo'yicha umumiy statistikasi ───
+  static async getMasteryStats(studentId, grade) {
+    const lessons = await database.all(
+      `SELECT id FROM lessons WHERE grade = ? AND taught_at IS NOT NULL`,
+      [grade]
+    );
+
+    let totalPossible = 0;
+    let totalEarned = 0;
+    for (const l of lessons) {
+      totalPossible += await this.calcTotalPossible(l.id);
+      const earned = await this.calcEarnedScore(l.id, studentId);
+      totalEarned += earned.total;
+    }
+
+    return { totalPossible, totalEarned, lessonsCount: lessons.length };
   }
 
   // ─── Baho hisoblash ───────────────────────────────────────
@@ -198,5 +205,3 @@ class LessonProgress {
 }
 
 module.exports = LessonProgress;
-module.exports.POINTS_PER_CORRECT_ANSWER = POINTS_PER_CORRECT_ANSWER;
-module.exports.POINTS_PER_ASSIGNMENT = POINTS_PER_ASSIGNMENT;

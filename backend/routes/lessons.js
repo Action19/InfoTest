@@ -267,4 +267,43 @@ router.delete('/:lessonId/materials/:materialId', authenticateToken, requireRole
   }
 });
 
+// ─── "Dars o'tildi" deb belgilash ────────────────────────────
+router.patch('/:id/mark-taught', authenticateToken, requireRole(['teacher', 'admin']), async (req, res) => {
+  try {
+    const lessonId = req.params.id;
+    const database = require('../config/database');
+    const lesson = await database.get('SELECT * FROM lessons WHERE id = ?', [lessonId]);
+    if (!lesson) return res.status(404).json({ error: 'Dars topilmadi' });
+
+    await database.run('UPDATE lessons SET taught_at = NOW() WHERE id = ?', [lessonId]);
+
+    // Shu sinfdagi barcha o'quvchilar uchun darajani qayta hisobla
+    const students = await database.all(
+      `SELECT id FROM users WHERE role = 'student' AND class_name LIKE ?`,
+      [`${lesson.grade}%`]
+    );
+    for (const s of students) {
+      await User.updateMasteryLevel(s.id);
+    }
+
+    res.json({ message: 'Dars o\'tilgan deb belgilandi', taught_at: new Date() });
+  } catch (err) {
+    console.error('Mark-taught error:', err);
+    res.status(500).json({ error: 'Xatolik yuz berdi' });
+  }
+});
+
+// ─── Yangi o'quv yilini boshlash (progressni tozalash, mazmunni saqlash) ───
+router.post('/reset-year', authenticateToken, requireRole(['admin']), async (req, res) => {
+  try {
+    const database = require('../config/database');
+    await database.run('UPDATE lessons SET taught_at = NULL');
+    await database.run(`UPDATE users SET mastery_percent = 0, level = 1 WHERE role = 'student'`);
+    res.json({ message: 'Yangi o\'quv yili uchun barcha darslar va darajalar tozalandi. Dars mazmuni saqlanib qoldi.' });
+  } catch (err) {
+    console.error('Reset-year error:', err);
+    res.status(500).json({ error: 'Xatolik yuz berdi' });
+  }
+});
+
 module.exports = router;

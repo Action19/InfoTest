@@ -80,7 +80,8 @@ const LessonDetail = () => {
     subject: '',
     duration: 30,
     difficulty: 'medium',
-    passing_score: 60
+    passing_score: 60,
+    max_score: 20
   });
 
   // New question form
@@ -257,7 +258,7 @@ const LessonDetail = () => {
         lesson_id: parseInt(id),
         subject: newTest.subject || lesson.subject
       });
-      setNewTest({ title: '', description: '', subject: '', duration: 30, difficulty: 'medium', passing_score: 60 });
+      setNewTest({ title: '', description: '', subject: '', duration: 30, difficulty: 'medium', passing_score: 60, max_score: 20 });
       setShowCreateTestModal(false);
       await fetchLesson();
       // Auto-select newly created test
@@ -655,7 +656,30 @@ const LessonDetail = () => {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.75rem' }}>
           {isOwner && (
-            <button onClick={() => setShowEditLessonModal(true)} className="btn btn-outline">✏️ Tahrirlash</button>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button onClick={() => setShowEditLessonModal(true)} className="btn btn-outline">✏️ Tahrirlash</button>
+              {lesson.taught_at ? (
+                <span style={{ padding: '0.5rem 1rem', borderRadius: '8px', background: 'rgba(34,197,94,0.1)', color: '#16a34a', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  ✅ O'tilgan ({new Date(lesson.taught_at).toLocaleDateString('uz-UZ')})
+                </span>
+              ) : (
+                <button
+                  onClick={async () => {
+                    if (!window.confirm("Darsni o'tilgan deb belgilaysizmi? Bu barcha o'quvchilar darajasini qayta hisoblaydi.")) return;
+                    try {
+                      await api.patch(`/lessons/${id}/mark-taught`);
+                      fetchLesson();
+                      alert("✅ Dars o'tilgan deb belgilandi!");
+                    } catch (err) {
+                      alert('Xatolik: ' + (err.response?.data?.error || err.message));
+                    }
+                  }}
+                  className="btn btn-success"
+                >
+                  📋 Dars o'tildi
+                </button>
+              )}
+            </div>
           )}
           {/* ── O'quvchi uchun o'zlashtirish ko'rsatkichi ── */}
           {user?.role === 'student' && lessonProgress && lessonProgress.total_possible > 0 && (
@@ -1682,6 +1706,13 @@ const LessonDetail = () => {
                   <input type="number" value={newTest.passing_score} min="1" max="100"
                     onChange={(e) => setNewTest({ ...newTest, passing_score: parseInt(e.target.value) })} />
                 </div>
+                <div className="form-group">
+                  <label>Maksimal ball</label>
+                  <input type="number" value={newTest.max_score || 20} min="1" max="100"
+                    onChange={(e) => setNewTest({ ...newTest, max_score: parseInt(e.target.value) })} />
+                </div>
+              </div>
+              <div className="form-row">
                 <div className="form-group">
                   <label>Fan</label>
                   <input type="text" value={newTest.subject || lesson.subject}

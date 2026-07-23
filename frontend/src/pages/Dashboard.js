@@ -143,7 +143,7 @@ const Dashboard = () => {
             <StatCard
               icon="🏆" className={`stat-level level-${getLevelColor(user.level)}`}
               value={`Daraja ${user.level}`}
-              label={getLevelLabel(user.level)}
+              label={`${getLevelLabel(user.level)} — ${user.mastery_percent || 0}%`}
             />
             {stats.medalCounts && (
               <>

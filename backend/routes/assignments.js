@@ -530,10 +530,13 @@ router.get('/:id/submissions', authenticateToken, requireRole(['teacher','admin'
 async function triggerLessonProgress(assignmentId, studentId) {
   try {
     const LessonProgress = require('../models/LessonProgress');
+    const User = require('../models/User');
     const a = await Assignment.findById(assignmentId);
     if (a && a.lesson_id) {
       await LessonProgress.recalculate(a.lesson_id, studentId);
     }
+    // Mastery level yangilash
+    await User.updateMasteryLevel(studentId);
   } catch (err) {
     console.error('LessonProgress trigger error (non-fatal):', err.message);
   }

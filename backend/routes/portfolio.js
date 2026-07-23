@@ -377,20 +377,13 @@ router.post('/:id/rate', authenticateToken, async (req, res) => {
       );
     }
 
-    // O'quvchi levelini yangilash
-    await database.run(`
-      UPDATE users SET level = CASE 
-        WHEN points >= 1000 THEN 5
-        WHEN points >= 500 THEN 4
-        WHEN points >= 200 THEN 3
-        WHEN points >= 50 THEN 2
-        ELSE 1
-      END WHERE id = ?
-    `, [item.user_id]);
+    // O'quvchi mastery levelini yangilash
+    const User = require('../models/User');
+    await User.updateMasteryLevel(item.user_id);
 
     // Yangilangan user ma'lumoti
     const updatedUser = await database.get(
-      'SELECT id, points, level FROM users WHERE id = ?', [item.user_id]
+      'SELECT id, points, level, mastery_percent FROM users WHERE id = ?', [item.user_id]
     );
 
     // O'rtacha baho
