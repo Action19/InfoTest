@@ -501,6 +501,9 @@ async function runMigrations(db) {
       )
     `);
 
+    // ─── ADAPTIVE BONUS ──────────────────────────────────────
+    await db.run('ALTER TABLE adaptive_attempts ADD COLUMN IF NOT EXISTS bonus_awarded BOOLEAN DEFAULT FALSE').catch(()=>{});
+
     console.log('✓ Migrations applied');
   } catch (err) {
     console.error('Migration warning:', err.message);

@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import DOMPurify from 'dompurify';
 import api from '../services/api';
 
 /**
- * AdaptiveTestStudentView — O'quvchi uchun adaptiv test yechish interfeysi
+ * AdaptiveTestStudentView — O'quvchi uchun adaptiv test (mashq rejimi)
  * Zinapoya algoritmi: to'g'ri → qiyinroq, noto'g'ri → osonroq
+ * Qayta yechish mumkin, natijalar saqlanadi
  */
 const AdaptiveTestStudentView = ({ adaptiveTest }) => {
-  const [stage, setStage] = useState('intro'); // intro | testing | finished
+  // Agar myResults mavjud bo'lsa — to'g'ridan-to'g'ri natija ko'rsatiladi
+  const [stage, setStage] = useState(adaptiveTest.myResults ? 'finished' : 'intro');
   const [attemptId, setAttemptId] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [questionNumber, setQuestionNumber] = useState(0);
@@ -15,7 +17,8 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
   const [lastAnswer, setLastAnswer] = useState(null); // { isCorrect, correctOption }
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState(null);
+  const [results, setResults] = useState(adaptiveTest.myResults || null);
+  const [bonusMessage, setBonusMessage] = useState(null);
   const [currentDifficulty, setCurrentDifficulty] = useState(3);
 
   const totalQuestions = 15;
@@ -74,6 +77,7 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
       setLoading(true);
       const res = await api.post(`/adaptive-attempts/${attemptId}/finish`);
       setResults(res.data);
+      if (res.data.bonusMessage) setBonusMessage(res.data.bonusMessage);
       setStage('finished');
     } catch (err) {
       alert('Natijani olishda xatolik: ' + (err.response?.data?.error || err.message));
@@ -135,7 +139,7 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
         <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', maxWidth: '500px', margin: '0 auto 1rem', lineHeight: 1.6 }}>
           Bu test sizning bilim darajangizga moslashadi. To'g'ri javob bersangiz — savollar qiyinlashadi,
           noto'g'ri bo'lsa — osonlashadi. Jami <strong>15 ta savol</strong>dan iborat.
-          <br /><strong style={{ color: '#dc2626' }}>Diqqat: testni faqat 1 marta yechish mumkin!</strong>
+          <br /><span style={{ color: '#16a34a' }}>Har safar mashq qilishingiz mumkin. 86%+ natija uchun bonus ball!</span>
         </p>
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
           <span style={{ fontSize: '0.82rem', padding: '0.4rem 0.75rem', borderRadius: '20px', background: 'rgba(99,102,241,0.1)', color: '#4f46e5' }}>
@@ -145,7 +149,7 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
             4 variant
           </span>
           <span style={{ fontSize: '0.82rem', padding: '0.4rem 0.75rem', borderRadius: '20px', background: 'rgba(245,158,11,0.1)', color: '#d97706' }}>
-            1 urinish
+            Mashq rejimi
           </span>
         </div>
 
@@ -167,12 +171,22 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
       );
     }
 
-    const options = [
-      { letter: 'a', text: currentQuestion.option_a },
-      { letter: 'b', text: currentQuestion.option_b },
-      { letter: 'c', text: currentQuestion.option_c },
-      { letter: 'd', text: currentQuestion.option_d },
-    ];
+    // Variantlar aralashtirilgan (Fisher-Yates)
+    const shuffledOptions = useMemo(() => {
+      const opts = [
+        { letter: 'a', text: currentQuestion.option_a },
+        { letter: 'b', text: currentQuestion.option_b },
+        { letter: 'c', text: currentQuestion.option_c },
+        { letter: 'd', text: currentQuestion.option_d },
+      ];
+      for (let i = opts.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [opts[i], opts[j]] = [opts[j], opts[i]];
+      }
+      return opts;
+    }, [currentQuestion?.id]);
+
+    const options = shuffledOptions;
 
     const progressPercent = ((questionNumber - 1) / totalQuestions) * 100;
 
@@ -467,9 +481,29 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
           </div>
         )}
 
-        {/* Test faqat 1 marta — qayta yechish yo'q */}
-        <div style={{ textAlign: 'center', marginTop: '2rem', padding: '0.75rem', background: 'rgba(99,102,241,0.06)', borderRadius: '10px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-          ℹ️ Adaptiv testni faqat 1 marta yechish mumkin. Natijangiz saqlangan.
+        {/* Bonus xabari */}
+        {bonusMessage && (
+          <div style={{
+            textAlign: 'center', padding: '1rem', marginBottom: '1.5rem',
+            background: 'rgba(245,158,11,0.1)', borderRadius: '12px',
+            border: '1px solid rgba(245,158,11,0.3)', color: '#d97706', fontWeight: 600
+          }}>
+            {bonusMessage}
+          </div>
+        )}
+
+        {/* Qayta yechish */}
+        <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+          <button
+            onClick={() => { setStage('intro'); setResults(null); setAttemptId(null); setBonusMessage(null); }}
+            className="btn btn-primary"
+            style={{ padding: '0.7rem 2rem', fontSize: '1rem' }}
+          >
+            🔄 Qayta yechish
+          </button>
+          <p style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            Savollar aralashtirilib beriladi. Har safar mashq qilish mumkin.
+          </p>
         </div>
       </div>
     );

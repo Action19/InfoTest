@@ -124,12 +124,24 @@ Faqat JSON qaytaring:
       return res.status(500).json({ error: 'AI yetarli savol yaratmadi. Qayta urinib ko\'ring.' });
     }
 
-    // Agar mavjud adaptive_test bo'lsa — o'chirish (qayta generatsiya)
+    // Agar mavjud adaptive_test bo'lsa — tekshirish va o'chirish (qayta generatsiya)
     const existing = await database.get(
       'SELECT id FROM adaptive_tests WHERE lesson_id = $1',
       [lessonId]
     );
     if (existing) {
+      const completedCount = await database.get(
+        `SELECT COUNT(*) as cnt FROM adaptive_attempts
+         WHERE adaptive_test_id = $1 AND status = 'completed'`,
+        [existing.id]
+      );
+      if (parseInt(completedCount.cnt) > 0 && !req.body.confirm_overwrite) {
+        return res.status(409).json({
+          error: `Diqqat: ${completedCount.cnt} ta o'quvchi bu testni allaqachon yechgan. Qayta generatsiya ularning barcha natijalarini butunlay o'chirib yuboradi.`,
+          requiresConfirmation: true,
+          affectedStudents: parseInt(completedCount.cnt)
+        });
+      }
       await database.run('DELETE FROM adaptive_tests WHERE id = $1', [existing.id]);
     }
 
@@ -276,6 +288,7 @@ router.get('/lessons/:lessonId/adaptive-test', authenticateToken, async (req, re
 
     // O'quvchining mavjud attempt'ini tekshirish
     let myAttempt = null;
+    let myResults = null;
     if (req.user.role === 'student') {
       myAttempt = await database.get(
         `SELECT * FROM adaptive_attempts 
@@ -283,13 +296,17 @@ router.get('/lessons/:lessonId/adaptive-test', authenticateToken, async (req, re
          ORDER BY started_at DESC LIMIT 1`,
         [req.user.id, test.id]
       );
+      if (myAttempt && myAttempt.status === 'completed') {
+        myResults = await computeAdaptiveResults(myAttempt);
+      }
     }
 
     res.json({
       ...test,
       questions: safeQuestions,
       totalQuestions: questions.length,
-      myAttempt: myAttempt || null
+      myAttempt: myAttempt || null,
+      myResults: myResults || null
     });
   } catch (err) {
     console.error('Get adaptive test error:', err);
@@ -306,20 +323,6 @@ router.post('/adaptive-tests/:id/start', authenticateToken, async (req, res) => 
     const test = await database.get('SELECT * FROM adaptive_tests WHERE id = $1', [req.params.id]);
     if (!test) return res.status(404).json({ error: 'Adaptiv test topilmadi' });
     if (test.status !== 'published') return res.status(400).json({ error: 'Test hali e\'lon qilinmagan' });
-
-    // O'quvchi allaqachon tugatgan bo'lsa — qayta yechishga ruxsat yo'q
-    const completedAttempt = await database.get(
-      `SELECT id FROM adaptive_attempts 
-       WHERE user_id = $1 AND adaptive_test_id = $2 AND status = 'completed'`,
-      [req.user.id, test.id]
-    );
-    if (completedAttempt) {
-      return res.status(400).json({ 
-        error: 'Siz bu testni allaqachon yechgansiz. Qayta yechish mumkin emas.',
-        alreadyCompleted: true,
-        attemptId: completedAttempt.id
-      });
-    }
 
     // Tugallanmagan attempt bormi? — davom ettirish
     const inProgressAttempt = await database.get(
@@ -483,6 +486,64 @@ router.post('/adaptive-attempts/:attemptId/answer', authenticateToken, async (re
 });
 
 // ═══════════════════════════════════════════════════════════════
+// HELPER: Adaptiv test natijalarini hisoblash (keshdan — AI chaqirilMAYDI)
+// ═══════════════════════════════════════════════════════════════
+async function computeAdaptiveResults(attempt) {
+  const conceptScores = attempt.concept_scores || {};
+  const answers = attempt.answers || [];
+  const totalCorrect = answers.filter(a => a.isCorrect).length;
+  const totalScore = answers.length > 0 ? Math.round((totalCorrect / answers.length) * 100) : 0;
+
+  const weakConcepts = [];
+  for (const [concept, data] of Object.entries(conceptScores)) {
+    const percent = Math.round((data.correct / data.total) * 100);
+    if (percent < 100) weakConcepts.push({ concept, score: percent, correct: data.correct, total: data.total });
+  }
+  weakConcepts.sort((a, b) => a.score - b.score);
+
+  const wrongQuestionIds = answers.filter(a => !a.isCorrect).map(a => a.questionId);
+  let questionExplanations = [];
+  if (wrongQuestionIds.length > 0) {
+    questionExplanations = await database.all(
+      `SELECT id, question_text, correct_option, option_a, option_b, option_c, option_d, concept, explanation
+       FROM adaptive_questions WHERE id = ANY($1::int[])`,
+      [wrongQuestionIds]
+    );
+  }
+
+  const explanations = [];
+  for (const weak of weakConcepts) {
+    const relatedQuestions = questionExplanations.filter(q => q.concept === weak.concept);
+    const teacherExplanations = relatedQuestions
+      .filter(q => q.explanation && q.explanation.trim())
+      .map(q => ({
+        question: q.question_text,
+        correctAnswer: q[`option_${q.correct_option}`],
+        explanation: q.explanation
+      }));
+
+    const cached = await database.get(
+      'SELECT * FROM concept_explanations WHERE adaptive_test_id = $1 AND concept = $2',
+      [attempt.adaptive_test_id, weak.concept]
+    );
+
+    explanations.push({
+      concept: weak.concept,
+      score: weak.score,
+      teacherExplanations,
+      aiExplanation: cached ? cached.explanation_html : null
+    });
+  }
+
+  const allConceptScores = {};
+  for (const [concept, data] of Object.entries(conceptScores)) {
+    allConceptScores[concept] = { correct: data.correct, total: data.total, percent: Math.round((data.correct / data.total) * 100) };
+  }
+
+  return { totalScore, totalCorrect, totalQuestions: answers.length, conceptScores: allConceptScores, weakConcepts: explanations, answers };
+}
+
+// ═══════════════════════════════════════════════════════════════
 // Endpoint 7: Testni tugatish va tushuntirish olish
 // POST /api/adaptive-attempts/:attemptId/finish
 // ═══════════════════════════════════════════════════════════════
@@ -495,129 +556,94 @@ router.post('/adaptive-attempts/:attemptId/finish', authenticateToken, async (re
     );
     if (!attempt) return res.status(404).json({ error: 'Urinish topilmadi' });
 
-    // Natijalarni hisoblash
+    // Avval — kerakli tushunchalar uchun AI tushuntirish yo'q bo'lsa yarat
     const conceptScores = attempt.concept_scores || {};
     const answers = attempt.answers || [];
-    const totalCorrect = answers.filter(a => a.isCorrect).length;
-    const totalScore = Math.round((totalCorrect / answers.length) * 100);
-
-    // Zaif tushunchalarni aniqlash — kamida 1 ta noto'g'ri javob bo'lgan BARCHA tushunchalar
-    const weakConcepts = [];
-    for (const [concept, data] of Object.entries(conceptScores)) {
-      const percent = Math.round((data.correct / data.total) * 100);
-      // 100% dan past bo'lgan har bir tushuncha uchun tushuntirish beriladi
-      if (percent < 100) {
-        weakConcepts.push({ concept, score: percent, correct: data.correct, total: data.total });
-      }
-    }
-    // Eng zaiflarini oldin ko'rsatish (foiz bo'yicha saralash)
-    weakConcepts.sort((a, b) => a.score - b.score);
-
-    // Noto'g'ri javob berilgan savollarning explanation'larini olish
     const wrongQuestionIds = answers.filter(a => !a.isCorrect).map(a => a.questionId);
     let questionExplanations = [];
     if (wrongQuestionIds.length > 0) {
       questionExplanations = await database.all(
-        `SELECT id, question_text, correct_option, option_a, option_b, option_c, option_d, concept, explanation
-         FROM adaptive_questions WHERE id = ANY($1::int[])`,
+        `SELECT id, concept, explanation FROM adaptive_questions WHERE id = ANY($1::int[])`,
         [wrongQuestionIds]
       );
     }
 
-    // Har bir zaif tushuncha uchun: o'qituvchi explanation + AI batafsil tushuntirish
-    const explanations = [];
-    for (const weak of weakConcepts) {
-      // 1. Shu tushunchaga tegishli noto'g'ri javob berilgan savollarning explanationlarini yig'ish
-      const relatedQuestions = questionExplanations.filter(q => q.concept === weak.concept);
-      const teacherExplanations = relatedQuestions
-        .filter(q => q.explanation && q.explanation.trim())
-        .map(q => ({
-          question: q.question_text,
-          correctAnswer: q[`option_${q.correct_option}`],
-          explanation: q.explanation
-        }));
+    for (const [concept, data] of Object.entries(conceptScores)) {
+      const percent = Math.round((data.correct / data.total) * 100);
+      if (percent >= 100) continue;
 
-      // 2. AI batafsil tushuntirish (keshdan yoki yangi)
-      let aiExplanationHtml = '';
-      let cached = await database.get(
-        'SELECT * FROM concept_explanations WHERE adaptive_test_id = $1 AND concept = $2',
-        [attempt.adaptive_test_id, weak.concept]
+      // Keshda bormi?
+      const cached = await database.get(
+        'SELECT id FROM concept_explanations WHERE adaptive_test_id = $1 AND concept = $2',
+        [attempt.adaptive_test_id, concept]
       );
+      if (cached) continue;
 
-      if (cached) {
-        aiExplanationHtml = cached.explanation_html;
-      } else {
-        // AI bilan batafsil tushuntirish yaratish
-        try {
-          const test = await database.get('SELECT lesson_id FROM adaptive_tests WHERE id = $1', [attempt.adaptive_test_id]);
-          const lesson = test ? await database.get('SELECT title FROM lessons WHERE id = $1', [test.lesson_id]) : null;
+      // AI tushuntirish yaratish
+      try {
+        const relatedQuestions = questionExplanations.filter(q => q.concept === concept);
+        const teacherExps = relatedQuestions.filter(q => q.explanation && q.explanation.trim()).map(q => q.explanation);
 
-          // Materialdan kontekst olish
-          let materialContext = '';
-          if (test && test.lesson_id) {
-            const materials = await database.all('SELECT file_path, file_name FROM lesson_materials WHERE lesson_id = $1 LIMIT 2', [test.lesson_id]);
-            for (const mat of materials) {
-              try {
-                const fileData = await readFileForAI(mat.file_path, mat.file_name);
-                if (fileData && fileData.content && fileData.type === 'text') {
-                  materialContext += fileData.content.slice(0, 3000) + '\n';
-                }
-              } catch (e) { /* skip */ }
-            }
+        const test = await database.get('SELECT lesson_id FROM adaptive_tests WHERE id = $1', [attempt.adaptive_test_id]);
+        const lesson = test ? await database.get('SELECT title FROM lessons WHERE id = $1', [test.lesson_id]) : null;
+
+        let materialContext = '';
+        if (test && test.lesson_id) {
+          const materials = await database.all('SELECT file_path, file_name FROM lesson_materials WHERE lesson_id = $1 LIMIT 2', [test.lesson_id]);
+          for (const mat of materials) {
+            try {
+              const fileData = await readFileForAI(mat.file_path, mat.file_name);
+              if (fileData && fileData.content && fileData.type === 'text') materialContext += fileData.content.slice(0, 3000) + '\n';
+            } catch (e) { /* skip */ }
           }
+        }
 
-          const explainPrompt = `O'quvchi "${weak.concept}" tushunchasini yaxshi tushunmadi (${weak.correct}/${weak.total} to'g'ri).
+        const explainPrompt = `O'quvchi "${concept}" tushunchasini yaxshi tushunmadi (${data.correct}/${data.total} to'g'ri).
 ${lesson ? `Mavzu: "${lesson.title}"` : ''}
 ${materialContext ? `\nDars materialidan tegishli qism:\n${materialContext.slice(0, 4000)}\n` : ''}
-${teacherExplanations.length > 0 ? `\nO'qituvchi qisqa tushuntirishi:\n${teacherExplanations.map(t => `- "${t.question}" → ${t.explanation}`).join('\n')}\n\nYuqoridagi qisqa tushuntirishlarni kengaytirib, batafsil tushuntiring.` : ''}
-
+${teacherExps.length > 0 ? `\nO'qituvchi tushuntirishi: ${teacherExps.join('; ')}\n` : ''}
 9-10 sinf o'quvchisi tushunadigan tilda, oddiy va aniq misol bilan BATAFSIL tushuntiring.
-Formatlash: sarlavha, 3-4 paragraf, real hayotiy misol, agar kerak bo'lsa oddiy kod/formula.
-Faqat HTML qaytaring (h4, p, ul, li, code, pre, strong teglaridan foydalaning), boshqa hech narsa yozmang.`;
+Faqat HTML qaytaring (h4, p, ul, li, code, pre, strong teglaridan foydalaning).`;
 
-          const explainResult = await chat(explainPrompt, { temperature: 0.5, max_tokens: 1500 });
-
-          aiExplanationHtml = explainResult.trim();
-
-          // Keshga saqlash
-          await database.run(
-            `INSERT INTO concept_explanations (adaptive_test_id, concept, explanation_html)
-             VALUES ($1, $2, $3)
-             ON CONFLICT (adaptive_test_id, concept) DO UPDATE SET explanation_html = $3`,
-            [attempt.adaptive_test_id, weak.concept, aiExplanationHtml]
-          );
-        } catch (aiErr) {
-          console.error(`Concept explanation AI error (${weak.concept}):`, aiErr.message);
-          aiExplanationHtml = `<h4>${weak.concept}</h4><p>Batafsil tushuntirish yaratishda xatolik. O'qituvchingizdan so'rang.</p>`;
-        }
+        const aiHtml = await chat(explainPrompt, { max_tokens: 1500 });
+        await database.run(
+          `INSERT INTO concept_explanations (adaptive_test_id, concept, explanation_html)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (adaptive_test_id, concept) DO UPDATE SET explanation_html = $3`,
+          [attempt.adaptive_test_id, concept, aiHtml.trim()]
+        );
+      } catch (aiErr) {
+        console.error(`Concept explanation AI error (${concept}):`, aiErr.message);
       }
-
-      explanations.push({
-        concept: weak.concept,
-        score: weak.score,
-        teacherExplanations, // O'qituvchi qisqa tushuntirishlari (savol bo'yicha)
-        aiExplanation: aiExplanationHtml // AI batafsil tushuntirish
-      });
     }
 
-    // Barcha tushunchalar bali
-    const allConceptScores = {};
-    for (const [concept, data] of Object.entries(conceptScores)) {
-      allConceptScores[concept] = {
-        correct: data.correct,
-        total: data.total,
-        percent: Math.round((data.correct / data.total) * 100)
-      };
+    // Natijani hisoblash (keshdan)
+    const result = await computeAdaptiveResults(attempt);
+
+    // 86%+ uchun bir martalik 5 ball bonus
+    let bonusMessage = null;
+    if (result.totalScore >= 86) {
+      const alreadyBonused = await database.get(
+        `SELECT COUNT(*) as cnt FROM adaptive_attempts
+         WHERE user_id = $1 AND adaptive_test_id = $2 AND bonus_awarded = TRUE`,
+        [req.user.id, attempt.adaptive_test_id]
+      );
+      if (parseInt(alreadyBonused.cnt) === 0) {
+        await database.run(
+          'UPDATE users SET points = points + 5, bonus_points = bonus_points + 5 WHERE id = $1',
+          [req.user.id]
+        );
+        await database.run(
+          'UPDATE adaptive_attempts SET bonus_awarded = TRUE WHERE id = $1',
+          [attemptId]
+        );
+        const User = require('../models/User');
+        await User.updateMasteryLevel(req.user.id);
+        bonusMessage = "Siz darsni yaxshi o'zlashtirdingiz, sizga 5 ball bonus berildi! \uD83C\uDF89";
+      }
     }
 
-    res.json({
-      totalScore,
-      totalCorrect,
-      totalQuestions: answers.length,
-      conceptScores: allConceptScores,
-      weakConcepts: explanations,
-      answers
-    });
+    res.json({ ...result, bonusMessage });
   } catch (err) {
     console.error('Adaptive finish error:', err);
     res.status(500).json({ error: 'Natijani hisoblashda xatolik' });

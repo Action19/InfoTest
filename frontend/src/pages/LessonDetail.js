@@ -168,16 +168,23 @@ const LessonDetail = () => {
     }
   };
 
-  const handleGenerateAdaptiveTest = async () => {
-    if (!window.confirm('AI 20 ta savol yaratadi. Davom etsinmi?')) return;
+  const handleGenerateAdaptiveTest = async (confirmOverwrite = false) => {
+    if (!confirmOverwrite && !window.confirm('AI 20 ta savol yaratadi. Davom etsinmi?')) return;
     try {
       setGeneratingAdaptive(true);
-      const res = await api.post(`/lessons/${id}/adaptive-test/generate`);
+      const res = await api.post(`/lessons/${id}/adaptive-test/generate`, { confirm_overwrite: confirmOverwrite });
       setAdaptiveTest(res.data.adaptiveTest ? { ...res.data.adaptiveTest, questions: res.data.questions || [] } : res.data);
       await fetchAdaptiveTest();
       alert(`✅ ${res.data.totalQuestions || 20} ta savol yaratildi! Tekshirib, e'lon qiling.`);
     } catch (err) {
-      alert('Adaptiv test yaratishda xatolik: ' + (err.response?.data?.error || err.message));
+      // 409 — natijalarni o'chirish uchun tasdiqlash kerak
+      if (err.response?.status === 409 && err.response?.data?.requiresConfirmation) {
+        if (window.confirm(err.response.data.error + '\n\nDavom etsinmi?')) {
+          return handleGenerateAdaptiveTest(true);
+        }
+      } else {
+        alert('Adaptiv test yaratishda xatolik: ' + (err.response?.data?.error || err.message));
+      }
     } finally {
       setGeneratingAdaptive(false);
     }
