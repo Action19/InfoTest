@@ -15,10 +15,12 @@ const AIAnalytics = () => {
   const [askAnswer, setAskAnswer] = useState('');
   const [askLoading, setAskLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
+  const [lastAnalysisDate, setLastAnalysisDate] = useState(null);
 
 
   useEffect(() => {
     fetchData();
+    fetchLastAnalysis();
   }, []);
 
   const fetchData = async () => {
@@ -34,12 +36,25 @@ const AIAnalytics = () => {
     }
   };
 
+  const fetchLastAnalysis = async () => {
+    try {
+      const res = await api.get('/ai-analytics/last-analysis');
+      if (res.data.exists) {
+        setAnalysis(res.data);
+        setLastAnalysisDate(res.data.generated_at);
+      }
+    } catch (err) {
+      console.error('Last analysis fetch error:', err);
+    }
+  };
+
   const runAnalysis = async () => {
     try {
       setLoading(true);
       setError('');
       const res = await api.post('/ai-analytics/analyze');
       setAnalysis(res.data);
+      setLastAnalysisDate(res.data.generated_at);
       setActiveTab('overview');
     } catch (err) {
       console.error('Analysis error:', err);
@@ -133,23 +148,30 @@ const AIAnalytics = () => {
               Sun'iy intellekt yordamida o'quvchilar natijalarini tahlil qiling
             </p>
           </div>
-          <button
-            className={`btn-analyze ${loading ? 'loading' : ''}`}
-            onClick={runAnalysis}
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <span className="btn-spinner"></span>
-                Tahlil qilinmoqda...
-              </>
-            ) : (
-              <>
-                <span className="btn-icon">🤖</span>
-                AI Tahlil boshlash
-              </>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+            <button
+              className={`btn-analyze ${loading ? 'loading' : ''}`}
+              onClick={runAnalysis}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <span className="btn-spinner"></span>
+                  Tahlil qilinmoqda...
+                </>
+              ) : (
+                <>
+                  <span className="btn-icon">🤖</span>
+                  {lastAnalysisDate ? 'Qayta tahlil qilish' : 'AI Tahlil boshlash'}
+                </>
+              )}
+            </button>
+            {lastAnalysisDate && (
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                Oxirgi tahlil: {new Date(lastAnalysisDate).toLocaleDateString('uz-UZ')} {new Date(lastAnalysisDate).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+              </span>
             )}
-          </button>
+          </div>
         </div>
 
         {/* Quick Stats */}

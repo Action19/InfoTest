@@ -218,6 +218,32 @@ router.get('/data', authenticateToken, isTeacherOrAdmin, async (req, res) => {
 });
 
 
+// ─── GET /api/ai-analytics/last-analysis — Oxirgi saqlangan tahlil ───
+router.get('/last-analysis', authenticateToken, isTeacherOrAdmin, async (req, res) => {
+  try {
+    const cached = await database.get(
+      'SELECT * FROM ai_analysis_cache WHERE teacher_id = ?',
+      [req.user.id]
+    );
+
+    if (!cached) {
+      return res.json({ exists: false });
+    }
+
+    res.json({
+      exists: true,
+      analysis: JSON.parse(cached.analysis_json || '{}'),
+      raw_data: JSON.parse(cached.raw_data || '{}'),
+      hard_topics: JSON.parse(cached.hard_topics || '[]'),
+      weak_students: JSON.parse(cached.weak_students || '[]'),
+      generated_at: cached.generated_at
+    });
+  } catch (err) {
+    console.error('Get last analysis error:', err);
+    res.status(500).json({ error: 'Oxirgi tahlilni olishda xatolik' });
+  }
+});
+
 // ─── POST /api/ai-analytics/analyze — OpenAI bilan tahlil ───
 router.post('/analyze', authenticateToken, isTeacherOrAdmin, aiLimiter, async (req, res) => {
   try {
@@ -447,6 +473,28 @@ MUHIM: Faqat JSON qaytar, boshqa matn yozma. Ma'lumotlar yetarli bo'lmasa, umumi
       weak_students: [...new Map(allWeakStudents.map(s => [s.name, s])).values()].slice(0, 15),
       generated_at: new Date().toISOString()
     });
+
+    // Tahlilni DB ga saqlash (keyingi safar uchun kesh)
+    try {
+      await database.run(`
+        INSERT INTO ai_analysis_cache (teacher_id, analysis_json, raw_data, hard_topics, weak_students, generated_at)
+        VALUES (?, ?, ?, ?, ?, NOW())
+        ON CONFLICT (teacher_id) DO UPDATE SET
+          analysis_json = EXCLUDED.analysis_json,
+          raw_data = EXCLUDED.raw_data,
+          hard_topics = EXCLUDED.hard_topics,
+          weak_students = EXCLUDED.weak_students,
+          generated_at = NOW()
+      `, [
+        teacherId,
+        JSON.stringify(analysis),
+        JSON.stringify(summary),
+        JSON.stringify(allHardTopics.slice(0, 10)),
+        JSON.stringify([...new Map(allWeakStudents.map(s => [s.name, s])).values()].slice(0, 15))
+      ]);
+    } catch (cacheErr) {
+      console.error('AI analysis cache save error (non-fatal):', cacheErr.message);
+    }
   } catch (err) {
     console.error('AI Analytics analyze error:', err);
     res.status(500).json({ error: 'AI tahlilda xatolik: ' + err.message });

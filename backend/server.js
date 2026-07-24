@@ -487,6 +487,20 @@ async function runMigrations(db) {
     await db.run('ALTER TABLE forum_posts ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE').catch(()=>{});
     await db.run('ALTER TABLE forum_comments ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE').catch(()=>{});
 
+    // ─── AI ANALYSIS CACHE ───────────────────────────────────
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS ai_analysis_cache (
+        id            SERIAL PRIMARY KEY,
+        teacher_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        analysis_json TEXT NOT NULL DEFAULT '{}',
+        raw_data      TEXT DEFAULT '{}',
+        hard_topics   TEXT DEFAULT '[]',
+        weak_students TEXT DEFAULT '[]',
+        generated_at  TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(teacher_id)
+      )
+    `);
+
     console.log('✓ Migrations applied');
   } catch (err) {
     console.error('Migration warning:', err.message);
