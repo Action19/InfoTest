@@ -1334,6 +1334,7 @@ const LessonDetail = () => {
                       </div>
                     </div>
                     {a.ai_generated && <span style={{ fontSize: '0.65rem', background: 'rgba(168,85,247,0.15)', color: '#9333ea', padding: '2px 6px', borderRadius: '10px' }}>AI</span>}
+                    {isOwner && !a.is_published && <span style={{ fontSize: '0.65rem', background: 'rgba(245,158,11,0.15)', color: '#d97706', padding: '2px 6px', borderRadius: '10px' }}>📝 Qoralama</span>}
                   </div>
                   {/* Student submission status */}
                   {user.role === 'student' && a.my_submission && (
@@ -1373,6 +1374,19 @@ const LessonDetail = () => {
                       </div>
                       {isOwner && (
                         <div style={{ display: 'flex', gap: '0.4rem' }}>
+                          <button onClick={async () => {
+                            try {
+                              await api.patch(`/assignments/${selectedAssignment.id}/publish`);
+                              await fetchAssignments();
+                              const updated = await api.get(`/assignments/${selectedAssignment.id}`);
+                              setSelectedAssignment(updated.data);
+                            } catch (err) { alert(err.response?.data?.error || 'Xatolik'); }
+                          }}
+                            className="btn btn-sm"
+                            style={{ background: selectedAssignment.is_published ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)', color: '#fff', border: '1px solid rgba(255,255,255,0.5)' }}
+                            title={selectedAssignment.is_published ? 'Qoralamaga qaytarish' : "E'lon qilish"}>
+                            {selectedAssignment.is_published ? '📝' : '📢'}
+                          </button>
                           <button onClick={() => handleEditAssignment(selectedAssignment)}
                             className="btn btn-sm"
                             style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.5)' }}

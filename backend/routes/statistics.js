@@ -91,7 +91,7 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
     if (user) {
       const gradeNum = parseInt((user.class_name || '').match(/\d+/)?.[0]) || null;
       if (gradeNum) {
-        const masteryStats = await LessonProgress.getMasteryStats(user.id, gradeNum);
+        const masteryStats = await LessonProgress.getMasteryStats(user.id, gradeNum, user.district, user.school_number);
         masteryPossible = masteryStats.totalPossible;
         masteryEarned = masteryStats.totalEarned + (user.bonus_points || 0);
       }

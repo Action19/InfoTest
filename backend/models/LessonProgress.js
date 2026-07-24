@@ -35,9 +35,9 @@ class LessonProgress {
       FROM tests WHERE lesson_id = ? AND is_published = TRUE
     `, [lessonId]);
 
-    // Topshiriqlarning max_score yig'indisi
+    // Topshiriqlarning max_score yig'indisi (faqat e'lon qilinganlar)
     const aRow = await database.get(
-      'SELECT COALESCE(SUM(max_score), 0) AS total FROM assignments WHERE lesson_id = ?',
+      'SELECT COALESCE(SUM(max_score), 0) AS total FROM assignments WHERE lesson_id = ? AND is_published = TRUE',
       [lessonId]
     );
 
@@ -83,11 +83,22 @@ class LessonProgress {
   }
 
   // ─── O'quvchining BARCHA o'tilgan darslar bo'yicha umumiy statistikasi ───
-  static async getMasteryStats(studentId, grade) {
-    const lessons = await database.all(
-      `SELECT id FROM lessons WHERE grade = ? AND taught_at IS NOT NULL`,
-      [grade]
-    );
+  static async getMasteryStats(studentId, grade, district, schoolNumber) {
+    let lessons;
+    if (district && schoolNumber) {
+      lessons = await database.all(
+        `SELECT l.id FROM lessons l
+         LEFT JOIN users u ON l.created_by = u.id
+         WHERE l.grade = ? AND l.taught_at IS NOT NULL
+           AND u.district = ? AND u.school_number = ?`,
+        [grade, district, schoolNumber]
+      );
+    } else {
+      lessons = await database.all(
+        `SELECT id FROM lessons WHERE grade = ? AND taught_at IS NOT NULL`,
+        [grade]
+      );
+    }
 
     let totalPossible = 0;
     let totalEarned = 0;

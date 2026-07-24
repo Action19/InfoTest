@@ -737,5 +737,30 @@ Quyidagi JSON formatda javob ber (boshqa hech narsa yozma):
   }
 });
 
+// ─── PATCH /:id/publish — topshiriqni e'lon qilish/qoralamaga qaytarish ───
+router.patch('/:id/publish', authenticateToken, requireRole(['teacher','admin']), async (req, res) => {
+  try {
+    const assignment = await Assignment.findById(req.params.id);
+    if (!assignment) return res.status(404).json({ error: 'Topshiriq topilmadi' });
+    if (req.user.role === 'teacher' && assignment.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Ruxsat yo\'q' });
+    }
+
+    const newStatus = !assignment.is_published;
+    await database.run(
+      'UPDATE assignments SET is_published = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [newStatus, req.params.id]
+    );
+
+    res.json({
+      message: newStatus ? 'Topshiriq e\'lon qilindi' : 'Topshiriq qoralamaga qaytarildi',
+      is_published: newStatus
+    });
+  } catch (err) {
+    console.error('Assignment publish error:', err);
+    res.status(500).json({ error: 'E\'lon qilishda xatolik' });
+  }
+});
+
 module.exports = router;
 module.exports.TASK_TYPES = TASK_TYPES;

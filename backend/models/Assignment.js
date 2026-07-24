@@ -7,14 +7,14 @@ class Assignment {
     const {
       lesson_id, created_by, title, description,
       task_type, instructions, max_score = 100,
-      deadline = null, ai_generated = false
+      deadline = null, ai_generated = false, is_published = false
     } = data;
 
     const result = await database.run(`
       INSERT INTO assignments
-        (lesson_id, created_by, title, description, task_type, instructions, max_score, deadline, ai_generated)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [lesson_id, created_by, title, description, task_type, instructions, max_score, deadline, ai_generated]);
+        (lesson_id, created_by, title, description, task_type, instructions, max_score, deadline, ai_generated, is_published)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [lesson_id, created_by, title, description, task_type, instructions, max_score, deadline, ai_generated, is_published]);
 
     return result.id;
   }
@@ -33,6 +33,14 @@ class Assignment {
   }
 
   static async getByLesson(lesson_id, student_id = null) {
+    let whereClause = 'WHERE a.lesson_id = ?';
+    const params = [lesson_id];
+
+    // O'quvchi faqat e'lon qilingan topshiriqlarni ko'radi
+    if (student_id) {
+      whereClause += ' AND a.is_published = TRUE';
+    }
+
     const rows = await database.all(`
       SELECT a.*,
         u.full_name as creator_name,
@@ -40,9 +48,9 @@ class Assignment {
         (SELECT COUNT(*) FROM assignment_submissions WHERE assignment_id = a.id AND status = 'graded') as graded_count
       FROM assignments a
       LEFT JOIN users u ON a.created_by = u.id
-      WHERE a.lesson_id = ?
+      ${whereClause}
       ORDER BY a.created_at DESC
-    `, [lesson_id]);
+    `, params);
 
     // If student_id provided, attach their submission status
     if (student_id) {

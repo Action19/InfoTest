@@ -147,14 +147,14 @@ class User {
   static async updateMasteryLevel(studentId) {
     const LessonProgress = require('./LessonProgress');
 
-    const user = await database.get('SELECT class_name, level, bonus_points FROM users WHERE id = ?', [studentId]);
+    const user = await database.get('SELECT class_name, level, bonus_points, district, school_number FROM users WHERE id = ?', [studentId]);
     if (!user) return;
 
     // O'quvchi sinfidan grade ni ajratib olish (masalan "9-A" → 9)
     const gradeNum = parseInt((user.class_name || '').match(/\d+/)?.[0]) || null;
     if (!gradeNum) return;
 
-    const stats = await LessonProgress.getMasteryStats(studentId, gradeNum);
+    const stats = await LessonProgress.getMasteryStats(studentId, gradeNum, user.district, user.school_number);
 
     if (stats.totalPossible === 0) {
       // Hali birorta ham dars o'tilmagan — daraja hisoblanmaydi

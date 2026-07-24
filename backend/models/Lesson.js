@@ -103,7 +103,6 @@ class Lesson {
 
   // Get lessons for specific grade (for students)
   static async getByGrade(grade, teacherDistrict, teacherSchool, teacherClasses) {
-    // Agar district/school bo'sh bo'lsa — faqat shu grade darslarini olish
     let lessons;
     if (teacherDistrict && teacherSchool) {
       lessons = await database.all(`
@@ -116,7 +115,7 @@ class Lesson {
         WHERE l.grade = ?
           AND u.district = ?
           AND u.school_number = ?
-        ORDER BY l.created_at ASC
+        ORDER BY l.subject ASC, l.created_at ASC
       `, [grade, teacherDistrict, teacherSchool]);
     } else {
       lessons = await database.all(`
@@ -127,21 +126,32 @@ class Lesson {
         FROM lessons l
         LEFT JOIN users u ON l.created_by = u.id
         WHERE l.grade = ?
-        ORDER BY l.created_at ASC
+        ORDER BY l.subject ASC, l.created_at ASC
       `, [grade]);
     }
 
-    // Ketma-ket ochilish: 1-dars doim ko'rinadi. Har keyingi dars faqat
-    // undan OLDINGI dars "taught_at" belgilangan bo'lsagina ko'rinadi.
-    // Birinchi yopiq darsdan keyingi HAMMASI ham yopiq hisoblanadi (zanjir).
+    // Ketma-ket ochilish endi HAR BIR FAN uchun ALOHIDA zanjir hisoblanadi.
+    // Bitta fanning o'tilmagan darsi boshqa fanning darslarini qulflamaydi.
+    const bySubject = {};
+    for (const l of lessons) {
+      if (!bySubject[l.subject]) bySubject[l.subject] = [];
+      bySubject[l.subject].push(l);
+    }
+
     const visibleLessons = [];
-    for (let i = 0; i < lessons.length; i++) {
-      if (i === 0 || lessons[i - 1].taught_at) {
-        visibleLessons.push(lessons[i]);
-      } else {
-        break;
+    for (const subject in bySubject) {
+      const chain = bySubject[subject];
+      for (let i = 0; i < chain.length; i++) {
+        if (i === 0 || chain[i - 1].taught_at) {
+          visibleLessons.push(chain[i]);
+        } else {
+          break;
+        }
       }
     }
+
+    // Asl tartibni saqlash uchun created_at bo'yicha qayta saralash
+    visibleLessons.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     return visibleLessons;
   }
 

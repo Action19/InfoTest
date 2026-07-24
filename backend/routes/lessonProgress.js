@@ -73,13 +73,13 @@ router.get('/student/all', authenticateToken, async (req, res) => {
     }
 
     // Yillik statistika — jonli hisob (Dashboard bilan bir xil manba)
-    const student = await database.get('SELECT class_name, bonus_points FROM users WHERE id = ?', [studentId]);
+    const student = await database.get('SELECT class_name, bonus_points, district, school_number FROM users WHERE id = ?', [studentId]);
     const gradeNum = parseInt((student?.class_name || '').match(/\d+/)?.[0]) || null;
 
     let totalEarned = 0;
     let totalPossible = 0;
     if (gradeNum) {
-      const masteryStats = await LessonProgress.getMasteryStats(studentId, gradeNum);
+      const masteryStats = await LessonProgress.getMasteryStats(studentId, gradeNum, student.district, student.school_number);
       totalPossible = masteryStats.totalPossible;
       totalEarned = masteryStats.totalEarned + (student?.bonus_points || 0);
     }

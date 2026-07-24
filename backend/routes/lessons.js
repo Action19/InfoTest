@@ -288,10 +288,15 @@ router.patch('/:id/mark-taught', authenticateToken, requireRole(['teacher', 'adm
     const newTaughtAt = lesson.taught_at ? null : new Date();
     await database.run('UPDATE lessons SET taught_at = ? WHERE id = ?', [newTaughtAt, lessonId]);
 
-    // Shu sinfdagi barcha o'quvchilar uchun darajani qayta hisobla
+    // Darsni yaratgan o'qituvchining maktab/tumanini olish
+    const creator = await database.get('SELECT district, school_number FROM users WHERE id = ?', [lesson.created_by]);
+
+    // Faqat SHU maktab/tuman + SHU sinf o'quvchilari uchun qayta hisobla
     const students = await database.all(
-      `SELECT id FROM users WHERE role = 'student' AND class_name LIKE ?`,
-      [`${lesson.grade}%`]
+      `SELECT id FROM users
+       WHERE role = 'student' AND class_name LIKE ?
+         AND district = ? AND school_number = ?`,
+      [`${lesson.grade}-%`, creator?.district, creator?.school_number]
     );
     for (const s of students) {
       await LessonProgress.recalculate(lessonId, s.id);
