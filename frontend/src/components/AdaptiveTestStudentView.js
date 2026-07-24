@@ -23,6 +23,22 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
 
   const totalQuestions = 15;
 
+  // Variantlar aralashtirilgan (Fisher-Yates) — hooks shartli bo'lmasligi uchun tepada
+  const shuffledOptions = useMemo(() => {
+    if (!currentQuestion) return [];
+    const opts = [
+      { letter: 'a', text: currentQuestion.option_a },
+      { letter: 'b', text: currentQuestion.option_b },
+      { letter: 'c', text: currentQuestion.option_c },
+      { letter: 'd', text: currentQuestion.option_d },
+    ];
+    for (let i = opts.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [opts[i], opts[j]] = [opts[j], opts[i]];
+    }
+    return opts;
+  }, [currentQuestion?.id]);
+
   // Testni boshlash
   const handleStart = async () => {
     try {
@@ -170,21 +186,6 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
         </div>
       );
     }
-
-    // Variantlar aralashtirilgan (Fisher-Yates)
-    const shuffledOptions = useMemo(() => {
-      const opts = [
-        { letter: 'a', text: currentQuestion.option_a },
-        { letter: 'b', text: currentQuestion.option_b },
-        { letter: 'c', text: currentQuestion.option_c },
-        { letter: 'd', text: currentQuestion.option_d },
-      ];
-      for (let i = opts.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [opts[i], opts[j]] = [opts[j], opts[i]];
-      }
-      return opts;
-    }, [currentQuestion?.id]);
 
     const options = shuffledOptions;
 
