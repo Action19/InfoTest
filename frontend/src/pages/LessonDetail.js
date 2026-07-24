@@ -1315,7 +1315,7 @@ const LessonDetail = () => {
 
             {/* Left: assignment list */}
             <div style={{ flex: '0 0 280px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {assignments.map(a => (
+              {assignments.map((a, idx) => (
                 <div key={a.id} onClick={() => handleSelectAssignment(a)}
                   style={{
                     cursor: 'pointer', padding: '1rem', borderRadius: '12px',
@@ -1325,6 +1325,7 @@ const LessonDetail = () => {
                   }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary-light)', minWidth: '20px' }}>{idx + 1}.</span>
                       <span style={{ fontSize: '1.3rem' }}>{TASK_TYPES[a.task_type]?.icon || '📁'}</span>
                       <div>
                         <div style={{ fontWeight: 600, fontSize: '0.9rem', lineHeight: 1.3 }}>{a.title}</div>

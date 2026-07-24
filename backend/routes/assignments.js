@@ -164,6 +164,11 @@ router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const a = await Assignment.findById(req.params.id);
     if (!a) return res.status(404).json({ error: 'Topshiriq topilmadi' });
+
+    if (req.user.role === 'student' && !a.is_published) {
+      return res.status(403).json({ error: 'Bu topshiriq hali e\'lon qilinmagan' });
+    }
+
     res.json(a);
   } catch (err) {
     res.status(500).json({ error: 'Topshiriqni olishda xatolik' });

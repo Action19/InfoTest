@@ -49,7 +49,7 @@ class Assignment {
       FROM assignments a
       LEFT JOIN users u ON a.created_by = u.id
       ${whereClause}
-      ORDER BY a.created_at DESC
+      ORDER BY a.created_at ASC
     `, params);
 
     // If student_id provided, attach their submission status
