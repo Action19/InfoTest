@@ -264,6 +264,16 @@ router.get('/stats', authenticateToken, async (req, res) => {
     const expPreScores = preTestResults.map(r => r.percentage);
     const expPostScores = postTestResults.map(r => r.percentage);
 
+    // Paired t-test uchun — faqat IKKALA test ham bo'lgan o'quvchilar (user_id bo'yicha moslashgan)
+    const preByUser = {};
+    preTestResults.forEach(r => { preByUser[r.user_id] = r.percentage; });
+    const postByUser = {};
+    postTestResults.forEach(r => { postByUser[r.user_id] = r.percentage; });
+
+    const pairedUserIds = Object.keys(preByUser).filter(uid => postByUser[uid] != null);
+    const pairedPreScores = pairedUserIds.map(uid => preByUser[uid]);
+    const pairedPostScores = pairedUserIds.map(uid => postByUser[uid]);
+
     // Nazorat guruhi ballari - FOIZ (qo'lda kiritilgan)
     const ctrlPreScores = controlGroup?.pre_test || [];
     const ctrlPostScores = controlGroup?.post_test || [];
@@ -332,9 +342,9 @@ router.get('/stats', authenticateToken, async (req, res) => {
     const cohenResult = expPostScores.length > 1 && ctrlPostScores.length > 1
       ? cohensD(expPostScores, ctrlPostScores) : null;
 
-    // 7. Paired t-test (tajriba ichida: pre vs post)
-    const pairedExp = expPreScores.length > 1 && expPostScores.length > 1 && expPreScores.length === expPostScores.length
-      ? pairedTTest(expPreScores, expPostScores) : null;
+    // 7. Paired t-test (tajriba ichida: pre vs post — user_id bo'yicha moslashgan)
+    const pairedExp = pairedPreScores.length > 1
+      ? pairedTTest(pairedPreScores, pairedPostScores) : null;
 
     // 8. Paired t-test (nazorat ichida: pre vs post)
     const pairedCtrl = ctrlPreScores.length > 1 && ctrlPostScores.length > 1 && ctrlPreScores.length === ctrlPostScores.length
@@ -359,6 +369,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
       fisher_test: fisherResult,
       cohens_d: cohenResult,
       paired_t_experiment: pairedExp,
+      paired_n: pairedPreScores.length,
       paired_t_control: pairedCtrl,
 
       // BAHO (2-5) bo'yicha
