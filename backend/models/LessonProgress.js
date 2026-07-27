@@ -10,8 +10,8 @@
  * BAHOLAR (dars bo'yicha):
  *   0–39%  → 2 (qoniqarsiz)
  *   40–59% → 3 (qoniqarli)
- *   60–85% → 4 (yaxshi)
- *   86–100% → 5 (a'lo)
+ *   60–80% → 4 (yaxshi)
+ *   81–100% → 5 (a'lo)
  *
  * MEDALLAR:
  *   5 → 🥇 oltin medal

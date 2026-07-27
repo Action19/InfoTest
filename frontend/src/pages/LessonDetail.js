@@ -747,7 +747,7 @@ const LessonDetail = () => {
                   height: '100%',
                   borderRadius: '99px',
                   width: `${Math.min(lessonProgress.percent, 100)}%`,
-                  background: lessonProgress.percent >= 86 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)'
+                  background: lessonProgress.percent >= 81 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)'
                              : lessonProgress.percent >= 60 ? 'linear-gradient(90deg,#6366f1,#818cf8)'
                              : lessonProgress.percent >= 40 ? 'linear-gradient(90deg,#92400e,#b45309)'
                              : 'linear-gradient(90deg,#dc2626,#f87171)',

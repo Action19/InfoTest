@@ -622,7 +622,7 @@ Faqat HTML qaytaring (h4, p, ul, li, code, pre, strong teglaridan foydalaning).`
 
     // 86%+ uchun bir martalik 5 ball bonus
     let bonusMessage = null;
-    if (result.totalScore >= 86) {
+    if (result.totalScore >= 81) {
       const alreadyBonused = await database.get(
         `SELECT COUNT(*) as cnt FROM adaptive_attempts
          WHERE user_id = $1 AND adaptive_test_id = $2 AND bonus_awarded = TRUE`,

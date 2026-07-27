@@ -320,7 +320,7 @@ const Journal = () => {
                                       <div style={{
                                         height:'100%', borderRadius:'99px',
                                         width:`${Math.min(s.percent || 0, 100)}%`,
-                                        background: s.percent >= 86 ? '#f59e0b'
+                                        background: s.percent >= 81 ? '#f59e0b'
                                                    : s.percent >= 60 ? '#6366f1'
                                                    : s.percent >= 40 ? '#92400e' : '#dc2626'
                                       }}/>

@@ -326,7 +326,7 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
 
   // ─── FINISHED — Natija sahifasi ────────────────────────────
   if (stage === 'finished' && results) {
-    const scoreColor = results.totalScore >= 86 ? '#16a34a' : results.totalScore >= 60 ? '#d97706' : '#dc2626';
+    const scoreColor = results.totalScore >= 81 ? '#16a34a' : results.totalScore >= 60 ? '#d97706' : '#dc2626';
 
     return (
       <div style={{ maxWidth: '750px', margin: '0 auto' }}>
@@ -336,7 +336,7 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
           background: 'var(--card-bg)', borderRadius: '16px', border: '1px solid var(--border-color)'
         }}>
           <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>
-            {results.totalScore >= 86 ? '🏆' : results.totalScore >= 60 ? '👍' : '📚'}
+            {results.totalScore >= 81 ? '🏆' : results.totalScore >= 60 ? '👍' : '📚'}
           </div>
           <div style={{ fontSize: '2.5rem', fontWeight: 800, color: scoreColor, marginBottom: '0.25rem' }}>
             {results.totalScore}%
@@ -346,7 +346,7 @@ const AdaptiveTestStudentView = ({ adaptiveTest }) => {
           </p>
           <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
             <span style={{ padding: '0.4rem 0.75rem', borderRadius: '20px', fontSize: '0.82rem', background: 'rgba(99,102,241,0.1)', color: '#4f46e5' }}>
-              {results.totalScore >= 86 ? 'A\'lo' : results.totalScore >= 71 ? 'Yaxshi' : results.totalScore >= 56 ? 'Qoniqarli' : 'Qoniqarsiz'}
+              {results.totalScore >= 81 ? 'A\'lo' : results.totalScore >= 60 ? 'Yaxshi' : results.totalScore >= 40 ? 'Qoniqarli' : 'Qoniqarsiz'}
             </span>
           </div>
         </div>

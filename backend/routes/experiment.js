@@ -280,7 +280,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
 
     // FOIZ → BAHO konversiya funksiyasi
     const percentToGrade = (percent) => {
-      if (percent >= 86) return 5;
+      if (percent >= 81) return 5;
       if (percent >= 60) return 4;
       if (percent >= 40) return 3;
       return 2;

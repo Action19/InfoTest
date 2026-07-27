@@ -10,7 +10,7 @@ const getMedalLabel = (g) => ({ 5:'Oltin medal', 4:'Kumush medal', 3:'Bronza med
 const gradeColor    = (g) => ({ 5:'#f59e0b', 4:'#6366f1', 3:'#92400e', 2:'#dc2626' }[g] || '#6b7280');
 const gradeBg       = (g) => ({ 5:'rgba(245,158,11,0.1)', 4:'rgba(99,102,241,0.1)', 3:'rgba(146,64,14,0.1)', 2:'rgba(220,38,38,0.1)' }[g] || 'transparent');
 const barColor      = (pct) =>
-  pct >= 86 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)'
+  pct >= 81 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)'
   : pct >= 60 ? 'linear-gradient(90deg,#6366f1,#818cf8)'
   : pct >= 40 ? 'linear-gradient(90deg,#92400e,#b45309)'
   : 'linear-gradient(90deg,#dc2626,#f87171)';
@@ -301,7 +301,7 @@ const Results = () => {
                             <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
                               <span style={{
                                 fontWeight:800, fontSize:'1.1rem',
-                                color: tr.percentage >= 86 ? '#16a34a' : tr.percentage >= 60 ? '#6366f1' : '#dc2626'
+                                color: tr.percentage >= 81 ? '#16a34a' : tr.percentage >= 60 ? '#6366f1' : '#dc2626'
                               }}>
                                 {Number(tr.percentage || 0).toFixed(0)}%
                               </span>
@@ -371,7 +371,7 @@ const Results = () => {
                           {ar.status === 'graded' && (
                             <div style={{
                               fontWeight:800, fontSize:'1.2rem',
-                              color: (ar.score/ar.max_score) >= 0.86 ? '#16a34a'
+                              color: (ar.score/ar.max_score) >= 0.81 ? '#16a34a'
                                    : (ar.score/ar.max_score) >= 0.60 ? '#6366f1' : '#dc2626'
                             }}>
                               {ar.score}/{ar.max_score}
