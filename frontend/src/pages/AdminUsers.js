@@ -86,6 +86,27 @@ const AdminUsers = () => {
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Jami: {users.length} ta foydalanuvchi</p>
         </div>
+        <label className="btn btn-primary" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+          📊 Excel'dan import
+          <input type="file" accept=".xlsx,.xls" style={{ display: 'none' }}
+            onChange={async (e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+              const formData = new FormData();
+              formData.append('file', file);
+              try {
+                const res = await api.post('/users/upload-excel', formData, {
+                  headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                alert(`✅ ${res.data.imported} ta foydalanuvchi import qilindi!${res.data.errors ? '\n\n⚠️ Xatoliklar:\n' + res.data.errors.join('\n') : ''}`);
+                fetchUsers();
+              } catch (err) {
+                alert('❌ ' + (err.response?.data?.error || err.message) + (err.response?.data?.hint ? '\n\n💡 ' + err.response?.data?.hint : ''));
+              }
+              e.target.value = '';
+            }}
+          />
+        </label>
       </div>
 
       {/* Filtrlar */}

@@ -159,4 +159,93 @@ router.delete('/:id', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
+// ─── POST /api/users/upload-excel — Excel'dan foydalanuvchilar import (admin only) ───
+const multerExcelUsers = require('multer')({ storage: require('multer').memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+router.post('/upload-excel', authenticateToken, isAdmin, multerExcelUsers.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Excel fayl yuklanmadi' });
+
+    const XLSX = require('xlsx');
+    const bcrypt = require('bcryptjs');
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    if (rawRows.length < 2) return res.status(400).json({ error: 'Excel faylda ma\'lumot topilmadi (kamida 2 qator kerak: sarlavha + ma\'lumot)' });
+
+    // Sarlavha: login | parol | ism | rol | tuman | maktab | sinf | email
+    const header = rawRows[0].map(h => String(h || '').toLowerCase().trim());
+    const usernameIdx = header.findIndex(h => h.includes('login') || h.includes('username') || h.includes('foydalanuvchi'));
+    const passwordIdx = header.findIndex(h => h.includes('parol') || h.includes('password'));
+    const fullNameIdx = header.findIndex(h => h.includes('ism') || h.includes('name') || h.includes('f.i.o') || h.includes('fio'));
+    const roleIdx = header.findIndex(h => h.includes('rol') || h.includes('role'));
+    const districtIdx = header.findIndex(h => h.includes('tuman') || h.includes('district'));
+    const schoolIdx = header.findIndex(h => h.includes('maktab') || h.includes('school'));
+    const classIdx = header.findIndex(h => h.includes('sinf') || h.includes('class'));
+    const emailIdx = header.findIndex(h => h.includes('email') || h.includes('pochta'));
+
+    if (usernameIdx === -1 || passwordIdx === -1 || fullNameIdx === -1) {
+      return res.status(400).json({
+        error: 'Excel sarlavhasida "login", "parol", "ism" ustunlari topilmadi',
+        hint: 'Excel birinchi qatorida kamida: login | parol | ism ustunlari bo\'lishi kerak. Qo\'shimcha: rol | tuman | maktab | sinf | email'
+      });
+    }
+
+    const imported = [];
+    const errors = [];
+
+    for (let i = 1; i < rawRows.length; i++) {
+      const row = rawRows[i];
+      if (!row || row.length === 0) continue;
+
+      const username = String(row[usernameIdx] || '').trim();
+      const password = String(row[passwordIdx] || '').trim();
+      const full_name = String(row[fullNameIdx] || '').trim();
+      const role = roleIdx >= 0 ? String(row[roleIdx] || 'student').trim().toLowerCase() : 'student';
+      const district = districtIdx >= 0 ? String(row[districtIdx] || '').trim() : '';
+      const school_number = schoolIdx >= 0 ? String(row[schoolIdx] || '').trim() : '';
+      const class_name = classIdx >= 0 ? String(row[classIdx] || '').trim() : '';
+      const email = emailIdx >= 0 ? String(row[emailIdx] || '').trim() : `${username}@infobaho.uz`;
+
+      if (!username || !password || !full_name) {
+        errors.push(`${i + 1}-qator: login, parol yoki ism bo'sh`);
+        continue;
+      }
+      if (username.length < 3) { errors.push(`${i + 1}-qator: login kamida 3 belgi`); continue; }
+      if (password.length < 6) { errors.push(`${i + 1}-qator: parol kamida 6 belgi`); continue; }
+
+      const validRoles = ['student', 'teacher'];
+      const userRole = validRoles.includes(role) ? role : 'student';
+
+      try {
+        // Mavjud tekshiruv
+        const existingUser = await User.findByUsername(username);
+        if (existingUser) { errors.push(`${i + 1}-qator: "${username}" allaqachon mavjud`); continue; }
+
+        const existingEmail = await User.findByEmail(email);
+        if (existingEmail) { errors.push(`${i + 1}-qator: "${email}" allaqachon mavjud`); continue; }
+
+        await User.create({
+          username, password, full_name, email,
+          role: userRole, district, school_number, class_name
+        });
+        imported.push({ username, full_name, role: userRole });
+      } catch (err) {
+        errors.push(`${i + 1}-qator: ${err.message}`);
+      }
+    }
+
+    res.json({
+      message: `${imported.length} ta foydalanuvchi import qilindi`,
+      imported: imported.length,
+      errors: errors.length > 0 ? errors : null,
+      total_rows: rawRows.length - 1
+    });
+  } catch (err) {
+    console.error('Users upload-excel error:', err);
+    res.status(500).json({ error: 'Excel import qilishda xatolik: ' + err.message });
+  }
+});
+
 module.exports = router;
