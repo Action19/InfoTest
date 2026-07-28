@@ -8,6 +8,9 @@ const AdminUsers = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  const [districtFilter, setDistrictFilter] = useState('');
+  const [schoolFilter, setSchoolFilter] = useState('');
+  const [classFilter, setClassFilter] = useState('');
   const [resetModal, setResetModal] = useState(null);
   const [newPassword, setNewPassword] = useState('');
 
@@ -62,8 +65,16 @@ const AdminUsers = () => {
       u.full_name?.toLowerCase().includes(search.toLowerCase()) ||
       u.username?.toLowerCase().includes(search.toLowerCase()) ||
       u.email?.toLowerCase().includes(search.toLowerCase())
-    )
+    ) &&
+    (!districtFilter || u.district === districtFilter) &&
+    (!schoolFilter || u.school_number === schoolFilter) &&
+    (!classFilter || u.class_name === classFilter)
   );
+
+  // Unique qiymatlar (filter uchun)
+  const availableDistricts = [...new Set(users.map(u => u.district).filter(Boolean))].sort();
+  const availableSchools = [...new Set(users.filter(u => !districtFilter || u.district === districtFilter).map(u => u.school_number).filter(Boolean))].sort();
+  const availableClasses = [...new Set(users.filter(u => (!districtFilter || u.district === districtFilter) && (!schoolFilter || u.school_number === schoolFilter)).map(u => u.class_name).filter(Boolean))].sort();
 
   const getRoleBadge = (role) => {
     const styles = {
@@ -127,6 +138,37 @@ const AdminUsers = () => {
           <option value="student">O'quvchilar</option>
           <option value="teacher">O'qituvchilar</option>
           <option value="admin">Adminlar</option>
+        </select>
+        {availableDistricts.length > 1 && (
+          <select
+            value={districtFilter}
+            onChange={(e) => { setDistrictFilter(e.target.value); setSchoolFilter(''); setClassFilter(''); }}
+            style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.85rem' }}
+          >
+            <option value="">Barcha tumanlar</option>
+            {availableDistricts.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+        )}
+        {availableSchools.length > 1 && (
+          <select
+            value={schoolFilter}
+            onChange={(e) => { setSchoolFilter(e.target.value); setClassFilter(''); }}
+            style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.85rem' }}
+          >
+            <option value="">Barcha maktablar</option>
+            {availableSchools.map(s => <option key={s} value={s}>{s}-maktab</option>)}
+          </select>
+        )}
+        {availableClasses.length > 1 && (
+          <select
+            value={classFilter}
+            onChange={(e) => setClassFilter(e.target.value)}
+            style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.85rem' }}
+          >
+            <option value="">Barcha sinflar</option>
+            {availableClasses.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
         </select>
         <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>
           Ko'rsatilmoqda: {filteredUsers.length}
