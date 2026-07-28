@@ -1674,11 +1674,6 @@ const LessonDetail = () => {
                                     className="btn btn-sm btn-primary">
                                     {gradingId === sub.id ? '⏳' : '✅ Ball qo\'y'}
                                   </button>
-                                  <button onClick={() => handleAIGrade(sub.id)}
-                                    disabled={gradingId === sub.id}
-                                    className="btn btn-sm btn-success">
-                                    {gradingId === sub.id ? '⏳ AI...' : '🤖 AI baho'}
-                                  </button>
                                 </div>
                               </div>
                             ))}
