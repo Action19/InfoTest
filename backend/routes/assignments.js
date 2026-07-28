@@ -67,26 +67,42 @@ function buildAIGradePrompt(task_type, instructions, fileContent) {
 - Kod ishlaydimi va sintaksis to'g'rimi
 - Topshiriqda so'ralgan funksiyalar, sikllar, shartlar, input/output to'g'ri ishlatilganmi
 - Dastur topshiriq talablariga to'liq javob beradi yoki yo'q
-- Kod o'qilishi va toza yozilishi
-❌ QOIDALAR: Python dasturida diagramma yoki Excel formulalari so'RALMAYDI! Faqat Python kodi tekshirilsin.`,
+- Kod mantiqiy to'g'ri ishlayaptimi (natija kutilganidek chiqyaptimi)
+❌ QOIDALAR:
+- Fayl nomi bo'yicha BALL KESMA (kod har doim "kod.py" sifatida keladi)
+- Izohlar (comment) bo'yicha BALL KESMA (izoh yozish shart emas)
+- Screenshot yoki sinov natijalari talab qilinMAYDI
+- Python dasturida diagramma yoki Excel formulalari so'RALMAYDI! Faqat Python kodi tekshirilsin.`,
 
     html: `BAHOLASH MEZONLARI (HTML):
 - HTML strukturasi to'g'rimi (DOCTYPE, html, head, body)
 - Topshiriqda so'ralgan teglar mavjudmi
 - Sahifa tarkibi va semantika to'g'rimi
-❌ QOIDALAR: HTML faylda Excel formulalari yoki Python kodi so'RALMAYDI!`,
+❌ QOIDALAR:
+- Fayl nomi bo'yicha BALL KESMA (kod "kod.html" sifatida keladi)
+- Izohlar (comment) bo'yicha BALL KESMA
+- Screenshot talab qilinMAYDI
+- HTML faylda Excel formulalari yoki Python kodi so'RALMAYDI!`,
 
     javascript: `BAHOLASH MEZONLARI (JavaScript):
 - Kod sintaksisi to'g'rimi
 - Topshiriqda so'ralgan funksiyalar, voqealar, DOM operatsiyalari bajarilganmi
-- Dastur ishlayaptimi (logika to'g'rimi)
-❌ QOIDALAR: JS faylda Excel formulalari yoki diagrammalar so'RALMAYDI!`,
+- Dastur ishlayaptimi (mantiq to'g'rimi)
+❌ QOIDALAR:
+- Fayl nomi bo'yicha BALL KESMA
+- Izohlar (comment) bo'yicha BALL KESMA
+- Screenshot talab qilinMAYDI
+- JS faylda Excel formulalari yoki diagrammalar so'RALMAYDI!`,
 
     css: `BAHOLASH MEZONLARI (CSS):
 - Selektorlar to'g'ri ishlatilganmi
 - Topshiriqda so'ralgan xususiyatlar (ranglar, o'lchamlar, animatsiyalar) qo'llanilganmi
 - Responsive dizayn yoki boshqa talablar bajarilganmi
-❌ QOIDALAR: CSS faylda Excel formulalari yoki diagrammalar so'RALMAYDI!`,
+❌ QOIDALAR:
+- Fayl nomi bo'yicha BALL KESMA
+- Izohlar (comment) bo'yicha BALL KESMA
+- Screenshot talab qilinMAYDI
+- CSS faylda Excel formulalari yoki diagrammalar so'RALMAYDI!`,
 
     excel: `BAHOLASH MEZONLARI (Excel):
 - Jadval tuzilmasi to'g'rimi
