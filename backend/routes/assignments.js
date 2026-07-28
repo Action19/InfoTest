@@ -322,11 +322,12 @@ router.post('/ai-generate', authenticateToken, requireRole(['teacher','admin']),
     }
 
     const prompt = buildAIInstructionPrompt(task_type, topic, grade, level);
-    const raw = await chat(prompt, { temperature: 0.7, max_tokens: 1000 });
+    const raw = await chat(prompt, { max_tokens: 2000 });
 
     let generated;
     try {
-      const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
+      const cleaned = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      const jsonStr = cleaned.match(/\{[\s\S]*\}/)?.[0] || cleaned;
       generated = JSON.parse(jsonStr);
     } catch {
       return res.status(500).json({ error: 'AI javobini parse qilishda xatolik' });
@@ -473,8 +474,9 @@ router.post('/:id/submit-code', authenticateToken, aiLimiter, async (req, res) =
       const codeContent = `Fayl: kod${ext}\n\nO'quvchi yozgan kod:\n\`\`\`${assignment.task_type}\n${code.slice(0, 5000)}\n\`\`\`${executionResult}`;
       const prompt = buildAIGradePrompt(assignment.task_type, assignment.instructions, codeContent);
 
-      const raw = await chat(prompt, { temperature: 0.2, max_tokens: 1000 });
-      const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
+      const raw = await chat(prompt, { max_tokens: 2000 });
+      const cleaned = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      const jsonStr = cleaned.match(/\{[\s\S]*\}/)?.[0] || cleaned;
       
       try {
         aiResult = JSON.parse(jsonStr);
@@ -682,10 +684,11 @@ Quyidagi JSON formatda javob ber (boshqa hech narsa yozma):
   "improvements": "Yaxshilash kerak bo'lgan tomonlar"
 }`;
 
-      const completion = await chatWithImage(visionPrompt, fileData.content, fileData.mimeType, { temperature: 0.2, max_tokens: 1000 });
+      const completion = await chatWithImage(visionPrompt, fileData.content, fileData.mimeType, { max_tokens: 2000 });
 
       const raw = completion.trim();
-      const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
+      const cleaned = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      const jsonStr = cleaned.match(/\{[\s\S]*\}/)?.[0] || cleaned;
       try {
         result = JSON.parse(jsonStr);
       } catch (parseErr) {
@@ -697,8 +700,9 @@ Quyidagi JSON formatda javob ber (boshqa hech narsa yozma):
       // binary_unreadable bo'lsa ham — aniq "o'qilmadi" xabari bilan AI ga beramiz
       const prompt = buildAIGradePrompt(a.task_type, a.instructions, fileData.content);
 
-      const raw = await chat(prompt, { temperature: 0.2, max_tokens: 1000 });
-      const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
+      const raw = await chat(prompt, { max_tokens: 2000 });
+      const cleaned = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      const jsonStr = cleaned.match(/\{[\s\S]*\}/)?.[0] || cleaned;
       try {
         result = JSON.parse(jsonStr);
       } catch (parseErr) {
