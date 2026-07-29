@@ -426,7 +426,6 @@ router.put('/change-password', authenticateToken, async (req, res) => {
 // ─── PAROLNI TIKLASH (Forgot Password) ──────────────────────
 
 const crypto = require('crypto');
-const database = require('../config/database');
 
 // Email yuborish (Resend API)
 const sendResetEmail = async (email, fullName, resetCode) => {
