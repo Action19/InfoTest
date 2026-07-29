@@ -169,7 +169,6 @@ const AdminUsers = () => {
             {availableClasses.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         )}
-        </select>
         <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>
           Ko'rsatilmoqda: {filteredUsers.length}
         </span>
