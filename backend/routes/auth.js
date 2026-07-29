@@ -1,6 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const database = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { loginLimiter, registerLimiter, forgotPasswordLimiter } = require('../middleware/rateLimiter');
 
@@ -404,7 +405,8 @@ router.put('/change-password', authenticateToken, async (req, res) => {
     }
 
     // Verify current password
-    const user = await User.findById(req.user.id);
+    const user = await database.get('SELECT password FROM users WHERE id = ?', [req.user.id]);
+    if (!user) return res.status(404).json({ error: 'Foydalanuvchi topilmadi' });
     const isValidPassword = await User.verifyPassword(currentPassword, user.password);
     
     if (!isValidPassword) {
