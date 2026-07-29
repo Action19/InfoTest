@@ -9,7 +9,7 @@ const rateLimit = require('express-rate-limit');
 // 15 daqiqada 5 ta urinish (brute force himoya)
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 daqiqa
-  max: 5,
+  max: 20,
   message: {
     error: 'Juda ko\'p urinish. 15 daqiqadan keyin qaytadan urinib ko\'ring.',
     retry_after: 15
@@ -21,7 +21,8 @@ const loginLimiter = rateLimit({
     return `${req.ip}_${req.body?.username || 'unknown'}`;
   },
   skip: (req) => {
-    // Development rejimda o'tkazib yuborish (ixtiyoriy)
+    // OPTIONS (preflight) so'rovlarni o'tkazib yuborish
+    if (req.method === 'OPTIONS') return true;
     return process.env.NODE_ENV === 'development' && process.env.SKIP_RATE_LIMIT === 'true';
   }
 });
