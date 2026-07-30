@@ -95,7 +95,7 @@ const Navbar = () => {
     { path: '/survey', icon: '📋', label: "So'rovnoma", roles: ['student', 'teacher', 'admin'] },
     { path: '/diagnostic', icon: '🔬', label: 'Diagnostika', roles: ['student', 'teacher', 'admin'] },
     { path: '/leaderboard', icon: '🏆', label: 'Reyting', roles: ['student', 'teacher', 'admin'] },
-    { path: '/mentor', icon: '🧠', label: 'Mentor', roles: ['student'] },
+    { path: '/mentor', icon: '🧠', label: 'Shaxsiy mentor', roles: ['student'] },
   ];
 
   const filteredLinks = navLinks.filter(link => link.roles.includes(user.role));
