@@ -39,7 +39,7 @@ const Login = () => {
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-header">
-          <img src="/logo.png" alt="InfoBaho" style={{ width: '80px', height: '80px', marginBottom: '1rem' }} />
+          <img src="/logo.png" alt="InfoBaho" style={{ width: '140px', height: '140px', marginBottom: '1rem' }} />
           <h1>InfoBaho</h1>
           <p>Bilimlaringizni sinab ko'ring!</p>
         </div>
