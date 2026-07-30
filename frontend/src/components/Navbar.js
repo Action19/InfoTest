@@ -70,7 +70,7 @@ const Navbar = () => {
       <nav className="navbar">
         <div className="navbar-container">
           <Link to="/" className="navbar-logo">
-            <img src="/logo.png" alt="InfoBaho" style={{ width: '36px', height: '36px', marginRight: '0.5rem' }} />
+            <img src="/logo.png" alt="InfoBaho" style={{ width: '46px', height: '46px', marginRight: '0.5rem' }} />
             <span className="logo-gradient">InfoBaho</span>
           </Link>
           <div className="navbar-menu">
@@ -106,7 +106,7 @@ const Navbar = () => {
       <nav className="navbar">
         <div className="navbar-container">
           <Link to="/dashboard" className="navbar-logo">
-            <img src="/logo.png" alt="InfoBaho" style={{ width: '36px', height: '36px', marginRight: '0.5rem' }} />
+            <img src="/logo.png" alt="InfoBaho" style={{ width: '46px', height: '46px', marginRight: '0.5rem' }} />
             <span className="logo-gradient">InfoBaho</span>
           </Link>
 
