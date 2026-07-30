@@ -230,9 +230,6 @@ const Profile = () => {
           </div>
         </div>
 
-        {/* Telegram Ota-ona bo'limi (faqat student) */}
-        {user.role === 'student' && <TelegramParentSection />}
-
         <div className="profile-content">
           <div className="profile-section">
             <div className="section-header">
@@ -558,6 +555,9 @@ const Profile = () => {
               </div>
             )}
           </div>
+
+          {/* Telegram Ota-ona bo'limi (faqat student) */}
+          {user.role === 'student' && <TelegramParentSection />}
         </div>
       </div>
     </div>
