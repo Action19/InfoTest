@@ -24,6 +24,7 @@ const diagnosticRoutes = require('./routes/diagnostic');
 const adaptiveTestRoutes = require('./routes/adaptiveTests');
 const mentorRoutes = require('./routes/mentor');
 const telegramRoutes = require('./routes/telegram');
+const settingsRoutes = require('./routes/settings');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -93,6 +94,7 @@ app.use('/api/diagnostic', diagnosticRoutes);
 app.use('/api', adaptiveTestRoutes);
 app.use('/api/mentor', mentorRoutes);
 app.use('/api/telegram', telegramRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -540,6 +542,38 @@ async function runMigrations(db) {
         link_token   TEXT NOT NULL,
         expires_at   TIMESTAMPTZ NOT NULL,
         UNIQUE(student_id)
+      )
+    `);
+
+    // ─── O'QITUVCHI SOZLAMALARI ──────────────────────────────
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS teacher_settings (
+        id                  SERIAL PRIMARY KEY,
+        teacher_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        grade_excellent     INTEGER DEFAULT 81,
+        grade_good          INTEGER DEFAULT 60,
+        grade_satisfactory  INTEGER DEFAULT 40,
+        test_max_score      INTEGER DEFAULT 20,
+        adaptive_questions  INTEGER DEFAULT 15,
+        ai_auto_grade       BOOLEAN DEFAULT TRUE,
+        ai_level            TEXT DEFAULT '9-10',
+        telegram_day        TEXT DEFAULT 'monday',
+        updated_at          TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(teacher_id)
+      )
+    `);
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS year_archives (
+        id               SERIAL PRIMARY KEY,
+        teacher_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        year_name        TEXT NOT NULL,
+        students_count   INTEGER DEFAULT 0,
+        classes          TEXT DEFAULT '',
+        progress_data    TEXT DEFAULT '[]',
+        results_data     TEXT DEFAULT '[]',
+        submissions_data TEXT DEFAULT '[]',
+        adaptive_data    TEXT DEFAULT '[]',
+        archived_at      TIMESTAMPTZ DEFAULT NOW()
       )
     `);
 
