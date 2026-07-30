@@ -219,14 +219,14 @@ ${strongLessons ? `Kuchli darslar: ${strongLessons}` : ''}
 ${weakLessons ? `Zaif darslar: ${weakLessons}` : ''}
 Oxirgi testlar: ${testResults.map(t => `${t.test_title}: ${Math.round(t.percentage)}%`).join(', ') || 'hali yo\'q'}
 
-Ota-onaga 3-4 gapda maslahat bering:
-1. Farzandining hozirgi holati haqida qisqa xulosa
-2. Uyda qanday yordam berishi mumkin (aniq maslahat)
-3. Motivatsion gap
+Ota-onaga 3-4 gapda QISQA maslahat bering:
+1. Farzandining hozirgi holati haqida 1 gap xulosa
+2. Uyda qanday yordam berishi mumkin (1 aniq maslahat)
+3. 1 motivatsion gap
 
-O'zbek tilida, samimiy ohangda yozing. Faqat matn qaytaring.`;
+MUHIM: Javob 200 so'zdan OSHMASIN. Qisqa va aniq yozing. O'zbek tilida.`;
 
-        aiAdvice = await chat(aiPrompt, { max_tokens: 400 });
+        aiAdvice = await chat(aiPrompt, { max_tokens: 500 });
       } catch (e) {
         aiAdvice = "Farzandingizni rag'batlantiring va muntazam mashq qilishiga yordam bering.";
       }
