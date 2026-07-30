@@ -39,6 +39,15 @@ router.get('/students/list', authenticateToken, isTeacherOrAdmin, async (req, re
       // Admin sees all students
       students = await User.getAll('student');
     }
+
+    // Har o'quvchi uchun Telegram ulanish holati
+    if (students && students.length > 0) {
+      const telegramParents = await database.all('SELECT student_id FROM telegram_parents');
+      const connectedIds = new Set(telegramParents.map(tp => tp.student_id));
+      for (const s of students) {
+        s.telegram_connected = connectedIds.has(s.id);
+      }
+    }
     
     res.json(students);
   } catch (error) {

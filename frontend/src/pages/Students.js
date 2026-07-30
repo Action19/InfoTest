@@ -147,6 +147,11 @@ const Students = () => {
                   <div className="stat-value">{student.total_tests_taken || 0}</div>
                   <div className="stat-label">Testlar</div>
                 </div>
+                <div className="student-stat">
+                  <div className="stat-icon">{student.telegram_connected ? '✅' : '❌'}</div>
+                  <div className="stat-value" style={{ fontSize: '1.2rem' }}>{student.telegram_connected ? '📱' : '—'}</div>
+                  <div className="stat-label">Telegram</div>
+                </div>
               </div>
 
               <div className="student-actions">
