@@ -45,6 +45,7 @@ const ExperimentStats = lazyWithRetry(() => import('./pages/ExperimentStats'));
 const AdminUsers = lazyWithRetry(() => import('./pages/AdminUsers'));
 const Survey = lazyWithRetry(() => import('./pages/Survey'));
 const DiagnosticTest = lazyWithRetry(() => import('./pages/DiagnosticTest'));
+const Mentor = lazyWithRetry(() => import('./pages/Mentor'));
 
 // Loading fallback
 const PageLoader = () => (
@@ -150,6 +151,10 @@ function App() {
                 <Route 
                   path="/diagnostic" 
                   element={<PrivateRoute><DiagnosticTest /></PrivateRoute>} 
+                />
+                <Route 
+                  path="/mentor" 
+                  element={<PrivateRoute><Mentor /></PrivateRoute>} 
                 />
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
               </Routes>

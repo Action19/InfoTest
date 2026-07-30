@@ -22,6 +22,7 @@ const experimentRoutes = require('./routes/experiment');
 const surveyRoutes = require('./routes/survey');
 const diagnosticRoutes = require('./routes/diagnostic');
 const adaptiveTestRoutes = require('./routes/adaptiveTests');
+const mentorRoutes = require('./routes/mentor');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -89,6 +90,7 @@ app.use('/api/experiment', experimentRoutes);
 app.use('/api/survey', surveyRoutes);
 app.use('/api/diagnostic', diagnosticRoutes);
 app.use('/api', adaptiveTestRoutes);
+app.use('/api/mentor', mentorRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -506,6 +508,17 @@ async function runMigrations(db) {
 
     // ─── ASSIGNMENTS PUBLISH ─────────────────────────────────
     await db.run('ALTER TABLE assignments ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT TRUE').catch(()=>{});
+
+    // ─── AI MENTOR CACHE ─────────────────────────────────────
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS ai_mentor_cache (
+        id           SERIAL PRIMARY KEY,
+        student_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        advice_json  TEXT NOT NULL DEFAULT '{}',
+        generated_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(student_id)
+      )
+    `);
 
     console.log('✓ Migrations applied');
   } catch (err) {
