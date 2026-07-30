@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import '../assets/css/Pages.css';
 import api from '../services/api';
 import '../assets/css/Pages.css';
+import TelegramParentSection from '../components/TelegramParentSection';
 
 const Profile = () => {
   const { user, updateUser } = useAuth();
@@ -228,6 +229,9 @@ const Profile = () => {
             </div>
           </div>
         </div>
+
+        {/* Telegram Ota-ona bo'limi (faqat student) */}
+        {user.role === 'student' && <TelegramParentSection />}
 
         <div className="profile-content">
           <div className="profile-section">
