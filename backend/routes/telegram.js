@@ -18,17 +18,20 @@ const router = express.Router();
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
 // ─── Telegram API helper ─────────────────────────────────────
-async function sendTelegramMessage(chatId, text, parseMode = 'HTML') {
+async function sendTelegramMessage(chatId, text, parseMode = 'HTML', replyMarkup = null) {
   if (!BOT_TOKEN) return null;
   try {
+    const body = {
+      chat_id: chatId,
+      text,
+      parse_mode: parseMode
+    };
+    if (replyMarkup) body.reply_markup = replyMarkup;
+
     const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text,
-        parse_mode: parseMode
-      })
+      body: JSON.stringify(body)
     });
     return await response.json();
   } catch (err) {
@@ -36,6 +39,16 @@ async function sendTelegramMessage(chatId, text, parseMode = 'HTML') {
     return null;
   }
 }
+
+// Asosiy tugmalar (har xabardan keyin ko'rsatiladi)
+const mainKeyboard = {
+  keyboard: [
+    [{ text: '📊 Farzandim natijalari' }],
+    [{ text: '❌ Obunani bekor qilish' }]
+  ],
+  resize_keyboard: true,
+  one_time_keyboard: false
+};
 
 // ─── GET /api/telegram/link — o'quvchi uchun ulanish havolasini olish ───
 router.get('/link', authenticateToken, async (req, res) => {
@@ -131,8 +144,8 @@ router.post('/webhook', async (req, res) => {
         `👤 Farzandingiz: <b>${student?.full_name || 'Noma\'lum'}</b>\n` +
         `🏫 Sinf: ${student?.class_name || ''}\n\n` +
         `📊 Har hafta farzandingizning o'zlashtirish natijalari va AI tavsiyalari shu yerga yuboriladi.\n\n` +
-        `ℹ️ /status — joriy holat\n` +
-        `/disconnect — uzish`
+        `Quyidagi tugmalardan foydalaning 👇`,
+        'HTML', mainKeyboard
       );
       return res.json({ ok: true });
     }
@@ -146,46 +159,153 @@ router.post('/webhook', async (req, res) => {
         `1. Farzandingiz InfoBaho platformasiga kirsin\n` +
         `2. Profil → "Ota-ona Telegram" bo'limidan havolani olsin\n` +
         `3. Shu havolani sizga yuborsin — bosing va "Start" bosing\n\n` +
-        `✅ Shundan keyin har hafta hisobot keladi!`
+        `✅ Shundan keyin har hafta hisobot keladi!`,
+        'HTML', mainKeyboard
       );
       return res.json({ ok: true });
     }
 
-    // /status
-    if (text === '/status') {
+    // "Farzandim natijalari" tugmasi yoki /status
+    if (text === '/status' || text === '📊 Farzandim natijalari') {
       const parent = await database.get(
-        'SELECT tp.*, u.full_name, u.class_name, u.mastery_percent, u.level FROM telegram_parents tp JOIN users u ON tp.student_id = u.id WHERE tp.chat_id = ?',
+        'SELECT tp.*, u.full_name, u.class_name, u.mastery_percent, u.level, u.id AS student_id FROM telegram_parents tp JOIN users u ON tp.student_id = u.id WHERE tp.chat_id = ?',
         [chatId]
       );
 
       if (!parent) {
-        await sendTelegramMessage(chatId, '❌ Siz hali hech qaysi o\'quvchiga ulanmagansiz.');
+        await sendTelegramMessage(chatId, '❌ Siz hali hech qaysi o\'quvchiga ulanmagansiz.\n\nFarzandingizdan InfoBaho platformasidan havola oling.', 'HTML', mainKeyboard);
         return res.json({ ok: true });
       }
 
+      // To'liq tahlil uchun ma'lumotlarni yig'ish
+      const progress = await database.all(`
+        SELECT lp.percent, lp.grade, l.title AS lesson_title, l.subject
+        FROM lesson_progress lp
+        JOIN lessons l ON lp.lesson_id = l.id
+        WHERE lp.student_id = ? AND l.taught_at IS NOT NULL
+        ORDER BY lp.updated_at DESC LIMIT 6
+      `, [parent.student_id]);
+
+      const testResults = await database.all(`
+        SELECT r.percentage, t.title AS test_title
+        FROM results r JOIN tests t ON r.test_id = t.id
+        WHERE r.user_id = ?
+        ORDER BY r.created_at DESC LIMIT 5
+      `, [parent.student_id]);
+
+      const assignResults = await database.all(`
+        SELECT s.score, a.max_score, a.title
+        FROM assignment_submissions s
+        JOIN assignments a ON s.assignment_id = a.id
+        WHERE s.student_id = ? AND s.status = 'graded'
+        ORDER BY s.submitted_at DESC LIMIT 5
+      `, [parent.student_id]);
+
+      // AI tavsiya yaratish
+      let aiAdvice = '';
+      try {
+        const avgPercent = progress.length > 0
+          ? Math.round(progress.reduce((s, p) => s + (p.percent || 0), 0) / progress.length)
+          : parent.mastery_percent || 0;
+
+        const weakLessons = progress.filter(p => p.percent < 60).map(p => p.lesson_title).join(', ');
+        const strongLessons = progress.filter(p => p.percent >= 80).map(p => p.lesson_title).join(', ');
+
+        const aiPrompt = `Siz ota-onalarga farzandining o'qish natijalari haqida maslahat beradigan AI mentorsiz.
+
+O'quvchi: ${parent.full_name}, ${parent.class_name}
+Umumiy o'zlashtirish: ${parent.mastery_percent || 0}%
+${strongLessons ? `Kuchli darslar: ${strongLessons}` : ''}
+${weakLessons ? `Zaif darslar: ${weakLessons}` : ''}
+Oxirgi testlar: ${testResults.map(t => `${t.test_title}: ${Math.round(t.percentage)}%`).join(', ') || 'hali yo\'q'}
+
+Ota-onaga 3-4 gapda maslahat bering:
+1. Farzandining hozirgi holati haqida qisqa xulosa
+2. Uyda qanday yordam berishi mumkin (aniq maslahat)
+3. Motivatsion gap
+
+O'zbek tilida, samimiy ohangda yozing. Faqat matn qaytaring.`;
+
+        aiAdvice = await chat(aiPrompt, { max_tokens: 400 });
+      } catch (e) {
+        aiAdvice = "Farzandingizni rag'batlantiring va muntazam mashq qilishiga yordam bering.";
+      }
+
+      // Xabar formatlash
       const levelNames = ['🥉 Bronza', '🥈 Kumush', '🥇 Oltin', '💎 Platina', '💠 Brilliant'];
-      await sendTelegramMessage(chatId,
-        `📊 <b>Joriy holat</b>\n\n` +
-        `👤 O'quvchi: <b>${parent.full_name}</b>\n` +
-        `🏫 Sinf: ${parent.class_name}\n` +
-        `📈 O'zlashtirish: <b>${parent.mastery_percent || 0}%</b>\n` +
-        `🏆 Daraja: ${levelNames[(parent.level || 1) - 1]}\n\n` +
-        `📅 Ulangan: ${new Date(parent.connected_at).toLocaleDateString('uz-UZ')}`
-      );
+      const gradeEmoji = (g) => ({ 5: '🥇', 4: '🥈', 3: '🥉', 2: '😢' }[g] || '—');
+
+      let message = `📊 <b>Farzandingiz natijalari</b>\n`;
+      message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+      message += `👤 <b>${parent.full_name}</b>\n`;
+      message += `🏫 Sinf: ${parent.class_name}\n`;
+      message += `📈 O'zlashtirish: <b>${parent.mastery_percent || 0}%</b>\n`;
+      message += `🏆 Daraja: ${levelNames[(parent.level || 1) - 1]}\n\n`;
+
+      // Dars natijalari
+      if (progress.length > 0) {
+        message += `📚 <b>Darslar bo'yicha:</b>\n`;
+        for (const p of progress) {
+          message += `  ${gradeEmoji(p.grade)} ${p.lesson_title}: <b>${Math.round(p.percent)}%</b>\n`;
+        }
+        message += '\n';
+      }
+
+      // Testlar
+      if (testResults.length > 0) {
+        message += `📝 <b>Oxirgi testlar:</b>\n`;
+        for (const t of testResults.slice(0, 4)) {
+          const emoji = t.percentage >= 81 ? '✅' : t.percentage >= 60 ? '📗' : '⚠️';
+          message += `  ${emoji} ${t.test_title}: ${Math.round(t.percentage)}%\n`;
+        }
+        message += '\n';
+      }
+
+      // Amaliy topshiriqlar
+      if (assignResults.length > 0) {
+        message += `🖥️ <b>Amaliy ishlar:</b>\n`;
+        for (const a of assignResults.slice(0, 4)) {
+          const pct = Math.round((a.score / a.max_score) * 100);
+          const emoji = pct >= 81 ? '✅' : pct >= 60 ? '📗' : '⚠️';
+          message += `  ${emoji} ${a.title}: ${a.score}/${a.max_score} (${pct}%)\n`;
+        }
+        message += '\n';
+      }
+
+      // Agar hech narsa yo'q bo'lsa
+      if (progress.length === 0 && testResults.length === 0 && assignResults.length === 0) {
+        message += `ℹ️ Hozircha natijalar yo'q — farzandingiz hali darslarni boshlamagan.\n\n`;
+      }
+
+      // AI tavsiya
+      message += `━━━━━━━━━━━━━━━━━━━━\n`;
+      message += `💡 <b>AI tavsiya (ota-onalar uchun):</b>\n\n`;
+      message += `${aiAdvice}\n\n`;
+      message += `🌐 <a href="https://infobaho.netlify.app">Platformaga kirish</a>`;
+
+      await sendTelegramMessage(chatId, message, 'HTML', mainKeyboard);
       return res.json({ ok: true });
     }
 
-    // /disconnect
-    if (text === '/disconnect') {
+    // "Obunani bekor qilish" tugmasi yoki /disconnect
+    if (text === '/disconnect' || text === '❌ Obunani bekor qilish') {
+      const parent = await database.get('SELECT * FROM telegram_parents WHERE chat_id = ?', [chatId]);
+      if (!parent) {
+        await sendTelegramMessage(chatId, 'Siz hali ulanmagansiz.', 'HTML', mainKeyboard);
+        return res.json({ ok: true });
+      }
       await database.run('DELETE FROM telegram_parents WHERE chat_id = ?', [chatId]);
-      await sendTelegramMessage(chatId, '✅ Uzildi. Endi hisobot kelmaydi.\nQayta ulash uchun farzandingizdan yangi havola oling.');
+      await sendTelegramMessage(chatId,
+        '✅ Obuna bekor qilindi.\n\nEndi haftalik hisobot kelmaydi.\nQayta ulash uchun farzandingizdan yangi havola oling.',
+        'HTML', { remove_keyboard: true }
+      );
       return res.json({ ok: true });
     }
 
     // Boshqa xabar
     await sendTelegramMessage(chatId,
-      `ℹ️ Men InfoBaho platformasining botiman.\n\n` +
-      `Buyruqlar:\n/status — joriy holat\n/disconnect — uzish`
+      `ℹ️ Men InfoBaho platformasining botiman.\n\nQuyidagi tugmalardan foydalaning 👇`,
+      'HTML', mainKeyboard
     );
 
     res.json({ ok: true });
