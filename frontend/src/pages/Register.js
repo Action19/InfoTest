@@ -253,6 +253,7 @@ const Register = () => {
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-header">
+          <img src="/logo.png" alt="InfoBaho" style={{ width: '60px', height: '60px', marginBottom: '0.75rem' }} />
           <h1>Ro'yxatdan o'tish</h1>
           <p>InfoBaho platformasiga qo'shiling</p>
         </div>
